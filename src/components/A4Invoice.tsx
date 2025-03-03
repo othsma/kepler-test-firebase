@@ -28,6 +28,7 @@ interface A4InvoiceProps {
     total: number;
     paymentMethod: string;
     paymentStatus: string;
+    amountPaid?: number;
     note?: string;
   };
   onClose: () => void;
@@ -48,7 +49,7 @@ export default function A4Invoice({ invoice, onClose }: A4InvoiceProps) {
   };
 
   const handleDownload = async () => {
-    if (invoiceRef.current) {
+    if (invoiceRef .current) {
       const canvas = await html2canvas(invoiceRef.current, {
         scale: 2,
         backgroundColor: '#ffffff',
@@ -61,6 +62,11 @@ export default function A4Invoice({ invoice, onClose }: A4InvoiceProps) {
       link.click();
     }
   };
+
+  // Calculate remaining amount if partially paid
+  const remainingAmount = invoice.amountPaid !== undefined 
+    ? invoice.total - invoice.amountPaid 
+    : 0;
 
   return (
     <div className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-50">
@@ -161,6 +167,13 @@ export default function A4Invoice({ invoice, onClose }: A4InvoiceProps) {
             <h3 className="font-bold mb-2 text-gray-900">Payment Information:</h3>
             <p className="text-gray-800">Method: {invoice.paymentMethod}</p>
             <p className="text-gray-800">Status: {invoice.paymentStatus}</p>
+            
+            {invoice.amountPaid !== undefined && invoice.amountPaid > 0 && invoice.amountPaid < invoice.total && (
+              <>
+                <p className="text-gray-800">Amount Paid: €{invoice.amountPaid.toFixed(2)}</p>
+                <p className="text-gray-800 font-bold">Remaining Balance: €{remainingAmount.toFixed(2)}</p>
+              </>
+            )}
           </div>
           
           {invoice.note && (

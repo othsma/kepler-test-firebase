@@ -22,6 +22,9 @@ interface ThermalReceiptProps {
     tax: number;
     total: number;
     paymentMethod: string;
+    paymentStatus?: string;
+    amountPaid?: number;
+    note?: string;
   };
   onClose: () => void;
 }
@@ -38,6 +41,11 @@ export default function ThermalReceipt({ invoice, onClose }: ThermalReceiptProps
       window.location.href = `mailto:${invoice.customer.email}?subject=Receipt ${invoice.invoiceNumber}&body=Please find attached your receipt.`;
     }
   };
+
+  // Calculate remaining amount if partially paid
+  const remainingAmount = invoice.amountPaid !== undefined 
+    ? invoice.total - invoice.amountPaid 
+    : 0;
 
   return (
     <div className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-50">
@@ -120,7 +128,30 @@ export default function ThermalReceipt({ invoice, onClose }: ThermalReceiptProps
                 <span className="text-gray-800">Payment Method:</span>
                 <span className="text-gray-800">{invoice.paymentMethod}</span>
               </div>
+              <div className="flex justify-between text-sm mt-1">
+                <span className="text-gray-800">Payment Status:</span>
+                <span className="text-gray-800">{invoice.paymentStatus || 'Paid'}</span>
+              </div>
+              {invoice.amountPaid !== undefined && invoice.amountPaid > 0 && invoice.amountPaid < invoice.total && (
+                <>
+                  <div className="flex justify-between text-sm mt-1">
+                    <span className="text-gray-800">Amount Paid:</span>
+                    <span className="text-gray-800">€{invoice.amountPaid.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm mt-1 font-bold">
+                    <span className="text-gray-800">Remaining:</span>
+                    <span className="text-gray-800">€{remainingAmount.toFixed(2)}</span>
+                  </div>
+                </>
+              )}
             </div>
+
+            {invoice.note && (
+              <div className="mb-4 text-sm text-gray-800">
+                <p className="font-bold">Note:</p>
+                <p>{invoice.note}</p>
+              </div>
+            )}
 
             <div className="text-center mb-4">
               <QRCodeSVG

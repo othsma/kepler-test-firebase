@@ -812,30 +812,40 @@ export const useProductsStore = create<ProductsState>((set, get) => ({
   }
 }));
 
-interface CartItem {
+interface OrderItem {
   productId: string;
   quantity: number;
+  name?: string;
+  description?: string;
+  price?: number;
 }
 
 interface Order {
   id: string;
-  items: CartItem[];
+  items: OrderItem[];
   total: number;
   status: 'pending' | 'processing' | 'ready_for_pickup' | 'completed' | 'cancelled';
   clientId: string;
   createdAt: string;
+  paymentMethod?: string;
+  paymentStatus?: string;
+  amountPaid?: number;
+  orderDate?: string;
+  deliveryDate?: string;
+  note?: string;
 }
 
 interface OrdersState {
   orders: Order[];
-  cart: CartItem[];
+  cart: OrderItem[];
   loading: boolean;
   error: string | null;
   fetchOrders: () => Promise<void>;
   addToCart: (productId: string, quantity: number) => void;
   removeFromCart: (productId: string) => void;
   clearCart: () => void;
-  createOrder: (clientId: string, total: number) => Promise<void>;
+  createOrder: (clientId: string, total: number, items?: OrderItem[]) => Promise<string>;
+  updateOrder: (orderId: string, orderData: Partial<Order>) => Promise<void>;
   updateOrderStatus: (orderId: string, status: Order['status']) => Promise<void>;
   deleteOrder: (orderId: string) => Promise<void>;
 }
@@ -884,45 +894,59 @@ export const useOrdersStore = create<OrdersState>((set, get) => ({
   
   clearCart: () => set({ cart: [] }),
   
-  createOrder: async (clientId: string, total: number) => {
+  createOrder: async (clientId: string, total: number, items?: OrderItem[]) => {
     set({ loading: true, error: null });
     try {
       const { cart } = get();
       
+      const orderItems = items || [...cart];
+      
       const orderData = {
-        items: [...cart],
+        items: orderItems,
         total,
         status: 'pending' as const,
         clientId,
-        createdAt: serverTimestamp()
+        createdAt: serverTimestamp(),
+        paymentMethod: 'cash',
+        paymentStatus: 'not_paid',
+        amountPaid: 0,
+        orderDate: new Date().toISOString(),
+        deliveryDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
       };
       
       const docRef = await addDoc(collection(db, 'orders'), orderData);
       
       // Update product stock
-      for (const item of cart) {
-        const productRef = doc(db, 'products', item.productId);
-        const productsState = useProductsStore.getState();
-        const product = productsState.products.find(p => p.id === item.productId);
-        
-        if (product) {
-          await updateDoc(productRef, {
-            stock: product.stock - item.quantity
-          });
+      for (const item of orderItems) {
+        if (item.productId && item.productId !== 'custom') {
+          const productRef = doc(db, 'products', item.productId);
+          const productsState = useProductsStore.getState();
+          const product = productsState.products.find(p => p.id === item.productId);
           
-          // Update the product in the products store
-          productsState.updateStock(item.productId, -item.quantity);
+          if (product) {
+            await updateDoc(productRef, {
+              stock: product.stock - item.quantity
+            });
+            
+            // Update the product in the products store
+            productsState.updateStock(item.productId, -item.quantity);
+          }
         }
       }
       
       // Add the new order to the local state
       const newOrder = {
         id: docRef.id,
-        items: [...cart],
+        items: orderItems,
         total,
         status: 'pending' as const,
         clientId,
-        createdAt: new Date().toISOString()
+        createdAt: new Date().toISOString(),
+        paymentMethod: 'cash',
+        paymentStatus: 'not_paid',
+        amountPaid: 0,
+        orderDate: new Date().toISOString(),
+        deliveryDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
       };
       
       set(state => ({
@@ -930,9 +954,31 @@ export const useOrdersStore = create<OrdersState>((set, get) => ({
         cart: [],
         loading: false
       }));
+      
+      return docRef.id;
     } catch (error) {
       console.error('Error creating order:', error);
       set({ error: 'Failed to create order', loading: false });
+      return '';
+    }
+  },
+  
+  updateOrder: async (orderId: string, orderData: Partial<Order>) => {
+    set({ loading: true, error: null });
+    try {
+      const orderRef = doc(db, 'orders', orderId);
+      await updateDoc(orderRef, orderData);
+      
+      // Update the order in the local state
+      set(state => ({
+        orders: state.orders.map(order => 
+          order.id === orderId ? { ...order, ...orderData } : order
+        ),
+        loading: false
+      }));
+    } catch (error) {
+      console.error('Error updating order:', error);
+      set({ error: 'Failed to update order', loading: false });
     }
   },
   
