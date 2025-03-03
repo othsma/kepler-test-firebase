@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useThemeStore, useProductsStore, useClientsStore, useTicketsStore } from '../lib/store';
+import { useThemeStore, useProductsStore, useClientsStore, useTicketsStore, useOrdersStore } from '../lib/store';
 import { Search, ShoppingCart, Plus, Minus, Trash2, CreditCard, Banknote, Smartphone, FileText, Printer, X, ArrowRight } from 'lucide-react';
 import { format } from 'date-fns';
 import ThermalReceipt from '../components/ThermalReceipt';
@@ -19,6 +19,7 @@ export default function Pos() {
   const { products, categories, searchQuery, selectedCategory, setSearchQuery, setSelectedCategory } = useProductsStore();
   const { clients } = useClientsStore();
   const { tickets } = useTicketsStore();
+  const { createOrder } = useOrdersStore();
   
   // Cart state
   const [cart, setCart] = useState<Array<{ product: any; quantity: number }>>([]);
@@ -123,7 +124,7 @@ export default function Pos() {
   };
   
   // Create invoice
-  const createInvoice = () => {
+  const createInvoice = async () => {
     if (cart.length === 0) return;
     
     // In a real app, you would save this to a database
@@ -164,6 +165,17 @@ export default function Pos() {
       setShowThermalReceipt(true);
     } else if (receiptFormat === 'a4') {
       setShowA4Invoice(true);
+    }
+    
+    // Create the order in the store
+    if (selectedClient) {
+      // Convert cart items to the format expected by createOrder
+      const orderItems = cart.map(item => ({
+        productId: item.product.id,
+        quantity: item.quantity
+      }));
+      
+      await createOrder(selectedClient, total);
     }
     
     // Here you would typically save the sale to your database
