@@ -8,7 +8,7 @@ const firebaseConfig = {
   apiKey: "AIzaSyAh1eF1NFXUzCSPppycYjqeWGrSj1fGJj0",
   authDomain: "kepler-omega-dd495.firebaseapp.com",
   projectId: "kepler-omega-dd495",
-  storageBucket: "kepler-omega-dd495.firebasestorage.app",
+  storageBucket: "kepler-omega-dd495.appspot.com",
   messagingSenderId: "110852541952",
   appId: "1:110852541952:web:dcc1b0bbeb4dfabd1552e5",
   measurementId: "G-V4T01YLVWT"
