@@ -1,28 +1,36 @@
 import React, { useState } from 'react';
 import { useThemeStore, useOrdersStore, useProductsStore, useClientsStore } from '../lib/store';
-import { Search, Filter, Calendar, User, Package, DollarSign, ChevronDown, ChevronUp, Eye, Plus, Trash2, ShoppingCart } from 'lucide-react';
+import { Search, Filter, Calendar, User, Package, DollarSign, ChevronDown, ChevronUp, Eye, Plus, Minus, Trash2, Edit, Printer, FileText } from 'lucide-react';
 import { format } from 'date-fns';
 import ThermalReceipt from '../components/ThermalReceipt';
+import A4Invoice from '../components/A4Invoice';
 
 export default function Orders() {
   const isDarkMode = useThemeStore((state) => state.isDarkMode);
-  const { orders, updateOrderStatus, createOrder } = useOrdersStore();
+  const { orders, updateOrderStatus, createOrder, removeOrder } = useOrdersStore();
   const { products } = useProductsStore();
   const { clients } = useClientsStore();
   const [filterStatus, setFilterStatus] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [showReceipt, setShowReceipt] = useState(false);
+  const [showA4Invoice, setShowA4Invoice] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
-  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [showCreateForm, setShowCreateForm] = useState(true);
   
   // New order form state
   const [selectedClient, setSelectedClient] = useState<string>('');
   const [clientSearch, setClientSearch] = useState('');
-  const [orderItems, setOrderItems] = useState<Array<{productId: string; quantity: number}>>([]);
+  const [orderItems, setOrderItems] = useState<Array<{productId: string; quantity: number; name: string; description: string; price: number}>>([]);
   const [selectedProduct, setSelectedProduct] = useState<string>('');
   const [productSearch, setProductSearch] = useState('');
   const [productQuantity, setProductQuantity] = useState(1);
+  const [productDescription, setProductDescription] = useState('');
+  const [productPrice, setProductPrice] = useState(0);
   const [paymentMethod, setPaymentMethod] = useState('cash');
+  const [paymentStatus, setPaymentStatus] = useState('not_paid');
+  const [orderDate, setOrderDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+  const [deliveryDate, setDeliveryDate] = useState(format(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), 'yyyy-MM-dd'));
+  const [orderStatus, setOrderStatus] = useState('pending');
 
   const filteredOrders = orders.filter((order) => {
     const matchesStatus = filterStatus === 'all' || order.status === filterStatus;
@@ -62,7 +70,7 @@ export default function Orders() {
     }
   };
 
-  const handleViewReceipt = (order: any) => {
+  const generateInvoiceData = (order: any) => {
     // Create a proper invoice object from the order
     const orderItems = order.items.map((item: any) => {
       const product = products.find(p => p.id === item.productId);
@@ -77,7 +85,7 @@ export default function Orders() {
 
     const client = clients.find(c => c.id === order.clientId);
     
-    const invoiceData = {
+    return {
       invoiceNumber: `ORD-${order.id.substring(0, 8)}`,
       date: order.createdAt,
       customer: client ? {
@@ -93,91 +101,121 @@ export default function Orders() {
       paymentMethod: 'Card', // Default payment method
       paymentStatus: order.status === 'completed' ? 'Paid' : 'Pending',
     };
-    
+  };
+
+  const handleViewReceipt = (order: any) => {
+    const invoiceData = generateInvoiceData(order);
     setSelectedOrder(invoiceData);
     setShowReceipt(true);
   };
 
-  const addItemToOrder = () => {
-    if (!selectedProduct) return;
-    
-    const existingItemIndex = orderItems.findIndex(item => item.productId === selectedProduct);
-    
-    if (existingItemIndex >= 0) {
-      // Update existing item quantity
-      const updatedItems = [...orderItems];
-      updatedItems[existingItemIndex].quantity += productQuantity;
-      setOrderItems(updatedItems);
-    } else {
-      // Add new item
-      setOrderItems([...orderItems, { productId: selectedProduct, quantity: productQuantity }]);
+  const handleViewA4Invoice = (order: any) => {
+    const invoiceData = generateInvoiceData(order);
+    setSelectedOrder(invoiceData);
+    setShowA4Invoice(true);
+  };
+
+  const handleEditOrder = (order: any) => {
+    // Implement edit functionality
+    alert(`Edit order ${order.id}`);
+  };
+
+  const handleDeleteOrder = (order: any) => {
+    if (window.confirm(`Are you sure you want to delete order #${order.id}?`)) {
+      removeOrder(order.id);
     }
+  };
+
+  const addItemToOrder = () => {
+    if (!productSearch) return;
+    
+    const newItem = {
+      productId: selectedProduct || 'custom',
+      name: productSearch,
+      description: productDescription,
+      quantity: productQuantity,
+      price: productPrice
+    };
+    
+    setOrderItems([...orderItems, newItem]);
     
     // Reset product selection
     setSelectedProduct('');
     setProductSearch('');
+    setProductDescription('');
     setProductQuantity(1);
+    setProductPrice(0);
   };
 
-  const removeItemFromOrder = (productId: string) => {
-    setOrderItems(orderItems.filter(item => item.productId !== productId));
+  const removeItemFromOrder = (index: number) => {
+    const newItems = [...orderItems];
+    newItems.splice(index, 1);
+    setOrderItems(newItems);
+  };
+
+  const updateItemQuantity = (index: number, newQuantity: number) => {
+    if (newQuantity < 1) return;
+    
+    const newItems = [...orderItems];
+    newItems[index].quantity = newQuantity;
+    setOrderItems(newItems);
   };
 
   const calculateOrderTotal = () => {
     return orderItems.reduce((total, item) => {
-      const product = products.find(p => p.id === item.productId);
-      return total + (product?.price || 0) * item.quantity;
+      return total + (item.price * item.quantity);
     }, 0);
+  };
+
+  const calculateTax = () => {
+    return calculateOrderTotal() * 0.2; // 20% tax
+  };
+
+  const calculateGrandTotal = () => {
+    return calculateOrderTotal() + calculateTax();
   };
 
   const handleCreateOrder = async () => {
     if (!selectedClient || orderItems.length === 0) return;
     
-    const total = calculateOrderTotal();
+    const total = calculateGrandTotal();
     await createOrder(selectedClient, total);
     
     // Reset form
     setSelectedClient('');
     setClientSearch('');
     setOrderItems([]);
-    setShowCreateForm(false);
+    setOrderDate(format(new Date(), 'yyyy-MM-dd'));
+    setDeliveryDate(format(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), 'yyyy-MM-dd'));
+    setPaymentStatus('not_paid');
+    setOrderStatus('pending');
   };
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h1 className={`text-2xl font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-          Orders
+          Orders Management
         </h1>
-        <button
-          onClick={() => setShowCreateForm(!showCreateForm)}
-          className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 flex items-center gap-2"
-        >
-          <Plus className="h-4 w-4" />
-          {showCreateForm ? 'Hide Form' : 'New Order'}
-        </button>
       </div>
 
-      {/* Collapsible Create Order Form */}
-      {showCreateForm && (
-        <div className={`rounded-lg ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow p-6`}>
-          <div className="flex justify-between items-center mb-4">
-            <h2 className={`text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-              Create New Order
-            </h2>
-            <button
-              onClick={() => setShowCreateForm(false)}
-              className="text-gray-400 hover:text-gray-500"
-            >
-              <ChevronUp className="h-5 w-5" />
-            </button>
-          </div>
-
-          <div className="space-y-6">
-            {/* Client Selection */}
+      {/* New Order Form */}
+      <div className={`rounded-lg ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow`}>
+        <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+          <h2 className={`text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+            New Order
+          </h2>
+        </div>
+        
+        <div className="p-6">
+          <h3 className={`text-md font-medium mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+            Order Details
+          </h3>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
             <div>
               <label className={`block text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'} mb-1`}>
-                Client *
+                Customer *
               </label>
               <div className="relative">
                 <input
@@ -187,7 +225,7 @@ export default function Orders() {
                     setClientSearch(e.target.value);
                     setSelectedClient('');
                   }}
-                  placeholder="Search for a client..."
+                  placeholder="Search for a customer..."
                   className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                   required
                 />
@@ -210,163 +248,80 @@ export default function Orders() {
                 )}
               </div>
             </div>
-
-            {/* Order Items */}
+            
             <div>
               <label className={`block text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'} mb-1`}>
-                Order Items *
+                Order Date *
               </label>
-              
-              <div className="flex gap-2 mb-2">
-                <div className="relative flex-1">
-                  <input
-                    type="text"
-                    value={productSearch}
-                    onChange={(e) => {
-                      setProductSearch(e.target.value);
-                      setSelectedProduct('');
-                    }}
-                    placeholder="Search for a product..."
-                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                  />
-                  {productSearch && !selectedProduct && filteredProducts.length > 0 && (
-                    <div className="absolute z-10 w-full mt-1 bg-white rounded-md shadow-lg max-h-60 overflow-y-auto">
-                      {filteredProducts.map((product) => (
-                        <div
-                          key={product.id}
-                          className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
-                          onClick={() => {
-                            setSelectedProduct(product.id);
-                            setProductSearch(product.name);
-                          }}
-                        >
-                          <div className="font-medium">{product.name}</div>
-                          <div className="text-sm text-gray-500">
-                            ${product.price.toFixed(2)} - Stock: {product.stock}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-                
+              <div className="flex items-center">
                 <input
-                  type="number"
-                  min="1"
-                  value={productQuantity}
-                  onChange={(e) => setProductQuantity(parseInt(e.target.value) || 1)}
-                  className="w-20 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                  type="date"
+                  value={orderDate}
+                  onChange={(e) => setOrderDate(e.target.value)}
+                  className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                  required
                 />
-                
-                <button
-                  onClick={addItemToOrder}
-                  disabled={!selectedProduct}
-                  className="px-3 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50"
-                >
-                  Add
-                </button>
               </div>
-              
-              {/* Order Items List */}
-              {orderItems.length > 0 ? (
-                <div className="border rounded-md overflow-hidden">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className={isDarkMode ? 'bg-gray-700' : 'bg-gray-50'}>
-                      <tr>
-                        <th scope="col" className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Product
-                        </th>
-                        <th scope="col" className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Quantity
-                        </th>
-                        <th scope="col" className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Price
-                        </th>
-                        <th scope="col" className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Total
-                        </th>
-                        <th scope="col" className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Actions
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-200">
-                      {orderItems.map((item) => {
-                        const product = products.find(p => p.id === item.productId);
-                        return (
-                          <tr key={item.productId}>
-                            <td className="px-4 py-2 whitespace-nowrap text-sm font-medium text-gray-900">
-                              {product?.name || 'Unknown Product'}
-                            </td>
-                            <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                              {item.quantity}
-                            </td>
-                            <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500 text-right">
-                              ${product?.price.toFixed(2) || '0.00'}
-                            </td>
-                            <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900 text-right font-medium">
-                              ${((product?.price || 0) * item.quantity).toFixed(2)}
-                            </td>
-                            <td className="px-4 py-2 whitespace-nowrap text-center">
-                              <button
-                                onClick={() => removeItemFromOrder(item.productId)}
-                                className="text-red-600 hover:text-red-900"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </button>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                    <tfoot>
-                      <tr className="bg-gray-50">
-                        <td colSpan={3} className="px-4 py-2 text-sm font-medium text-gray-900 text-right">
-                          Subtotal:
-                        </td>
-                        <td className="px-4 py-2 text-sm font-medium text-gray-900 text-right">
-                          ${calculateOrderTotal().toFixed(2)}
-                        </td>
-                        <td></td>
-                      </tr>
-                      <tr className="bg-gray-50">
-                        <td colSpan={3} className="px-4 py-2 text-sm font-medium text-gray-900 text-right">
-                          Tax (20%):
-                        </td>
-                        <td className="px-4 py-2 text-sm font-medium text-gray-900 text-right">
-                          ${(calculateOrderTotal() * 0.2).toFixed(2)}
-                        </td>
-                        <td></td>
-                      </tr>
-                      <tr className="bg-gray-50">
-                        <td colSpan={3} className="px-4 py-2 text-sm font-bold text-gray-900 text-right">
-                          Total:
-                        </td>
-                        <td className="px-4 py-2 text-sm font-bold text-gray-900 text-right">
-                          ${(calculateOrderTotal() * 1.2).toFixed(2)}
-                        </td>
-                        <td></td>
-                      </tr>
-                    </tfoot>
-                  </table>
-                </div>
-              ) : (
-                <div className="text-center py-4 border rounded-md">
-                  <ShoppingCart className="h-8 w-8 mx-auto text-gray-400 mb-2" />
-                  <p className="text-gray-500">No items added to this order yet</p>
-                </div>
-              )}
             </div>
-
-            {/* Payment Method */}
+            
             <div>
               <label className={`block text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'} mb-1`}>
-                Payment Method
+                Delivery Date *
+              </label>
+              <div className="flex items-center">
+                <input
+                  type="date"
+                  value={deliveryDate}
+                  onChange={(e) => setDeliveryDate(e.target.value)}
+                  className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                  required
+                />
+              </div>
+            </div>
+            
+            <div>
+              <label className={`block text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'} mb-1`}>
+                Order Status *
+              </label>
+              <select
+                value={orderStatus}
+                onChange={(e) => setOrderStatus(e.target.value)}
+                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                required
+              >
+                <option value="pending">Pending</option>
+                <option value="processing">Processing</option>
+                <option value="ready_for_pickup">Ready for Pickup</option>
+                <option value="completed">Completed</option>
+                <option value="cancelled">Cancelled</option>
+              </select>
+            </div>
+            
+            <div>
+              <label className={`block text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'} mb-1`}>
+                Payment Status *
+              </label>
+              <select
+                value={paymentStatus}
+                onChange={(e) => setPaymentStatus(e.target.value)}
+                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                required
+              >
+                <option value="not_paid">Not Paid</option>
+                <option value="partially_paid">Partially Paid</option>
+                <option value="paid">Paid</option>
+              </select>
+            </div>
+            
+            <div>
+              <label className={`block text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'} mb-1`}>
+                Payment Method *
               </label>
               <select
                 value={paymentMethod}
                 onChange={(e) => setPaymentMethod(e.target.value)}
                 className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                required
               >
                 <option value="cash">Cash</option>
                 <option value="card">Credit Card</option>
@@ -374,49 +329,223 @@ export default function Orders() {
                 <option value="digital">Digital Payment</option>
               </select>
             </div>
-
-            {/* Submit Button */}
-            <div className="flex justify-end gap-2">
-              <button
-                onClick={() => setShowCreateForm(false)}
-                className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleCreateOrder}
-                disabled={!selectedClient || orderItems.length === 0}
-                className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50 flex items-center gap-2"
-              >
-                <Plus className="h-4 w-4" />
-                Create Order
-              </button>
+          </div>
+          
+          <h3 className={`text-md font-medium mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+            Order Items
+          </h3>
+          
+          <div className="mb-4 flex justify-end">
+            <button
+              onClick={() => addItemToOrder()}
+              className="px-3 py-1 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 flex items-center gap-1"
+            >
+              <Plus className="h-4 w-4" />
+              Add Item
+            </button>
+          </div>
+          
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+              <thead className={isDarkMode ? 'bg-gray-700' : 'bg-gray-50'}>
+                <tr>
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    Item *
+                  </th>
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    Description
+                  </th>
+                  <th scope="col" className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    Quantity *
+                  </th>
+                  <th scope="col" className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    Unit Price *
+                  </th>
+                  <th scope="col" className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    Line Total
+                  </th>
+                  <th scope="col" className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                {orderItems.length > 0 ? (
+                  orderItems.map((item, index) => (
+                    <tr key={index}>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                        {item.name}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-300">
+                        {item.description}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-center text-gray-900 dark:text-white">
+                        <div className="flex items-center justify-center">
+                          <button
+                            onClick={() => updateItemQuantity(index, item.quantity - 1)}
+                            className="p-1 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700"
+                          >
+                            <Minus className="h-4 w-4" />
+                          </button>
+                          <span className="mx-2">{item.quantity}</span>
+                          <button
+                            onClick={() => updateItemQuantity(index, item.quantity + 1)}
+                            className="p-1 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700"
+                          >
+                            <Plus className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-right text-gray-900 dark:text-white">
+                        ${item.price.toFixed(2)}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-right text-gray-900 dark:text-white">
+                        ${(item.price * item.quantity).toFixed(2)}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-center">
+                        <button
+                          onClick={() => removeItemFromOrder(index)}
+                          className="text-red-600 hover:text-red-900"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={6} className="px-4 py-3 text-center text-sm text-gray-500 dark:text-gray-400">
+                      <div className="flex flex-col items-center py-4">
+                        <input
+                          type="text"
+                          value={productSearch}
+                          onChange={(e) => setProductSearch(e.target.value)}
+                          placeholder="Enter item name..."
+                          className="mb-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                        />
+                        <input
+                          type="text"
+                          value={productDescription}
+                          onChange={(e) => setProductDescription(e.target.value)}
+                          placeholder="Enter description..."
+                          className="mb-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                        />
+                        <div className="flex gap-2 w-full">
+                          <div className="flex items-center">
+                            <button
+                              onClick={() => setProductQuantity(Math.max(1, productQuantity - 1))}
+                              className="p-1 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700"
+                            >
+                              <Minus className="h-4 w-4" />
+                            </button>
+                            <input
+                              type="number"
+                              min="1"
+                              value={productQuantity}
+                              onChange={(e) => setProductQuantity(parseInt(e.target.value) || 1)}
+                              className="mx-2 w-16 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-center"
+                            />
+                            <button
+                              onClick={() => setProductQuantity(productQuantity + 1)}
+                              className="p-1 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700"
+                            >
+                              <Plus className="h-4 w-4" />
+                            </button>
+                          </div>
+                          <div className="flex items-center">
+                            <span className="mr-2">$</span>
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={productPrice}
+                              onChange={(e) => setProductPrice(parseFloat(e.target.value) || 0)}
+                              className="w-24 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                              placeholder="0.00"
+                            />
+                          </div>
+                          <span className="flex-1 text-right">
+                            ${(productPrice * productQuantity).toFixed(2)}
+                          </span>
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+          
+          <div className="mt-6 flex justify-end">
+            <div className="w-64">
+              <div className="flex justify-between py-2">
+                <span className={isDarkMode ? 'text-gray-300' : 'text-gray-600'}>Subtotal:</span>
+                <span className={isDarkMode ? 'text-white' : 'text-gray-900'}>
+                  ${calculateOrderTotal().toFixed(2)}
+                </span>
+              </div>
+              <div className="flex justify-between py-2">
+                <span className={isDarkMode ? 'text-gray-300' : 'text-gray-600'}>Tax (20%):</span>
+                <span className={isDarkMode ? 'text-white' : 'text-gray-900'}>
+                  ${calculateTax().toFixed(2)}
+                </span>
+              </div>
+              <div className="flex justify-between py-2 font-bold">
+                <span className={isDarkMode ? 'text-white' : 'text-gray-900'}>Grand Total:</span>
+                <span className={isDarkMode ? 'text-white' : 'text-gray-900'}>
+                  ${calculateGrandTotal().toFixed(2)}
+                </span>
+              </div>
             </div>
           </div>
-        </div>
-      )}
-
-      {/* Orders Table */}
-      <div className={`rounded-lg ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow p-6`}>
-        <div className="flex flex-col sm:flex-row gap-4 mb-6">
-          <div className="flex-1 flex items-center gap-4 bg-white dark:bg-gray-700 p-4 rounded-lg shadow-inner">
-            <Search className="h-5 w-5 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search orders..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="flex-1 bg-transparent border-0 focus:ring-0 text-gray-900 dark:text-white placeholder-gray-400"
-            />
+          
+          <div className="mt-6 flex justify-end gap-4">
+            <button
+              onClick={() => {
+                setOrderItems([]);
+                setClientSearch('');
+                setSelectedClient('');
+              }}
+              className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleCreateOrder}
+              disabled={!selectedClient || orderItems.length === 0}
+              className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50"
+            >
+              Save Order
+            </button>
           </div>
-          <div className="flex items-center gap-2">
-            <Filter className="h-5 w-5 text-gray-400" />
+        </div>
+      </div>
+
+      {/* All Orders Table */}
+      <div className={`rounded-lg ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow p-6`}>
+        <div className="flex justify-between items-center mb-6">
+          <h2 className={`text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+            All Orders
+          </h2>
+          
+          <div className="flex items-center gap-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search orders..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10 pr-4 py-2 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+              />
+            </div>
+            
             <select
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value)}
-              className="rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+              className="rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
             >
-              <option value="all">All Status</option>
+              <option value="all">All Statuses</option>
               <option value="pending">Pending</option>
               <option value="processing">Processing</option>
               <option value="ready_for_pickup">Ready for Pickup</option>
@@ -431,22 +560,19 @@ export default function Orders() {
             <thead className={isDarkMode ? 'bg-gray-700' : 'bg-gray-50'}>
               <tr>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                  Order ID
+                  Order #
                 </th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                  Client
+                  Customer
                 </th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                  Items
-                </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                  Total
+                  Date
                 </th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                   Status
                 </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                  Date
+                <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                  Total
                 </th>
                 <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                   Actions
@@ -457,79 +583,63 @@ export default function Orders() {
               {filteredOrders.length > 0 ? (
                 filteredOrders.map((order) => {
                   const client = clients.find((c) => c.id === order.clientId);
-                  const itemCount = order.items.reduce((sum: number, item: any) => sum + item.quantity, 0);
-                  
-                  // Get product details for each item
-                  const orderItems = order.items.map((item: any) => {
-                    const product = products.find(p => p.id === item.productId);
-                    return {
-                      name: product?.name || 'Unknown Product',
-                      quantity: item.quantity
-                    };
-                  });
-                  
                   return (
                     <tr key={order.id} className={`hover:${isDarkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
                         #{order.id.substring(0, 8)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
-                        <div className="flex items-center">
-                          <User className="h-4 w-4 mr-2 text-gray-400" />
-                          {client?.name || 'Unknown Client'}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-300">
-                        <div className="flex items-center">
-                          <Package className="h-4 w-4 mr-2 text-gray-400" />
-                          {itemCount} items
-                          <span className="ml-2 text-xs text-gray-400">
-                            ({orderItems.map(item => `${item.quantity}x ${item.name}`).join(', ')})
-                          </span>
-                        </div>
+                        {client?.name || 'Unknown Client'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
-                        <div className="flex items-center">
-                          <DollarSign className="h-4 w-4 mr-2 text-gray-400" />
-                          ${order.total.toFixed(2)}
-                        </div>
+                        {format(new Date(order.createdAt), 'MM/dd/yyyy')}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <select
-                          value={order.status}
-                          onChange={(e) =>
-                            updateOrderStatus(order.id, e.target.value as any)
-                          }
-                          className="text-sm rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                        >
-                          <option value="pending">Pending</option>
-                          <option value="processing">Processing</option>
-                          <option value="ready_for_pickup">Ready for Pickup</option>
-                          <option value="completed">Completed</option>
-                          <option value="cancelled">Cancelled</option>
-                        </select>
+                        <span className="px-2 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800">
+                          Pending
+                        </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
-                        <div className="flex items-center">
-                          <Calendar className="h-4 w-4 mr-2 text-gray-400" />
-                          {format(new Date(order.createdAt), 'MMM d, yyyy')}
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900 dark:text-white">
+                        ${order.total.toFixed(2)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-center">
+                        <div className="flex justify-center space-x-3">
+                          <button
+                            onClick={() => handleEditOrder(order)}
+                            className="text-blue-600 hover:text-blue-900"
+                            title="Edit"
+                          >
+                            <Edit className="h-5 w-5" />
+                          </button>
+                          <button
+                            onClick={() => handleViewReceipt(order)}
+                            className="text-green-600 hover:text-green-900"
+                            title="Print Receipt"
+                          >
+                            <Printer className="h-5 w-5" />
+                          </button>
+                          <button
+                            onClick={() => handleViewA4Invoice(order)}
+                            className="text-indigo-600 hover:text-indigo-900"
+                            title="A4 Invoice"
+                          >
+                            <FileText className="h-5 w-5" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteOrder(order)}
+                            className="text-red-600 hover:text-red-900"
+                            title="Delete"
+                          >
+                            <Trash2 className="h-5 w-5" />
+                          </button>
                         </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
-                        <button
-                          onClick={() => handleViewReceipt(order)}
-                          className="text-indigo-600 hover:text-indigo-900"
-                          title="View Receipt"
-                        >
-                          <Eye className="h-5 w-5" />
-                        </button>
                       </td>
                     </tr>
                   );
                 })
               ) : (
                 <tr>
-                  <td colSpan={7} className="px-6 py-4 text-center text-sm text-gray-500 dark:text-gray-400">
+                  <td colSpan={6} className="px-6 py-4 text-center text-sm text-gray-500 dark:text-gray-400">
                     No orders found
                   </td>
                 </tr>
@@ -539,10 +649,19 @@ export default function Orders() {
         </div>
       </div>
 
+      {/* Thermal Receipt Modal */}
       {showReceipt && selectedOrder && (
         <ThermalReceipt
           invoice={selectedOrder}
           onClose={() => setShowReceipt(false)}
+        />
+      )}
+
+      {/* A4 Invoice Modal */}
+      {showA4Invoice && selectedOrder && (
+        <A4Invoice
+          invoice={selectedOrder}
+          onClose={() => setShowA4Invoice(false)}
         />
       )}
     </div>
