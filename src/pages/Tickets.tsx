@@ -1,15 +1,17 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { useThemeStore, useTicketsStore, useClientsStore } from '../lib/store';
+import { useThemeStore, useTicketsStore, useClientsStore, useAuthStore } from '../lib/store';
 import { Search, Plus, Clock, AlertTriangle, CheckCircle, FileText, Filter, Calendar, User, Edit, Printer, FileText as FileIcon, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import TicketForm from '../components/TicketForm';
 import UnifiedTicketReceipt from '../components/UnifiedTicketReceipt';
 import ClientForm from '../components/ClientForm';
+import { getAllTechnicians, ROLES } from '../lib/firebase';
 
 export default function Tickets() {
   const isDarkMode = useThemeStore((state) => state.isDarkMode);
   const { tickets, updateTicket, deleteTicket, filterStatus, setFilterStatus, loading, error } = useTicketsStore();
   const { clients } = useClientsStore();
+  const { user, userRole } = useAuthStore();
   const [isAddingTicket, setIsAddingTicket] = useState(true); // Default to true to show the form first
   const [editingTicket, setEditingTicket] = useState<string | null>(null);
   const [clientSearch, setClientSearch] = useState('');
@@ -20,6 +22,20 @@ export default function Tickets() {
   const [newTicketNumber, setNewTicketNumber] = useState('');
   const [isAddingClient, setIsAddingClient] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [technicians, setTechnicians] = useState<any[]>([]);
+  const [technicianFilter, setTechnicianFilter] = useState<string>('all');
+
+  // Fetch technicians for filtering
+  useEffect(() => {
+    const fetchTechnicians = async () => {
+      if (userRole === ROLES.SUPER_ADMIN) {
+        const techList = await getAllTechnicians();
+        setTechnicians(techList);
+      }
+    };
+    
+    fetchTechnicians();
+  }, [userRole]);
 
   const filteredClients = useMemo(() => {
     return clients.filter((client) =>
@@ -31,6 +47,7 @@ export default function Tickets() {
   const filteredTickets = tickets.filter(
     (ticket) => {
       const matchesStatus = filterStatus === 'all' || ticket.status === filterStatus;
+      const matchesTechnician = technicianFilter === 'all' || ticket.technicianId === technicianFilter;
       const matchesSearch = searchQuery 
         ? ticket.ticketNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
           ticket.deviceType.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -38,7 +55,7 @@ export default function Tickets() {
           clients.find(c => c.id === ticket.clientId)?.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
           false
         : true;
-      return matchesStatus && matchesSearch;
+      return matchesStatus && matchesTechnician && matchesSearch;
     }
   );
 
@@ -88,6 +105,12 @@ export default function Tickets() {
     if (window.confirm('Are you sure you want to delete this ticket?')) {
       await deleteTicket(ticketId);
     }
+  };
+
+  // Get technician name by ID
+  const getTechnicianName = (techId: string) => {
+    const tech = technicians.find(t => t.id === techId);
+    return tech ? tech.fullName : 'Unassigned';
   };
 
   return (
@@ -219,6 +242,26 @@ export default function Tickets() {
               <option value="completed">Completed</option>
             </select>
           </div>
+          
+          {/* Technician filter - only for super admin */}
+          {userRole === ROLES.SUPER_ADMIN && (
+            <div className="flex items-center gap-2">
+              <User className="h-5 w-5 text-gray-400" />
+              <select
+                value={technicianFilter}
+                onChange={(e) => setTechnicianFilter(e.target.value)}
+                className="rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+              >
+                <option value="all">All Technicians</option>
+                <option value="">Unassigned</option>
+                {technicians.map(tech => (
+                  <option key={tech.id} value={tech.id}>
+                    {tech.fullName}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
 
         <div className="overflow-x-auto">
@@ -240,6 +283,11 @@ export default function Tickets() {
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                   Cost
                 </th>
+                {userRole === ROLES.SUPER_ADMIN && (
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    Technician
+                  </th>
+                )}
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                   Status
                 </th>
@@ -281,6 +329,11 @@ export default function Tickets() {
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
                         ${ticket.cost}
                       </td>
+                      {userRole === ROLES.SUPER_ADMIN && (
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
+                          {ticket.technicianId ? getTechnicianName(ticket.technicianId) : 'Unassigned'}
+                        </td>
+                      )}
                       <td className="px-6 py-4 whitespace-nowrap">
                         <select
                           value={ticket.status}
@@ -339,14 +392,16 @@ export default function Tickets() {
                             <FileIcon className="h-5 w-5" />
                           </button>
                           
-                          {/* Delete button */}
-                          <button
-                            onClick={() => handleDeleteTicket(ticket.id)}
-                            className="text-red-600 hover:text-red-800"
-                            title="Delete"
-                          >
-                            <Trash2 className="h-5 w-5" />
-                          </button>
+                          {/* Delete button - only for super admin */}
+                          {userRole === ROLES.SUPER_ADMIN && (
+                            <button
+                              onClick={() => handleDeleteTicket(ticket.id)}
+                              className="text-red-600 hover:text-red-800"
+                              title="Delete"
+                            >
+                              <Trash2 className="h-5 w-5" />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -354,7 +409,7 @@ export default function Tickets() {
                 })
               ) : (
                 <tr>
-                  <td colSpan={8} className="px-6 py-4 text-center text-sm text-gray-500 dark:text-gray-400">
+                  <td colSpan={userRole === ROLES.SUPER_ADMIN ? 9 : 8} className="px-6 py-4 text-center text-sm text-gray-500 dark:text-gray-400">
                     No tickets found
                   </td>
                 </tr>

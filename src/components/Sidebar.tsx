@@ -1,32 +1,12 @@
 import React, { useState } from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Users, PenTool as Tool, ShoppingCart, Wrench, Settings, ChevronDown, ChevronUp, ChevronLeft, ChevronRight } from 'lucide-react';
-import { useThemeStore } from '../lib/store';
+import { LayoutDashboard, Users, PenTool as Tool, ShoppingCart, Wrench, Settings, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, UserCog } from 'lucide-react';
+import { useThemeStore, useAuthStore } from '../lib/store';
+import { ROLES } from '../lib/firebase';
 
-const navigation = [
-  { name: 'Dashboard', href: '/', icon: LayoutDashboard },
-  { name: 'Clients', href: '/clients', icon: Users },
-  { name: 'Tickets', href: '/tickets', icon: Tool },
-  { 
-    name: 'POS',
-    href: '/pos',
-    icon: ShoppingCart,
-    children: [
-      { name: 'Point of Sale', href: '/pos' },
-      { name: 'Products', href: '/pos/products' },
-      { name: 'Orders', href: '/pos/orders' },
-    ],
-  },
-  { name: 'Settings', href: '/settings', icon: Settings },
-];
-
-interface SidebarProps {
-  isCollapsed: boolean;
-  toggleSidebar: () => void;
-}
-
-export default function Sidebar({ isCollapsed, toggleSidebar }: SidebarProps) {
+export default function Sidebar({ isCollapsed, toggleSidebar }) {
   const isDarkMode = useThemeStore((state) => state.isDarkMode);
+  const { userRole } = useAuthStore();
   const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({
     'POS': true // Default expanded
   });
@@ -37,6 +17,39 @@ export default function Sidebar({ isCollapsed, toggleSidebar }: SidebarProps) {
       [name]: !prev[name]
     }));
   };
+
+  // Define navigation items based on user role
+  const getNavigationItems = () => {
+    const baseNavigation = [
+      { name: 'Dashboard', href: '/', icon: LayoutDashboard },
+      { name: 'Clients', href: '/clients', icon: Users },
+      { name: 'Tickets', href: '/tickets', icon: Tool },
+      { 
+        name: 'POS',
+        href: '/pos',
+        icon: ShoppingCart,
+        children: [
+          { name: 'Point of Sale', href: '/pos' },
+          { name: 'Products', href: '/pos/products' },
+          { name: 'Orders', href: '/pos/orders' },
+        ],
+      },
+      { name: 'Settings', href: '/settings', icon: Settings },
+    ];
+
+    // Add user management for super admin
+    if (userRole === ROLES.SUPER_ADMIN) {
+      baseNavigation.push({ 
+        name: 'User Management', 
+        href: '/user-management', 
+        icon: UserCog 
+      });
+    }
+
+    return baseNavigation;
+  };
+
+  const navigation = getNavigationItems();
 
   return (
     <div 

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { useThemeStore, useTicketsStore, TaskWithPrice } from '../lib/store';
+import { useThemeStore, useTicketsStore, TaskWithPrice, useAuthStore } from '../lib/store';
 import { Plus, Minus, DollarSign } from 'lucide-react';
+import { getAllTechnicians, ROLES } from '../lib/firebase';
 
 interface TicketFormProps {
   clientId?: string;
@@ -17,12 +18,14 @@ interface TicketFormProps {
     cost: number;
     passcode: string;
     status: 'pending' | 'in-progress' | 'completed';
+    technicianId?: string;
   };
 }
 
 export default function TicketForm({ clientId, onSubmit, onCancel, editingTicket, initialData }: TicketFormProps) {
   const isDarkMode = useThemeStore((state) => state.isDarkMode);
   const { settings, addTicket, updateTicket, addDeviceType, addBrand, addModel, addTask, loading } = useTicketsStore();
+  const { user, userRole } = useAuthStore();
 
   const [deviceTypeSearch, setDeviceTypeSearch] = useState('');
   const [brandSearch, setBrandSearch] = useState('');
@@ -30,6 +33,7 @@ export default function TicketForm({ clientId, onSubmit, onCancel, editingTicket
   const [isAddingModel, setIsAddingModel] = useState(false);
   const [newTaskInput, setNewTaskInput] = useState('');
   const [newTaskCost, setNewTaskCost] = useState(0);
+  const [technicians, setTechnicians] = useState<any[]>([]);
   
   // Convert initial tasks to task with price objects
   const initialTasksWithPrice = initialData?.taskPrices || 
@@ -46,7 +50,20 @@ export default function TicketForm({ clientId, onSubmit, onCancel, editingTicket
     issue: initialData?.issue || '',
     passcode: initialData?.passcode || '',
     status: initialData?.status || 'pending' as const,
+    technicianId: initialData?.technicianId || (userRole === ROLES.TECHNICIAN ? user?.uid : ''),
   });
+
+  // Fetch technicians for super admin
+  useEffect(() => {
+    const fetchTechnicians = async () => {
+      if (userRole === ROLES.SUPER_ADMIN) {
+        const techList = await getAllTechnicians();
+        setTechnicians(techList);
+      }
+    };
+    
+    fetchTechnicians();
+  }, [userRole]);
 
   // Calculate total cost from all tasks
   const totalCost = formData.tasksWithPrice.reduce((sum, task) => sum + task.price, 0);
@@ -95,7 +112,7 @@ export default function TicketForm({ clientId, onSubmit, onCancel, editingTicket
         taskPrices: formData.tasksWithPrice, // Save task prices
         cost: totalCost,
         clientId, 
-        technicianId: '' 
+        technicianId: formData.technicianId || '' 
       };
       const newTicketNumber = await addTicket(ticket);
       onSubmit(newTicketNumber);
@@ -344,6 +361,27 @@ export default function TicketForm({ clientId, onSubmit, onCancel, editingTicket
         )}
       </div>
 
+      {/* Technician Assignment - Only visible to super admin */}
+      {userRole === ROLES.SUPER_ADMIN && (
+        <div>
+          <label className={`block text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+            Assign to Technician
+          </label>
+          <select
+            value={formData.technicianId}
+            onChange={(e) => setFormData({ ...formData, technicianId: e.target.value })}
+            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+          >
+            <option value="">Unassigned</option>
+            {technicians.map((tech) => (
+              <option key={tech.id} value={tech.id}>
+                {tech.fullName}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
       <div>
         <div className="flex justify-between items-center">
           <label className={`block text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
@@ -482,7 +520,7 @@ export default function TicketForm({ clientId, onSubmit, onCancel, editingTicket
         </button>
         <button
           type="submit"
-          className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50"
+          className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled: opacity-50"
           disabled={loading}
         >
           {loading ? (editingTicket ? 'Updating...' : 'Creating...') : (editingTicket ? 'Update Ticket' : 'Create Ticket')}

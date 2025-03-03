@@ -11,7 +11,8 @@ import {
   serverTimestamp,
   Timestamp
 } from 'firebase/firestore';
-import { db } from './firebase';
+import { db, auth, initializeSuperAdmin, ROLES } from './firebase';
+import { User } from 'firebase/auth';
 
 interface ThemeState {
   isDarkMode: boolean;
@@ -35,6 +36,40 @@ export const useUserStore = create<UserState>((set: any) => ({
   setLanguage: (language: 'en' | 'es' | 'fr') => set({ language }),
   sidebarCollapsed: false,
   toggleSidebar: () => set((state: UserState) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
+}));
+
+interface AuthState {
+  user: User | null;
+  userRole: string | null;
+  userProfile: any | null;
+  loading: boolean;
+  error: string | null;
+  initialized: boolean;
+  setUser: (user: User | null) => void;
+  setUserRole: (role: string | null) => void;
+  setUserProfile: (profile: any | null) => void;
+  setLoading: (loading: boolean) => void;
+  setError: (error: string | null) => void;
+  setInitialized: (initialized: boolean) => void;
+  clearError: () => void;
+  logout: () => void;
+}
+
+export const useAuthStore = create<AuthState>((set) => ({
+  user: null,
+  userRole: null,
+  userProfile: null,
+  loading: true,
+  error: null,
+  initialized: false,
+  setUser: (user) => set({ user }),
+  setUserRole: (role) => set({ userRole: role }),
+  setUserProfile: (profile) => set({ userProfile: profile }),
+  setLoading: (loading) => set({ loading }),
+  setError: (error) => set({ error }),
+  setInitialized: (initialized) => set({ initialized }),
+  clearError: () => set({ error: null }),
+  logout: () => set({ user: null, userRole: null, userProfile: null }),
 }));
 
 interface Client {
@@ -210,6 +245,8 @@ interface TicketsState {
   addTask: (task: string) => Promise<void>;
   removeTask: (task: string) => Promise<void>;
   updateTask: (oldTask: string, newTask: string) => Promise<void>;
+  assignTicket: (ticketId: string, technicianId: string) => Promise<void>;
+  fetchTechnicianTickets: (technicianId: string) => Promise<void>;
 }
 
 const generateTicketNumber = () => {
@@ -235,7 +272,22 @@ export const useTicketsStore = create<TicketsState>((set, get) => ({
   fetchTickets: async () => {
     set({ loading: true, error: null });
     try {
-      const ticketsCollection = collection(db, 'tickets');
+      const userRole = useAuthStore.getState().userRole;
+      const user = useAuthStore.getState().user;
+      
+      let ticketsCollection;
+      
+      // If user is a technician, only fetch their assigned tickets
+      if (userRole === ROLES.TECHNICIAN && user) {
+        ticketsCollection = query(
+          collection(db, 'tickets'),
+          where('technicianId', '==', user.uid)
+        );
+      } else {
+        // Super admin can see all tickets
+        ticketsCollection = collection(db, 'tickets');
+      }
+      
       const ticketsSnapshot = await getDocs(ticketsCollection);
       const ticketsList = ticketsSnapshot.docs.map(doc => {
         const data = doc.data();
@@ -251,6 +303,32 @@ export const useTicketsStore = create<TicketsState>((set, get) => ({
     } catch (error) {
       console.error('Error fetching tickets:', error);
       set({ error: 'Failed to fetch tickets', loading: false });
+    }
+  },
+  
+  fetchTechnicianTickets: async (technicianId: string) => {
+    set({ loading: true, error: null });
+    try {
+      const ticketsCollection = query(
+        collection(db, 'tickets'),
+        where('technicianId', '==', technicianId)
+      );
+      
+      const ticketsSnapshot = await getDocs(ticketsCollection);
+      const ticketsList = ticketsSnapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          ...data,
+          createdAt: data.createdAt?.toDate().toISOString() || new Date().toISOString(),
+          updatedAt: data.updatedAt?.toDate().toISOString() || new Date().toISOString()
+        } as Ticket;
+      });
+      
+      set({ tickets: ticketsList, loading: false });
+    } catch (error) {
+      console.error('Error fetching technician tickets:', error);
+      set({ error: 'Failed to fetch technician tickets', loading: false });
     }
   },
   
@@ -357,6 +435,37 @@ export const useTicketsStore = create<TicketsState>((set, get) => ({
     } catch (error) {
       console.error('Error updating ticket:', error);
       set({ error: 'Failed to update ticket', loading: false });
+    }
+  },
+  
+  assignTicket: async (ticketId: string, technicianId: string) => {
+    set({ loading: true, error: null });
+    try {
+      const ticketRef = doc(db, 'tickets', id);
+      
+      const updateData = {
+        technicianId,
+        updatedAt: serverTimestamp()
+      };
+      
+      await updateDoc(ticketRef, updateData);
+      
+      // Update the ticket in the local state
+      set(state => ({
+        tickets: state.tickets.map(ticket => 
+          ticket.id === ticketId 
+            ? { 
+                ...ticket, 
+                technicianId, 
+                updatedAt: new Date().toISOString() 
+              } 
+            : ticket
+        ),
+        loading: false
+      }));
+    } catch (error) {
+      console.error('Error assigning ticket:', error);
+      set({ error: 'Failed to assign ticket', loading: false });
     }
   },
   
@@ -1175,3 +1284,6 @@ export const useInvoicesStore = create<InvoicesState>((set, get) => ({
     }
   }
 }));
+
+// Initialize the super admin account
+initializeSuperAdmin();
