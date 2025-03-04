@@ -78,7 +78,7 @@ export default function Register() {
         <div className="flex justify-center mb-6">
           <div className="flex items-center">
             <Wrench className="h-10 w-10 text-indigo-600" />
-            <span className="ml-2 text-2xl font-bold">TechFix Pro</span>
+            <span className="ml-2 text-2xl font-bold">OMEGA SERVICES</span>
           </div>
         </div>
         

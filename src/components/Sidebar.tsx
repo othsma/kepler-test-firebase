@@ -60,7 +60,7 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
     >
       <div className="flex h-16 shrink-0 items-center px-6">
         <Wrench className="h-8 w-8 text-indigo-600" />
-        {!isCollapsed && <span className="ml-4 text-xl font-semibold">TechFix Pro</span>}
+        {!isCollapsed && <span className="ml-4 text-xl font-semibold">OMEGA SERVICES</span>}
       </div>
 
       <button 
