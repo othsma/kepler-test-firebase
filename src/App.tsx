@@ -15,8 +15,9 @@ import ForgotPassword from './pages/ForgotPassword';
 import Profile from './pages/Profile';
 import UserManagement from './pages/UserManagement';
 import { useClientsStore, useTicketsStore, useProductsStore, useOrdersStore, useInvoicesStore, useAuthStore } from './lib/store';
-import { getUserRole } from './lib/firebase';
+import { getUserRole, ROLES } from './lib/firebase';
 import LoadingScreen from './components/LoadingScreen';
+import AccessDenied from './components/AccessDenied';
 
 function App() {
   const { 
@@ -30,7 +31,7 @@ function App() {
   } = useAuthStore();
   
   const { fetchClients } = useClientsStore();
-  const { fetchTickets, fetchSettings } = useTicketsStore();
+  const { fetchTickets, fetchSettings, fetchTechnicianTickets } = useTicketsStore();
   const { fetchProducts, fetchCategories } = useProductsStore();
   const { fetchOrders } = useOrdersStore();
   const { fetchInvoices } = useInvoicesStore();
@@ -49,14 +50,23 @@ function App() {
         const role = await getUserRole(authUser.uid);
         setUserRole(role);
         
-        // Initialize data from Firebase
-        fetchClients();
-        fetchTickets();
-        fetchSettings();
-        fetchProducts();
-        fetchCategories();
-        fetchOrders();
-        fetchInvoices();
+        // Initialize data from Firebase based on role
+        if (role === ROLES.SUPER_ADMIN) {
+          // Super admin gets access to all data
+          fetchClients();
+          fetchTickets();
+          fetchSettings();
+          fetchProducts();
+          fetchCategories();
+          fetchOrders();
+          fetchInvoices();
+        } else {
+          // Technicians only get their assigned tickets
+          fetchSettings();
+          if (authUser.uid) {
+            fetchTechnicianTickets(authUser.uid);
+          }
+        }
       } else {
         setUser(null);
         setUserRole(null);
@@ -70,8 +80,8 @@ function App() {
     return () => unsubscribe();
   }, []);
 
-  // Protected route component
-  const ProtectedRoute = ({ children, requiredRole = null }) => {
+  // Protected route component with role-based access
+  const ProtectedRoute = ({ children, requiredRole = null, allowedRoles = null }) => {
     if (loading) {
       return <LoadingScreen />;
     }
@@ -80,8 +90,14 @@ function App() {
       return <Navigate to="/login" />;
     }
     
+    // Check if specific role is required
     if (requiredRole && userRole !== requiredRole) {
-      return <Navigate to="/" />;
+      return <AccessDenied />;
+    }
+    
+    // Check if user's role is in the allowed roles list
+    if (allowedRoles && !allowedRoles.includes(userRole)) {
+      return <AccessDenied />;
     }
     
     return children;
@@ -106,15 +122,53 @@ function App() {
           </ProtectedRoute>
         }>
           <Route index element={<Dashboard />} />
-          <Route path="clients" element={<Clients />} />
-          <Route path="tickets" element={<Tickets />} />
-          <Route path="pos" element={<Pos />} />
-          <Route path="pos/products" element={<Products />} />
-          <Route path="pos/orders" element={<Orders />} />
-          <Route path="profile" element={<Profile />} />
-          <Route path="settings" element={<Settings />} />
+          
+          {/* Super Admin Only Routes */}
+          <Route path="clients" element={
+            <ProtectedRoute requiredRole={ROLES.SUPER_ADMIN}>
+              <Clients />
+            </ProtectedRoute>
+          } />
+          
+          {/* Both Super Admin and Technicians */}
+          <Route path="tickets" element={
+            <ProtectedRoute allowedRoles={[ROLES.SUPER_ADMIN, ROLES.TECHNICIAN]}>
+              <Tickets />
+            </ProtectedRoute>
+          } />
+          
+          {/* Super Admin Only Routes */}
+          <Route path="pos" element={
+            <ProtectedRoute requiredRole={ROLES.SUPER_ADMIN}>
+              <Pos />
+            </ProtectedRoute>
+          } />
+          <Route path="pos/products" element={
+            <ProtectedRoute requiredRole={ROLES.SUPER_ADMIN}>
+              <Products />
+            </ProtectedRoute>
+          } />
+          <Route path="pos/orders" element={
+            <ProtectedRoute requiredRole={ROLES.SUPER_ADMIN}>
+              <Orders />
+            </ProtectedRoute>
+          } />
+          
+          {/* Both Super Admin and Technicians */}
+          <Route path="profile" element={
+            <ProtectedRoute>
+              <Profile />
+            </ProtectedRoute>
+          } />
+          
+          {/* Super Admin Only Routes */}
+          <Route path="settings" element={
+            <ProtectedRoute requiredRole={ROLES.SUPER_ADMIN}>
+              <Settings />
+            </ProtectedRoute>
+          } />
           <Route path="user-management" element={
-            <ProtectedRoute requiredRole="superAdmin">
+            <ProtectedRoute requiredRole={ROLES.SUPER_ADMIN}>
               <UserManagement />
             </ProtectedRoute>
           } />

@@ -20,11 +20,16 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
 
   // Define navigation items based on user role
   const getNavigationItems = () => {
+    // Base navigation items for all users
     const baseNavigation = [
       { name: 'Dashboard', href: '/', icon: LayoutDashboard },
-      { name: 'Clients', href: '/clients', icon: Users },
       { name: 'Tickets', href: '/tickets', icon: Tool },
-      { 
+    ];
+
+    // Additional items only for super admin
+    if (userRole === ROLES.SUPER_ADMIN) {
+      baseNavigation.push({ name: 'Clients', href: '/clients', icon: Users });
+      baseNavigation.push({ 
         name: 'POS',
         href: '/pos',
         icon: ShoppingCart,
@@ -33,12 +38,8 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
           { name: 'Products', href: '/pos/products' },
           { name: 'Orders', href: '/pos/orders' },
         ],
-      },
-      { name: 'Settings', href: '/settings', icon: Settings },
-    ];
-
-    // Add user management for super admin
-    if (userRole === ROLES.SUPER_ADMIN) {
+      });
+      baseNavigation.push({ name: 'Settings', href: '/settings', icon: Settings });
       baseNavigation.push({ 
         name: 'User Management', 
         href: '/user-management', 

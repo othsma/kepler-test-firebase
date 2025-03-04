@@ -44,20 +44,30 @@ export default function Tickets() {
     );
   }, [clients, clientSearch]);
 
-  const filteredTickets = tickets.filter(
-    (ticket) => {
-      const matchesStatus = filterStatus === 'all' || ticket.status === filterStatus;
-      const matchesTechnician = technicianFilter === 'all' || ticket.technicianId === technicianFilter;
-      const matchesSearch = searchQuery 
-        ? ticket.ticketNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          ticket.deviceType.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          ticket.brand.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          clients.find(c => c.id === ticket.clientId)?.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          false
-        : true;
-      return matchesStatus && matchesTechnician && matchesSearch;
+  // Filter tickets based on user role and search criteria
+  const filteredTickets = useMemo(() => {
+    // First filter by user role - technicians can only see their assigned tickets
+    let roleFilteredTickets = tickets;
+    if (userRole === ROLES.TECHNICIAN && user) {
+      roleFilteredTickets = tickets.filter(ticket => ticket.technicianId === user.uid);
     }
-  );
+    
+    // Then apply other filters
+    return roleFilteredTickets.filter(
+      (ticket) => {
+        const matchesStatus = filterStatus === 'all' || ticket.status === filterStatus;
+        const matchesTechnician = technicianFilter === 'all' || ticket.technicianId === technicianFilter;
+        const matchesSearch = searchQuery 
+          ? ticket.ticketNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            ticket.deviceType.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            ticket.brand.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            clients.find(c => c.id === ticket.clientId)?.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            false
+          : true;
+        return matchesStatus && matchesTechnician && matchesSearch;
+      }
+    );
+  }, [tickets, userRole, user, filterStatus, technicianFilter, searchQuery, clients]);
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -113,19 +123,29 @@ export default function Tickets() {
     return tech ? tech.fullName : 'Unassigned';
   };
 
+  // Check if user can edit a ticket
+  const canEditTicket = (ticket) => {
+    if (userRole === ROLES.SUPER_ADMIN) return true;
+    if (userRole === ROLES.TECHNICIAN && user && ticket.technicianId === user.uid) return true;
+    return false;
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h1 className={`text-2xl font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-          Repair Tickets
+          {userRole === ROLES.TECHNICIAN ? 'My Assigned Tickets' : 'Repair Tickets'}
         </h1>
-        <button
-          onClick={() => setIsAddingTicket(!isAddingTicket)}
-          className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 flex items-center gap-2"
-        >
-          <Plus className="h-4 w-4" />
-          {isAddingTicket ? 'Hide Form' : 'New Ticket'}
-        </button>
+        {/* Only super admin can create new tickets */}
+        {userRole === ROLES.SUPER_ADMIN && (
+          <button
+            onClick={() => setIsAddingTicket(!isAddingTicket)}
+            className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 flex items-center gap-2"
+          >
+            <Plus className="h-4 w-4" />
+            {isAddingTicket ? 'Hide Form' : 'New Ticket'}
+          </button>
+        )}
       </div>
 
       {loading && (
@@ -141,8 +161,8 @@ export default function Tickets() {
         </div>
       )}
 
-      {/* Create New Ticket Section - Now displayed first */}
-      {(isAddingTicket || editingTicket) && (
+      {/* Create New Ticket Section - Only for super admin */}
+      {userRole === ROLES.SUPER_ADMIN && (isAddingTicket || editingTicket) && (
         <div className={`rounded-lg ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow p-6`}>
           <h2 className={`text-lg font-semibold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
             {editingTicket ? 'Edit Ticket' : 'Create New Ticket'}
@@ -335,19 +355,24 @@ export default function Tickets() {
                         </td>
                       )}
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <select
-                          value={ticket.status}
-                          onChange={(e) =>
-                            updateTicket(ticket.id, {
-                              status: e.target.value as 'pending' | 'in-progress' | 'completed',
-                            })
-                          }
-                          className="text-sm rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                        >
-                          <option value="pending">Pending</option>
-                          <option value="in-progress">In Progress</option>
-                          <option value="completed">Completed</option>
-                        </select>
+                        {/* Only allow status updates for assigned technician or super admin */}
+                        {canEditTicket(ticket) ? (
+                          <select
+                            value={ticket.status}
+                            onChange={(e) =>
+                              updateTicket(ticket.id, {
+                                status: e.target.value as 'pending' | 'in-progress' | 'completed',
+                              })
+                            }
+                            className="text-sm rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                          >
+                            <option value="pending">Pending</option>
+                            <option value="in-progress">In Progress</option>
+                            <option value="completed">Completed</option>
+                          </select>
+                        ) : (
+                          getStatusBadge(ticket.status)
+                        )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
                         <div className="flex items-center">
@@ -357,14 +382,16 @@ export default function Tickets() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
                         <div className="flex justify-center space-x-3">
-                          {/* Edit button */}
-                          <button
-                            onClick={() => setEditingTicket(ticket.id)}
-                            className="text-blue-600 hover:text-blue-800"
-                            title="Edit"
-                          >
-                            <Edit className="h-5 w-5" />
-                          </button>
+                          {/* Edit button - only for assigned technician or super admin */}
+                          {canEditTicket(ticket) && (
+                            <button
+                              onClick={() => setEditingTicket(ticket.id)}
+                              className="text-blue-600 hover:text-blue-800"
+                              title="Edit"
+                            >
+                              <Edit className="h-5 w-5" />
+                            </button>
+                          )}
                           
                           {/* Thermal Receipt button */}
                           <button
@@ -410,7 +437,7 @@ export default function Tickets() {
               ) : (
                 <tr>
                   <td colSpan={userRole === ROLES.SUPER_ADMIN ? 9 : 8} className="px-6 py-4 text-center text-sm text-gray-500 dark:text-gray-400">
-                    No tickets found
+                    {userRole === ROLES.TECHNICIAN ? 'No tickets assigned to you yet' : 'No tickets found'}
                   </td>
                 </tr>
               )}
