@@ -53,6 +53,29 @@ export default function TicketForm({ clientId, onSubmit, onCancel, editingTicket
     technicianId: initialData?.technicianId || (userRole === ROLES.TECHNICIAN ? user?.uid : ''),
   });
 
+  // Update form data when initialData changes
+  useEffect(() => {
+    if (initialData) {
+      setFormData({
+        deviceType: initialData.deviceType,
+        brand: initialData.brand,
+        model: initialData.model,
+        tasksWithPrice: initialData.taskPrices || initialData.tasks.map(task => ({
+          name: task,
+          price: initialData.cost / initialData.tasks.length
+        })),
+        issue: initialData.issue,
+        passcode: initialData.passcode || '',
+        status: initialData.status,
+        technicianId: initialData.technicianId || (userRole === ROLES.TECHNICIAN ? user?.uid : ''),
+      });
+
+      // Set search fields to match initial data
+      setDeviceTypeSearch(initialData.deviceType);
+      setBrandSearch(initialData.brand);
+    }
+  }, [initialData, userRole, user?.uid]);
+
   // Fetch technicians for super admin
   useEffect(() => {
     const fetchTechnicians = async () => {
@@ -520,7 +543,7 @@ export default function TicketForm({ clientId, onSubmit, onCancel, editingTicket
         </button>
         <button
           type="submit"
-          className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled: opacity-50"
+          className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50"
           disabled={loading}
         >
           {loading ? (editingTicket ? 'Updating...' : 'Creating...') : (editingTicket ? 'Update Ticket' : 'Create Ticket')}
