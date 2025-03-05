@@ -104,15 +104,14 @@ export default function Products() {
             </div>
             <div>
               <label className={`block text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                Category
+                Category (Optional)
               </label>
               <select
                 value={formData.category}
                 onChange={(e) => setFormData({ ...formData, category: e.target.value })}
                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                required
               >
-                <option value="">Select a category</option>
+                <option value="">No Category</option>
                 {categories.map((category) => (
                   <option key={category} value={category}>
                     {category}
@@ -228,7 +227,7 @@ export default function Products() {
                     {product.name}
                   </h3>
                   <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                    {product.category}
+                    {product.category || 'No Category'}
                   </p>
                 </div>
                 <div className="flex gap-2">
