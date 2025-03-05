@@ -1,12 +1,17 @@
 import React, { useState } from 'react';
 import { useThemeStore, useProductsStore } from '../lib/store';
-import { Search, Plus, Edit2, Trash2 } from 'lucide-react';
+import { Search, Plus, Edit2, Trash2, Tag, ChevronDown, ChevronUp } from 'lucide-react';
 
 export default function Products() {
   const isDarkMode = useThemeStore((state) => state.isDarkMode);
   const { products, categories, searchQuery, selectedCategory, setSearchQuery, setSelectedCategory, addProduct, updateProduct } = useProductsStore();
   const [isAddingProduct, setIsAddingProduct] = useState(false);
   const [editingProduct, setEditingProduct] = useState<string | null>(null);
+  const [showCategoryManager, setShowCategoryManager] = useState(false);
+  const [isAddingCategory, setIsAddingCategory] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [editingCategory, setEditingCategory] = useState<string | null>(null);
+  const [editedCategoryName, setEditedCategoryName] = useState('');
   const [formData, setFormData] = useState({
     name: '',
     category: '',
@@ -44,6 +49,60 @@ export default function Products() {
     });
   };
 
+  const handleAddCategory = async () => {
+    if (newCategoryName.trim()) {
+      // The category will be added to Firestore when we add a product with this category
+      setNewCategoryName('');
+      setIsAddingCategory(false);
+      // Set the new category as selected
+      setSelectedCategory(newCategoryName.trim());
+      // Update form data if we're adding/editing a product
+      if (isAddingProduct || editingProduct) {
+        setFormData(prev => ({ ...prev, category: newCategoryName.trim() }));
+      }
+    }
+  };
+
+  const handleEditCategory = (category: string) => {
+    setEditingCategory(category);
+    setEditedCategoryName(category);
+  };
+
+  const handleUpdateCategory = async (oldCategory: string) => {
+    if (editedCategoryName.trim() && editedCategoryName !== oldCategory) {
+      // Update all products with this category
+      products
+        .filter(product => product.category === oldCategory)
+        .forEach(product => {
+          updateProduct(product.id, { ...product, category: editedCategoryName });
+        });
+      
+      setEditingCategory(null);
+      setEditedCategoryName('');
+      
+      // Update selected category if it was the one being edited
+      if (selectedCategory === oldCategory) {
+        setSelectedCategory(editedCategoryName);
+      }
+    }
+  };
+
+  const handleDeleteCategory = async (category: string) => {
+    if (window.confirm(`Are you sure you want to delete the category "${category}"? This will remove the category from all products but won't delete the products themselves.`)) {
+      // Update all products in this category to have no category
+      products
+        .filter(product => product.category === category)
+        .forEach(product => {
+          updateProduct(product.id, { ...product, category: '' });
+        });
+      
+      // Update selected category if it was the one being deleted
+      if (selectedCategory === category) {
+        setSelectedCategory('all');
+      }
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -70,19 +129,142 @@ export default function Products() {
             className="flex-1 bg-transparent border-0 focus:ring-0 text-gray-900 dark:text-white placeholder-gray-400"
           />
         </div>
-        <select
-          value={selectedCategory}
-          onChange={(e) => setSelectedCategory(e.target.value)}
-          className="rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-        >
-          <option value="all">All Categories</option>
-          {categories.map((category) => (
-            <option key={category} value={category}>
-              {category}
-            </option>
-          ))}
-        </select>
+        <div className="flex gap-2">
+          <select
+            value={selectedCategory}
+            onChange={(e) => setSelectedCategory(e.target.value)}
+            className="rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+          >
+            <option value="all">All Categories</option>
+            {categories.map((category) => (
+              <option key={category} value={category}>
+                {category}
+              </option>
+            ))}
+          </select>
+          <button
+            onClick={() => setShowCategoryManager(!showCategoryManager)}
+            className="px-3 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 flex items-center gap-1"
+            title="Manage Categories"
+          >
+            <Tag className="h-4 w-4" />
+            {showCategoryManager ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+          </button>
+        </div>
       </div>
+
+      {/* Category Manager Section */}
+      {showCategoryManager && (
+        <div className={`rounded-lg ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow p-6`}>
+          <div className="flex justify-between items-center mb-4">
+            <h2 className={`text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+              Category Management
+            </h2>
+            <button
+              onClick={() => setIsAddingCategory(true)}
+              className="px-3 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 flex items-center gap-1"
+            >
+              <Plus className="h-4 w-4" />
+              Add Category
+            </button>
+          </div>
+
+          {isAddingCategory && (
+            <div className="mb-4 p-4 border border-gray-200 rounded-md">
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={newCategoryName}
+                  onChange={(e) => setNewCategoryName(e.target.value)}
+                  placeholder="Enter category name"
+                  className="flex-1 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                />
+                <button
+                  onClick={handleAddCategory}
+                  className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
+                >
+                  Add
+                </button>
+                <button
+                  onClick={() => setIsAddingCategory(false)}
+                  className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+
+          <div className="space-y-2">
+            {categories.length > 0 ? (
+              categories.map((category) => (
+                <div
+                  key={category}
+                  className={`flex items-center justify-between p-3 rounded-md ${
+                    isDarkMode ? 'bg-gray-700' : 'bg-gray-50'
+                  }`}
+                >
+                  {editingCategory === category ? (
+                    <input
+                      type="text"
+                      value={editedCategoryName}
+                      onChange={(e) => setEditedCategoryName(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          handleUpdateCategory(category);
+                        }
+                      }}
+                      className="flex-1 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 mr-2"
+                      autoFocus
+                    />
+                  ) : (
+                    <span className={isDarkMode ? 'text-white' : 'text-gray-900'}>
+                      {category}
+                    </span>
+                  )}
+                  <div className="flex gap-2">
+                    {editingCategory === category ? (
+                      <>
+                        <button
+                          onClick={() => handleUpdateCategory(category)}
+                          className="px-2 py-1 bg-green-600 text-white rounded-md hover:bg-green-700"
+                        >
+                          Save
+                        </button>
+                        <button
+                          onClick={() => setEditingCategory(null)}
+                          className="px-2 py-1 border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-50"
+                        >
+                          Cancel
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          onClick={() => handleEditCategory(category)}
+                          className="p-1 text-gray-400 hover:text-gray-600"
+                        >
+                          <Edit2 className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteCategory(category)}
+                          className="p-1 text-gray-400 hover:text-red-500"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              ))
+            ) : (
+              <p className={`text-center py-4 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                No categories yet. Add your first category to get started.
+              </p>
+            )}
+          </div>
+        </div>
+      )}
 
       {(isAddingProduct || editingProduct) && (
         <div className={`rounded-lg ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow p-6`}>
@@ -106,19 +288,29 @@ export default function Products() {
               <label className={`block text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                 Category
               </label>
-              <select
-                value={formData.category}
-                onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                required
-              >
-                <option value="">Select a category</option>
-                {categories.map((category) => (
-                  <option key={category} value={category}>
-                    {category}
-                  </option>
-                ))}
-              </select>
+              <div className="flex gap-2">
+                <select
+                  value={formData.category}
+                  onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                  required
+                >
+                  <option value="">Select a category</option>
+                  {categories.map((category) => (
+                    <option key={category} value={category}>
+                      {category}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={() => setIsAddingCategory(true)}
+                  className="mt-1 px-3 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 flex items-center gap-1"
+                >
+                  <Plus className="h-4 w-4" />
+                  <Tag className="h-4 w-4" />
+                </button>
+              </div>
             </div>
             <div>
               <label className={`block text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
