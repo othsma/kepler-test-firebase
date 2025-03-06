@@ -7,6 +7,7 @@ import Clients from './pages/Clients';
 import Tickets from './pages/Tickets';
 import Products from './pages/Products';
 import Orders from './pages/Orders';
+import Invoices from './pages/Invoices';
 import Pos from './pages/Pos';
 import Settings from './pages/Settings';
 import Login from './pages/Login';
@@ -151,6 +152,11 @@ function App() {
           <Route path="pos/orders" element={
             <ProtectedRoute requiredRole={ROLES.SUPER_ADMIN}>
               <Orders />
+            </ProtectedRoute>
+          } />
+          <Route path="pos/invoices" element={
+            <ProtectedRoute requiredRole={ROLES.SUPER_ADMIN}>
+              <Invoices />
             </ProtectedRoute>
           } />
           

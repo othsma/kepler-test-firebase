@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Users, PenTool as Tool, ShoppingCart, Wrench, Settings, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, UserCog } from 'lucide-react';
+import { LayoutDashboard, Users, PenTool as Tool, ShoppingCart, Wrench, Settings, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, UserCog, FileText } from 'lucide-react';
 import { useThemeStore, useAuthStore } from '../lib/store';
 import { ROLES } from '../lib/firebase';
 
@@ -37,6 +37,7 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
           { name: 'Point of Sale', href: '/pos' },
           { name: 'Products', href: '/pos/products' },
           { name: 'Orders', href: '/pos/orders' },
+          { name: 'Invoices', href: '/pos/invoices', icon: FileText },
         ],
       });
       baseNavigation.push({ name: 'Settings', href: '/settings', icon: Settings });
