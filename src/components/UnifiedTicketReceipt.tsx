@@ -85,7 +85,7 @@ export default function UnifiedTicketReceipt({
     <div className="p-4 bg-white text-black" style={{ width: '80mm', margin: '0 auto' }} ref={receiptRef}>
       <div className="text-center mb-4">
         <h1 className="font-bold text-lg">O'MEGA SERVICES</h1>
-        <p className="text-xs">400 Rue nationale, 69400 Villefranche s/s</p>
+        <p className="text-xs">400 Rue nationale, 69400 Villefranche S/S</p>
         <p className="text-xs">Tel: 0986608980 | TVA: FR123456789</p>
       </div>
 
@@ -182,9 +182,9 @@ export default function UnifiedTicketReceipt({
       </div>
 
       <div className="text-center text-xs mt-4">
-        <p>Thank you for your business!</p>
+        <p>Your satisfaction is our success. Thank you for choosing us!</p>
         <p>This {type} serves as proof of service.</p>
-        <p>For any questions, please contact us at contact@omegaservices.com</p>
+        <p>For any questions, please contact us at contact@omegaservices.fr</p>
       </div>
     </div>
   );
@@ -204,9 +204,9 @@ export default function UnifiedTicketReceipt({
           </div>
           <div>
             <h1 className="text-2xl font-bold mb-1 text-gray-900">O'MEGA SERVICES</h1>
-            <p className="text-sm text-gray-600">400 Rue nationale, 69400 Villefranche s/s</p>
+            <p className="text-sm text-gray-600">400 Rue nationale, 69400 Villefranche S/S</p>
             <p className="text-sm text-gray-600">Tel: 0986608980</p>
-            <p className="text-sm text-gray-600">Email: contact@omegaservices.com</p>
+            <p className="text-sm text-gray-600">Email: contact@omegaservices.fr</p>
             <p className="text-sm text-gray-600">TVA: FR123456789</p>
           </div>
         </div>
@@ -304,7 +304,7 @@ export default function UnifiedTicketReceipt({
           <ol className="list-decimal list-inside text-sm text-gray-600 pl-4">
             <li>All repairs come with a 90-day warranty.</li>
             <li>Payment is due upon completion of service.</li>
-            <li>Unclaimed devices after 30 days will incur storage fees.</li>
+            <li>Devices not claimed within 90 days will be subject to disposal or recycling.</li>
             <li>We are not responsible for data loss during repairs.</li>
             <li>This document serves as proof of service.</li>
           </ol>
@@ -325,8 +325,8 @@ export default function UnifiedTicketReceipt({
       </div>
       
       <div className="text-center text-sm text-gray-600 border-t border-gray-300 pt-4">
-        <p>Thank you for your business!</p>
-        <p>For any questions regarding this {type}, please contact us at contact@omegaservices.com</p>
+        <p>Your satisfaction is our success. Thank you for choosing us!</p>
+        <p>For any questions regarding this {type}, please contact us at contact@omegaservices.fr</p>
       </div>
     </div>
   );

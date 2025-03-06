@@ -52,7 +52,7 @@ export default function TicketReceipt({ ticket, clientId, onClose }: TicketRecei
               O'MEGA SERVICES
             </h1>
             <p className={isDarkMode ? 'text-gray-300' : 'text-gray-600'}>
-              400 Rue nationale, 69400 Villefranche s/s
+              400 Rue nationale, 69400 Villefranche S/S
             </p>
             <p className={isDarkMode ? 'text-gray-300' : 'text-gray-600'}>
               Tel: 0986608980

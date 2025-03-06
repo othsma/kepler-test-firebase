@@ -65,7 +65,7 @@ export default function ThermalReceipt({ invoice, onClose }: ThermalReceiptProps
               <h1 className="text-xl font-bold text-gray-900">O'MEGA SERVICES</h1>
               <div className="text-sm text-gray-600">
                 <p>400 Rue nationale</p>
-                <p>69400 Villefranche s/s</p>
+                <p>69400 Villefranche S/S</p>
                 <p>Tel: 0986608980</p>
                 <p>TVA: FR123456789</p>
               </div>

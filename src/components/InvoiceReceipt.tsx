@@ -39,7 +39,7 @@ export default function InvoiceReceipt({ invoice, onClose, format }: InvoiceRece
     <div className="p-4 bg-white text-xs" style={{ width: '80mm' }}>
       <div className="text-center mb-2">
         <h1 className="font-bold text-sm">O'MEGA SERVICES</h1>
-        <p className="text-[10px]">400 Rue nationale, 69400 Villefranche s/s</p>
+        <p className="text-[10px]">400 Rue nationale, 69400 Villefranche S/S</p>
         <p className="text-[10px]">Tel: 0986608980 | TVA: FR123456789</p>
       </div>
 

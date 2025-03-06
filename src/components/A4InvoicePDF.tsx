@@ -60,7 +60,7 @@ export default function A4InvoicePDF({ invoice }: { invoice: any }) {
       <Page size="A4" style={styles.page}>
         <View style={styles.header}>
           <Text style={styles.companyName}>O'MEGA SERVICES</Text>
-          <Text>400 Rue nationale, 69400 Villefranche s/s</Text>
+          <Text>400 Rue nationale, 69400 Villefranche S/S</Text>
           <Text>Tel: 0986608980 | TVA: FR123456789</Text>
         </View>
 

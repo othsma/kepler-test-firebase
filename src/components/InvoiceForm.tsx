@@ -82,7 +82,7 @@ export default function InvoiceForm({ ticket, clientId, onClose, type }: Invoice
                 <div>
                   <h1 className="text-2xl font-bold mb-2">O'MEGA SERVICES</h1>
                   <p>400 Rue nationale</p>
-                  <p>69400 Villefranche s/s</p>
+                  <p>69400 Villefranche S/S</p>
                   <p>Tel: 0986608980</p>
                 </div>
                 <div className="text-right">

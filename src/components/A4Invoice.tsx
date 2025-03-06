@@ -94,9 +94,9 @@ export default function A4Invoice({ invoice, onClose }: A4InvoiceProps) {
               </div>
               <div>
                 <h1 className="text-2xl font-bold mb-1 text-gray-900">O'MEGA SERVICES</h1>
-                <p className="text-sm text-gray-600">400 Rue nationale, 69400 Villefranche s/s</p>
+                <p className="text-sm text-gray-600">400 Rue nationale, 69400 Villefranche S/S</p>
                 <p className="text-sm text-gray-600">Tel: 0986608980</p>
-                <p className="text-sm text-gray-600">Email: contact@omegaservices.com</p>
+                <p className="text-sm text-gray-600">Email: contact@omegaservices.fr</p>
                 <p className="text-sm text-gray-600">TVA: FR123456789</p>
               </div>
             </div>
@@ -210,8 +210,8 @@ export default function A4Invoice({ invoice, onClose }: A4InvoiceProps) {
           </div>
           
           <div className="text-center text-sm text-gray-600 border-t border-gray-300 pt-4">
-            <p>Thank you for your business!</p>
-            <p>For any questions regarding this invoice, please contact us at contact@omegaservices.com</p>
+            <p>Your satisfaction is our success. Thank you for choosing us!</p>
+            <p>For any questions regarding this invoice, please contact us at contact@omegaservices.fr</p>
           </div>
         </div>
         
