@@ -85,10 +85,13 @@ export default function A4Invoice({ invoice, onClose }: A4InvoiceProps) {
             <div className="flex items-center">
               <div className="mr-4">
                 <div className="flex items-center">
-                  <div className="h-12 w-12 bg-indigo-600 rounded-full"></div>
-                  <div className="ml-2">
-                    <div className="h-3 w-3 bg-indigo-600 rounded-full"></div>
-                    <div className="h-3 w-3 bg-indigo-600 rounded-full mt-1"></div>
+                <div className="mr-4">
+                <img
+                  src="https://github.com/othsma/kepler-test-firebase/blob/main/src/omegalogo.png?raw=true"
+                  alt="O'MEGA SERVICES Logo"
+                  className="h-12 w-auto"
+                />
+             
                   </div>
                 </div>
               </div>
