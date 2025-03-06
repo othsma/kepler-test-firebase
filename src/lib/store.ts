@@ -19,7 +19,7 @@ interface ThemeState {
   toggleDarkMode: () => void;
 }
 
-export const useThemeStore = create<ThemeState>((set: any) => ({
+const useThemeStore = create<ThemeState>((set: any) => ({
   isDarkMode: false,
   toggleDarkMode: () => set((state: ThemeState) => ({ isDarkMode: !state.isDarkMode })),
 }));
@@ -31,7 +31,7 @@ interface UserState {
   toggleSidebar: () => void;
 }
 
-export const useUserStore = create<UserState>((set: any) => ({
+const useUserStore = create<UserState>((set: any) => ({
   language: 'en',
   setLanguage: (language: 'en' | 'es' | 'fr') => set({ language }),
   sidebarCollapsed: false,
@@ -55,7 +55,7 @@ interface AuthState {
   logout: () => void;
 }
 
-export const useAuthStore = create<AuthState>((set) => ({
+const useAuthStore = create<AuthState>((set) => ({
   user: null,
   userRole: null,
   userProfile: null,
@@ -93,7 +93,7 @@ interface ClientsState {
   deleteClient: (id: string) => Promise<void>;
 }
 
-export const useClientsStore = create<ClientsState>((set, get) => ({
+const useClientsStore = create<ClientsState>((set, get) => ({
   clients: [],
   loading: false,
   error: null,
@@ -255,7 +255,7 @@ const generateTicketNumber = () => {
   return `${month}${randomNum}`;
 };
 
-export const useTicketsStore = create<TicketsState>((set, get) => ({
+const useTicketsStore = create<TicketsState>((set, get) => ({
   tickets: [],
   settings: {
     deviceTypes: [],
@@ -382,7 +382,34 @@ export const useTicketsStore = create<TicketsState>((set, get) => ({
         updatedAt: serverTimestamp()
       };
       
+      // Add ticket to Firestore
       const docRef = await addDoc(collection(db, 'tickets'), ticketData);
+      
+      // Create corresponding invoice
+      const invoiceStore = useInvoicesStore.getState();
+      const invoiceData = {
+        date: new Date().toISOString(),
+        clientId: ticket.clientId,
+        items: ticket.taskPrices ? ticket.taskPrices.map(task => ({
+          id: 'task',
+          name: task.name,
+          quantity: 1,
+          price: task.price
+        })) : ticket.tasks.map(task => ({
+          id: 'task',
+          name: task,
+          quantity: 1,
+          price: ticket.cost / ticket.tasks.length
+        })),
+        subtotal: ticket.cost,
+        tax: ticket.cost * 0.2, // 20% VAT
+        total: ticket.cost * 1.2,
+        status: 'pending',
+        sourceType: 'ticket',
+        sourceId: docRef.id
+      };
+      
+      await invoiceStore.addInvoice(invoiceData);
       
       // Add the new ticket to the local state
       const newTicket = {
@@ -778,7 +805,7 @@ interface ProductsState {
   updateStock: (id: string, quantity: number) => Promise<void>;
 }
 
-export const useProductsStore = create<ProductsState>((set, get) => ({
+const useProductsStore = create<ProductsState>((set, get) => ({
   products: [],
   categories: [],
   loading: false,
@@ -850,7 +877,7 @@ export const useProductsStore = create<ProductsState>((set, get) => ({
     }
   },
   
-  updateProduct: async (id: string, productData: Partial<Product>) => {
+  updateProduct: async (i d: string, productData: Partial<Product>) => {
     set({ loading: true, error: null });
     try {
       const productRef = doc(db, 'products', id);
@@ -959,7 +986,7 @@ interface OrdersState {
   deleteOrder: (orderId: string) => Promise<void>;
 }
 
-export const useOrdersStore = create<OrdersState>((set, get) => ({
+const useOrdersStore = create<OrdersState>((set, get) => ({
   orders: [],
   cart: [],
   loading: false,
@@ -1007,7 +1034,6 @@ export const useOrdersStore = create<OrdersState>((set, get) => ({
     set({ loading: true, error: null });
     try {
       const { cart } = get();
-      
       const orderItems = items || [...cart];
       
       const orderData = {
@@ -1025,6 +1051,28 @@ export const useOrdersStore = create<OrdersState>((set, get) => ({
       
       const docRef = await addDoc(collection(db, 'orders'), orderData);
       
+      // Create corresponding invoice
+      const invoiceStore = useInvoicesStore.getState();
+      const invoiceData = {
+        date: new Date().toISOString(),
+        clientId,
+        items: orderItems.map(item => ({
+          id: item.productId,
+          name: item.name || '',
+          quantity: item.quantity,
+          price: item.price || 0,
+          sku: ''
+        })),
+        subtotal: total / 1.2, // Assuming 20% VAT
+        tax: total - (total / 1.2),
+        total,
+        status: 'pending',
+        sourceType: 'pos',
+        sourceId: docRef.id
+      };
+      
+      await invoiceStore.addInvoice(invoiceData);
+      
       // Update product stock
       for (const item of orderItems) {
         if (item.productId && item.productId !== 'custom') {
@@ -1037,13 +1085,11 @@ export const useOrdersStore = create<OrdersState>((set, get) => ({
               stock: product.stock - item.quantity
             });
             
-            // Update the product in the products store
             productsState.updateStock(item.productId, -item.quantity);
           }
         }
       }
       
-      // Add the new order to the local state
       const newOrder = {
         id: docRef.id,
         items: orderItems,
@@ -1078,7 +1124,6 @@ export const useOrdersStore = create<OrdersState>((set, get) => ({
       const orderRef = doc(db, 'orders', orderId);
       await updateDoc(orderRef, orderData);
       
-      // Update the order in the local state
       set(state => ({
         orders: state.orders.map(order => 
           order.id === orderId ? { ...order, ...orderData } : order
@@ -1097,7 +1142,6 @@ export const useOrdersStore = create<OrdersState>((set, get) => ({
       const orderRef = doc(db, 'orders', orderId);
       await updateDoc(orderRef, { status });
       
-      // Update the order in the local state
       set(state => ({
         orders: state.orders.map(order => 
           order.id === orderId ? { ...order, status } : order
@@ -1115,7 +1159,6 @@ export const useOrdersStore = create<OrdersState>((set, get) => ({
     try {
       await deleteDoc(doc(db, 'orders', orderId));
       
-      // Remove the order from the local state
       set(state => ({
         orders: state.orders.filter(order => order.id !== orderId),
         loading: false
@@ -1132,6 +1175,7 @@ interface InvoiceItem {
   name: string;
   quantity: number;
   price: number;
+  sku?: string;
 }
 
 interface Invoice {
@@ -1144,6 +1188,11 @@ interface Invoice {
   tax: number;
   total: number;
   status: 'pending' | 'completed' | 'cancelled';
+  paymentMethod?: string;
+  paymentStatus?: string;
+  amountPaid?: number;
+  sourceType: 'pos' | 'ticket';
+  sourceId: string;
   createdAt: string;
 }
 
@@ -1164,7 +1213,7 @@ const generateInvoiceNumber = () => {
   return `${month}${randomNum}`;
 };
 
-export const useInvoicesStore = create<InvoicesState>((set, get) => ({
+const useInvoicesStore = create<InvoicesState>((set, get) => ({
   invoices: [],
   loading: false,
   error: null,
@@ -1205,7 +1254,6 @@ export const useInvoicesStore = create<InvoicesState>((set, get) => ({
       
       const docRef = await addDoc(collection(db, 'invoices'), invoiceData);
       
-      // Add the new invoice to the local state
       const newInvoice = {
         id: docRef.id,
         invoiceNumber,
@@ -1228,7 +1276,6 @@ export const useInvoicesStore = create<InvoicesState>((set, get) => ({
     try {
       const invoiceRef = doc(db, 'invoices', id);
       
-      // Convert date to Firestore timestamp if it exists
       const updateData = { ...invoiceData };
       if (updateData.date) {
         updateData.date = Timestamp.fromDate(new Date(updateData.date));
@@ -1236,7 +1283,6 @@ export const useInvoicesStore = create<InvoicesState>((set, get) => ({
       
       await updateDoc(invoiceRef, updateData);
       
-      // Update the invoice in the local state
       set(state => ({
         invoices: state.invoices.map(invoice => 
           invoice.id === id ? { ...invoice, ...invoiceData } : invoice
@@ -1255,7 +1301,6 @@ export const useInvoicesStore = create<InvoicesState>((set, get) => ({
       const invoiceRef = doc(db, 'invoices', invoiceId);
       await updateDoc(invoiceRef, { status });
       
-      // Update the invoice in the local state
       set(state => ({
         invoices: state.invoices.map(invoice => 
           invoice.id === invoiceId ? { ...invoice, status } : invoice
@@ -1273,7 +1318,6 @@ export const useInvoicesStore = create<InvoicesState>((set, get) => ({
     try {
       await deleteDoc(doc(db, 'invoices', invoiceId));
       
-      // Remove the invoice from the local state
       set(state => ({
         invoices: state.invoices.filter(invoice => invoice.id !== invoiceId),
         loading: false
@@ -1285,5 +1329,17 @@ export const useInvoicesStore = create<InvoicesState>((set, get) => ({
   }
 }));
 
+// Export all stores
+export {
+  useThemeStore,
+  useUserStore,
+  useAuthStore,
+  useClientsStore,
+  useTicketsStore,
+  useProductsStore,
+  useOrdersStore,
+  useInvoicesStore
+};
+
 // Initialize the super admin account
-initializeSuperAdmin();
+initialize
