@@ -34,7 +34,7 @@ interface A4InvoiceProps {
   onClose: () => void;
 }
 
-export default function A4Invoice({ invoice, onClose }: A4InvoiceProps) 
+export default function A4Invoice({ invoice, onClose }: A4InvoiceProps) {
   const isDarkMode = useThemeStore((state) => state.isDarkMode);
   const invoiceRef = React.useRef<HTMLDivElement>(null);
 
@@ -68,7 +68,7 @@ export default function A4Invoice({ invoice, onClose }: A4InvoiceProps)
     ? invoice.total - invoice.amountPaid 
     : 0;
 
-  return 
+  return (
     <div className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-50">
       <div className={`relative w-[210mm] max-h-[90vh] overflow-y-auto ${isDarkMode ? 'bg-white' : 'bg-white'} rounded-lg shadow-xl`}>
         <div className="flex justify-between items-center p-4 border-b sticky top-0 bg-white z-10">
@@ -84,7 +84,13 @@ export default function A4Invoice({ invoice, onClose }: A4InvoiceProps)
           <div className="flex justify-between mb-8">
             <div className="flex items-center">
               <div className="mr-4">
-                <img src="https://github.com/othsma/kepler-test-firebase/blob/main/src/components/omegalogo.png?raw=true" alt="Logo" className="h-12 w-12" />
+                <div className="flex items-center">
+                  <div className="h-12 w-12 bg-indigo-600 rounded-full"></div>
+                  <div className="ml-2">
+                    <div className="h-3 w-3 bg-indigo-600 rounded-full"></div>
+                    <div className="h-3 w-3 bg-indigo-600 rounded-full mt-1"></div>
+                  </div>
+                </div>
               </div>
               <div>
                 <h1 className="text-2xl font-bold mb-1 text-gray-900">O'MEGA SERVICES</h1>
@@ -242,5 +248,5 @@ export default function A4Invoice({ invoice, onClose }: A4InvoiceProps)
         </div>
       </div>
     </div>
-  ;
-
+  );
+}
