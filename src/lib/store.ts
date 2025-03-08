@@ -877,7 +877,7 @@ const useProductsStore = create<ProductsState>((set, get) => ({
     }
   },
   
-  updateProduct: async (i d: string, productData: Partial<Product>) => {
+  updateProduct: async (id: string, productData: Partial<Product>) => {
     set({ loading: true, error: null });
     try {
       const productRef = doc(db, 'products', id);
@@ -1342,4 +1342,4 @@ export {
 };
 
 // Initialize the super admin account
-initialize
+initializeSuperAdmin();
