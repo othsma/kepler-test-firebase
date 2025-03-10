@@ -513,18 +513,28 @@ const useTicketsStore = create<TicketsState>((set, get) => ({
   },
   
   addDeviceType: async (type: string) => {
+    // Save current state to restore in case of error
+    const currentState = get();
+    
     try {
-      await addDoc(collection(db, 'settings', 'ticket', 'deviceTypes'), { name: type });
-      
+      // Optimistically update the state first
       set(state => ({
         settings: {
           ...state.settings,
           deviceTypes: [...state.settings.deviceTypes, type]
         }
       }));
+      
+      // Then perform the async operation
+      await addDoc(collection(db, 'settings', 'ticket', 'deviceTypes'), { name: type });
     } catch (error) {
       console.error('Error adding device type:', error);
-      set({ error: 'Failed to add device type' });
+      
+      // Restore previous state on error
+      set({
+        settings: currentState.settings,
+        error: 'Failed to add device type'
+      });
     }
   },
   
@@ -575,18 +585,28 @@ const useTicketsStore = create<TicketsState>((set, get) => ({
   },
   
   addBrand: async (brand: string) => {
+    // Save current state to restore in case of error
+    const currentState = get();
+    
     try {
-      await addDoc(collection(db, 'settings', 'ticket', 'brands'), { name: brand });
-      
+      // Optimistically update the state first
       set(state => ({
         settings: {
           ...state.settings,
           brands: [...state.settings.brands, brand]
         }
       }));
+      
+      // Then perform the async operation
+      await addDoc(collection(db, 'settings', 'ticket', 'brands'), { name: brand });
     } catch (error) {
       console.error('Error adding brand:', error);
-      set({ error: 'Failed to add brand' });
+      
+      // Restore previous state on error
+      set({
+        settings: currentState.settings,
+        error: 'Failed to add brand'
+      });
     }
   },
   
@@ -662,21 +682,44 @@ const useTicketsStore = create<TicketsState>((set, get) => ({
   },
   
   addModel: async (model: { name: string; brandId: string }) => {
+    // Save current state to restore in case of error
+    const currentState = get();
+    
     try {
-      const docRef = await addDoc(collection(db, 'settings', 'ticket', 'models'), model);
+      // Create a temporary ID for optimistic update
+      const tempId = `temp-${Date.now()}`;
       
+      // Optimistically update the state first
       set(state => ({
         settings: {
           ...state.settings,
           models: [
             ...state.settings.models,
-            { ...model, id: docRef.id }
+            { ...model, id: tempId }
           ]
+        }
+      }));
+      
+      // Then perform the async operation
+      const docRef = await addDoc(collection(db, 'settings', 'ticket', 'models'), model);
+      
+      // Update with the real ID
+      set(state => ({
+        settings: {
+          ...state.settings,
+          models: state.settings.models.map(m => 
+            m.id === tempId ? { ...model, id: docRef.id } : m
+          )
         }
       }));
     } catch (error) {
       console.error('Error adding model:', error);
-      set({ error: 'Failed to add model' });
+      
+      // Restore previous state on error
+      set({
+        settings: currentState.settings,
+        error: 'Failed to add model'
+      });
     }
   },
   
@@ -715,18 +758,28 @@ const useTicketsStore = create<TicketsState>((set, get) => ({
   },
   
   addTask: async (task: string) => {
+    // Save current state to restore in case of error
+    const currentState = get();
+    
     try {
-      await addDoc(collection(db, 'settings', 'ticket', 'tasks'), { name: task });
-      
+      // Optimistically update the state first
       set(state => ({
         settings: {
           ...state.settings,
           tasks: [...state.settings.tasks, task]
         }
       }));
+      
+      // Then perform the async operation
+      await addDoc(collection(db, 'settings', 'ticket', 'tasks'), { name: task });
     } catch (error) {
       console.error('Error adding task:', error);
-      set({ error: 'Failed to add task' });
+      
+      // Restore previous state on error
+      set({
+        settings: currentState.settings,
+        error: 'Failed to add task'
+      });
     }
   },
   
