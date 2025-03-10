@@ -4,7 +4,7 @@ import { onAuthStateChanged, getAuth } from 'firebase/auth';
 import Layout from './components/Layout';
 import Dashboard from './pages/Dashboard';
 import Clients from './pages/Clients';
-import Tickets from './pages/NewTickets';
+import Tickets from './pages/SimpleTickets';
 import Products from './pages/Products';
 import Orders from './pages/Orders';
 import Invoices from './pages/Invoices';
