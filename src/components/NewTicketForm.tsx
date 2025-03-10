@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useThemeStore, useTicketsStore, TaskWithPrice, useAuthStore } from '../lib/store';
 import { Plus, Minus, DollarSign } from 'lucide-react';
 import { getAllTechnicians, ROLES } from '../lib/firebase';
@@ -22,11 +22,32 @@ interface TicketFormProps {
   };
 }
 
-export default function TicketForm({ clientId, onSubmit, onCancel, editingTicket, initialData }: TicketFormProps) {
+export default function NewTicketForm({ clientId, onSubmit, onCancel, editingTicket, initialData }: TicketFormProps) {
   const isDarkMode = useThemeStore((state) => state.isDarkMode);
-  const { settings, addTicket, updateTicket, addDeviceType, addBrand, addModel, addTask, loading } = useTicketsStore();
+  const { settings, addTicket, updateTicket, loading } = useTicketsStore();
   const { user, userRole } = useAuthStore();
 
+  // State for form data
+  const [deviceType, setDeviceType] = useState(initialData?.deviceType || '');
+  const [brand, setBrand] = useState(initialData?.brand || '');
+  const [model, setModel] = useState(initialData?.model || '');
+  const [tasksWithPrice, setTasksWithPrice] = useState<TaskWithPrice[]>(
+    initialData?.taskPrices || 
+    initialData?.tasks.map(task => ({
+      name: task,
+      price: initialData.cost / initialData.tasks.length
+    })) || []
+  );
+  const [issue, setIssue] = useState(initialData?.issue || '');
+  const [passcode, setPasscode] = useState(initialData?.passcode || '');
+  const [status, setStatus] = useState<'pending' | 'in-progress' | 'completed'>(
+    initialData?.status || 'pending'
+  );
+  const [technicianId, setTechnicianId] = useState(
+    initialData?.technicianId || (userRole === ROLES.TECHNICIAN ? user?.uid : '') || ''
+  );
+
+  // State for UI controls
   const [deviceTypeSearch, setDeviceTypeSearch] = useState('');
   const [brandSearch, setBrandSearch] = useState('');
   const [newModelName, setNewModelName] = useState('');
@@ -34,49 +55,26 @@ export default function TicketForm({ clientId, onSubmit, onCancel, editingTicket
   const [newTaskInput, setNewTaskInput] = useState('');
   const [newTaskCost, setNewTaskCost] = useState(0);
   const [technicians, setTechnicians] = useState<any[]>([]);
-  
-  // Convert initial tasks to task with price objects
-  const initialTasksWithPrice = initialData?.taskPrices || 
-    initialData?.tasks.map(task => ({
-      name: task,
-      price: initialData.cost / initialData.tasks.length // Distribute cost evenly for initial data
-    })) || [];
-
-  // Use a ref to maintain form state across re-renders
-  const formDataRef = useRef({
-    deviceType: initialData?.deviceType || '',
-    brand: initialData?.brand || '',
-    model: initialData?.model || '',
-    tasksWithPrice: initialTasksWithPrice,
-    issue: initialData?.issue || '',
-    passcode: initialData?.passcode || '',
-    status: initialData?.status || 'pending' as const,
-    technicianId: initialData?.technicianId || (userRole === ROLES.TECHNICIAN ? user?.uid : ''),
-  });
-
-  const [formData, setFormData] = useState(formDataRef.current);
-
-  // Update the ref when formData changes
-  useEffect(() => {
-    formDataRef.current = formData;
-  }, [formData]);
+  const [popularTasks, setPopularTasks] = useState<string[]>([]);
+  const [localSettings, setLocalSettings] = useState(settings);
 
   // Update form data when initialData changes
   useEffect(() => {
     if (initialData) {
-      setFormData({
-        deviceType: initialData.deviceType,
-        brand: initialData.brand,
-        model: initialData.model,
-        tasksWithPrice: initialData.taskPrices || initialData.tasks.map(task => ({
+      setDeviceType(initialData.deviceType);
+      setBrand(initialData.brand);
+      setModel(initialData.model);
+      setTasksWithPrice(
+        initialData.taskPrices || 
+        initialData.tasks.map(task => ({
           name: task,
           price: initialData.cost / initialData.tasks.length
-        })),
-        issue: initialData.issue,
-        passcode: initialData.passcode || '',
-        status: initialData.status,
-        technicianId: initialData.technicianId || (userRole === ROLES.TECHNICIAN ? user?.uid : ''),
-      });
+        }))
+      );
+      setIssue(initialData.issue);
+      setPasscode(initialData.passcode || '');
+      setStatus(initialData.status);
+      setTechnicianId(initialData.technicianId || (userRole === ROLES.TECHNICIAN ? user?.uid : '') || '');
 
       // Set search fields to match initial data
       setDeviceTypeSearch(initialData.deviceType);
@@ -96,11 +94,7 @@ export default function TicketForm({ clientId, onSubmit, onCancel, editingTicket
     fetchTechnicians();
   }, [userRole]);
 
-  // Calculate total cost from all tasks
-  const totalCost = formData.tasksWithPrice.reduce((sum, task) => sum + task.price, 0);
-
   // Get most used tasks
-  const [popularTasks, setPopularTasks] = useState<string[]>([]);
   useEffect(() => {
     const tickets = useTicketsStore.getState().tickets;
     const taskCounts = new Map<string, number>();
@@ -116,17 +110,27 @@ export default function TicketForm({ clientId, onSubmit, onCancel, editingTicket
     setPopularTasks(sortedTasks);
   }, []);
 
+  // Calculate total cost from all tasks
+  const totalCost = tasksWithPrice.reduce((sum, task) => sum + task.price, 0);
+
+  // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     // Extract task names for the ticket
-    const tasks = formData.tasksWithPrice.map(task => task.name);
+    const tasks = tasksWithPrice.map(task => task.name);
     
     if (editingTicket) {
       await updateTicket(editingTicket, { 
-        ...formData, 
+        deviceType,
+        brand,
+        model,
         tasks, 
-        taskPrices: formData.tasksWithPrice, // Save task prices
+        taskPrices: tasksWithPrice,
+        issue,
+        passcode,
+        status,
+        technicianId,
         cost: totalCost,
         clientId 
       });
@@ -138,183 +142,178 @@ export default function TicketForm({ clientId, onSubmit, onCancel, editingTicket
       }
       
       const ticket = { 
-        ...formData, 
+        deviceType,
+        brand,
+        model,
         tasks,
-        taskPrices: formData.tasksWithPrice, // Save task prices
+        taskPrices: tasksWithPrice,
+        issue,
+        passcode,
+        status,
         cost: totalCost,
         clientId, 
-        technicianId: formData.technicianId || '' 
+        technicianId: technicianId || '' 
       };
       const newTicketNumber = await addTicket(ticket);
       onSubmit(newTicketNumber);
     }
   };
 
-  const handleTaskToggle = (taskName: string) => {
-    const taskExists = formDataRef.current.tasksWithPrice.some(t => t.name === taskName);
-    
-    if (taskExists) {
-      // Remove task
-      formDataRef.current = {
-        ...formDataRef.current,
-        tasksWithPrice: formDataRef.current.tasksWithPrice.filter(t => t.name !== taskName)
-      };
-    } else {
-      // Add task with default cost
-      formDataRef.current = {
-        ...formDataRef.current,
-        tasksWithPrice: [...formDataRef.current.tasksWithPrice, { name: taskName, price: 0 }]
-      };
-    }
-    
-    // Update the state
-    setFormData(formDataRef.current);
-  };
-
-  const updateTaskPrice = (taskName: string, price: number) => {
-    formDataRef.current = {
-      ...formDataRef.current,
-      tasksWithPrice: formDataRef.current.tasksWithPrice.map(task => 
-        task.name === taskName ? { ...task, price } : task
-      )
-    };
-    
-    // Update the state
-    setFormData(formDataRef.current);
-  };
-
-  const handleDeviceTypeSelect = (type: string) => {
-    // First update the form data to preserve the selection
-    formDataRef.current = {
-      ...formDataRef.current,
-      deviceType: type
-    };
-    
-    // Update the state
-    setFormData(formDataRef.current);
-    
-    // Update the search field to match the selection but don't clear it
+  // Handle adding a new device type
+  const handleAddDeviceType = (type: string) => {
+    setDeviceType(type);
     setDeviceTypeSearch(type);
     
-    // Then add the new device type if needed in the background
-    if (!settings.deviceTypes.includes(type)) {
+    // Add to local settings if it doesn't exist
+    if (!localSettings.deviceTypes.includes(type)) {
+      setLocalSettings(prev => ({
+        ...prev,
+        deviceTypes: [...prev.deviceTypes, type]
+      }));
+      
+      // Add to global settings in the background
+      const { addDeviceType } = useTicketsStore.getState();
       setTimeout(() => {
-        addDeviceType(type)
-          .catch(error => {
-            console.error("Error adding device type:", error);
-          });
+        addDeviceType(type).catch(error => {
+          console.error("Error adding device type:", error);
+        });
       }, 0);
     }
   };
 
-  const handleBrandSelect = (brand: string) => {
-    // First update the form data to preserve the selection
-    // Note: We clear the model when changing brand
-    formDataRef.current = {
-      ...formDataRef.current,
-      brand,
-      model: ''
-    };
-    
-    // Update the state
-    setFormData(formDataRef.current);
-    
-    // Update the search field to match the selection but don't clear it
+  // Handle adding a new brand
+  const handleAddBrand = (brand: string) => {
+    setBrand(brand);
+    setModel(''); // Clear model when changing brand
     setBrandSearch(brand);
     
-    // Then add the new brand if needed in the background
-    if (!settings.brands.includes(brand)) {
+    // Add to local settings if it doesn't exist
+    if (!localSettings.brands.includes(brand)) {
+      setLocalSettings(prev => ({
+        ...prev,
+        brands: [...prev.brands, brand]
+      }));
+      
+      // Add to global settings in the background
+      const { addBrand } = useTicketsStore.getState();
       setTimeout(() => {
-        addBrand(brand)
-          .catch(error => {
-            console.error("Error adding brand:", error);
-          });
+        addBrand(brand).catch(error => {
+          console.error("Error adding brand:", error);
+        });
       }, 0);
     }
   };
 
-  const handleAddNewModel = () => {
+  // Handle adding a new model
+  const handleAddModel = () => {
     const trimmedModelName = newModelName.trim();
-    if (trimmedModelName && formDataRef.current.brand) {
-      // First update the form data to preserve the selection
-      formDataRef.current = {
-        ...formDataRef.current,
-        model: trimmedModelName
-      };
-      
-      // Update the state
-      setFormData(formDataRef.current);
-      
-      // Clear the new model input and exit adding mode
+    if (trimmedModelName && brand) {
+      setModel(trimmedModelName);
       setNewModelName('');
       setIsAddingModel(false);
       
-      // Then add the new model in the background
-      setTimeout(() => {
-        addModel({ name: trimmedModelName, brandId: formDataRef.current.brand })
-          .catch(error => {
-            console.error("Error adding new model:", error);
-          });
-      }, 0);
-    }
-  };
-
-  const handleAddNewTask = () => {
-    const value = newTaskInput.trim();
-    if (value && !formDataRef.current.tasksWithPrice.some(t => t.name === value)) {
-      // Create a new task
-      const newTask = { name: value, price: newTaskCost };
+      // Add to local settings if it doesn't exist
+      const modelExists = localSettings.models.some(m => 
+        m.name === trimmedModelName && m.brandId === brand
+      );
       
-      // Update the ref directly to ensure it's not lost
-      formDataRef.current = {
-        ...formDataRef.current,
-        tasksWithPrice: [...formDataRef.current.tasksWithPrice, newTask]
-      };
-      
-      // Then update the state
-      setFormData(formDataRef.current);
-      
-      // Clear the inputs for the next task
-      setNewTaskInput('');
-      setNewTaskCost(0);
-      
-      // Add the task to settings in the background
-      if (!settings.tasks.includes(value)) {
-        // Use setTimeout to make this non-blocking
+      if (!modelExists) {
+        const newModel = { id: `temp-${Date.now()}`, name: trimmedModelName, brandId: brand };
+        setLocalSettings(prev => ({
+          ...prev,
+          models: [...prev.models, newModel]
+        }));
+        
+        // Add to global settings in the background
+        const { addModel } = useTicketsStore.getState();
         setTimeout(() => {
-          addTask(value)
-            .then(() => {
-              // Update popular tasks to include the new task
-              setPopularTasks(prev => {
-                if (prev.includes(value)) return prev;
-                return [value, ...prev.slice(0, 5)];
-              });
-            })
-            .catch(error => {
-              console.error("Error adding new task:", error);
-            });
+          addModel({ name: trimmedModelName, brandId: brand }).catch(error => {
+            console.error("Error adding model:", error);
+          });
         }, 0);
       }
     }
   };
 
-  const filteredDeviceTypes = settings.deviceTypes.filter(type => 
+  // Handle adding a new task
+  const handleAddTask = () => {
+    const value = newTaskInput.trim();
+    if (value && !tasksWithPrice.some(t => t.name === value)) {
+      // Add to tasks with price
+      const newTask = { name: value, price: newTaskCost };
+      setTasksWithPrice(prev => [...prev, newTask]);
+      
+      // Clear inputs
+      setNewTaskInput('');
+      setNewTaskCost(0);
+      
+      // Add to local settings if it doesn't exist
+      if (!localSettings.tasks.includes(value)) {
+        setLocalSettings(prev => ({
+          ...prev,
+          tasks: [...prev.tasks, value]
+        }));
+        
+        // Add to global settings in the background
+        const { addTask } = useTicketsStore.getState();
+        setTimeout(() => {
+          addTask(value).then(() => {
+            // Update popular tasks to include the new task
+            setPopularTasks(prev => {
+              if (prev.includes(value)) return prev;
+              return [value, ...prev.slice(0, 5)];
+            });
+          }).catch(error => {
+            console.error("Error adding task:", error);
+          });
+        }, 0);
+      }
+    }
+  };
+
+  // Handle toggling a task
+  const handleTaskToggle = (taskName: string) => {
+    const taskExists = tasksWithPrice.some(t => t.name === taskName);
+    
+    if (taskExists) {
+      // Remove task
+      setTasksWithPrice(prev => prev.filter(t => t.name !== taskName));
+    } else {
+      // Add task with default cost
+      setTasksWithPrice(prev => [...prev, { name: taskName, price: 0 }]);
+    }
+  };
+
+  // Handle updating task price
+  const handleUpdateTaskPrice = (taskName: string, price: number) => {
+    setTasksWithPrice(prev => 
+      prev.map(task => task.name === taskName ? { ...task, price } : task)
+    );
+  };
+
+  // Filter device types based on search
+  const filteredDeviceTypes = localSettings.deviceTypes.filter(type => 
     type.toLowerCase().includes(deviceTypeSearch.toLowerCase())
   );
 
-  const filteredBrands = settings.brands.filter(brand => 
+  // Filter brands based on search
+  const filteredBrands = localSettings.brands.filter(brand => 
     brand.toLowerCase().includes(brandSearch.toLowerCase())
   );
 
-  const availableModels = settings.models.filter(model => 
-    model.brandId === formData.brand
+  // Filter models based on selected brand
+  const availableModels = localSettings.models.filter(model => 
+    model.brandId === brand
   );
 
-  // Combine popular tasks with all tasks to ensure new tasks are displayed
-  const displayedTasks = [...new Set([...popularTasks, ...settings.tasks.filter(task => 
-    !popularTasks.includes(task) && 
-    task.toLowerCase().includes(newTaskInput.toLowerCase())
-  )])].slice(0, 8);
+  // Combine popular tasks with all tasks for display
+  const displayedTasks = [...new Set([
+    ...popularTasks, 
+    ...localSettings.tasks.filter(task => 
+      !popularTasks.includes(task) && 
+      task.toLowerCase().includes(newTaskInput.toLowerCase())
+    )
+  ])].slice(0, 8);
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
@@ -325,11 +324,11 @@ export default function TicketForm({ clientId, onSubmit, onCancel, editingTicket
         <div className="relative">
           <input
             type="text"
-            value={deviceTypeSearch || formData.deviceType}
+            value={deviceTypeSearch}
             onChange={(e) => {
               setDeviceTypeSearch(e.target.value);
               if (!e.target.value) {
-                setFormData({ ...formData, deviceType: '' });
+                setDeviceType('');
               }
             }}
             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
@@ -348,7 +347,7 @@ export default function TicketForm({ clientId, onSubmit, onCancel, editingTicket
                 <div
                   key={type}
                   className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
-                  onClick={() => handleDeviceTypeSelect(type)}
+                  onClick={() => handleAddDeviceType(type)}
                 >
                   {type}
                 </div>
@@ -356,7 +355,7 @@ export default function TicketForm({ clientId, onSubmit, onCancel, editingTicket
               {!filteredDeviceTypes.includes(deviceTypeSearch) && (
                 <div
                   className="px-4 py-2 hover:bg-gray-100 cursor-pointer text-indigo-600"
-                  onClick={() => handleDeviceTypeSelect(deviceTypeSearch)}
+                  onClick={() => handleAddDeviceType(deviceTypeSearch)}
                 >
                   Add "{deviceTypeSearch}"
                 </div>
@@ -373,11 +372,12 @@ export default function TicketForm({ clientId, onSubmit, onCancel, editingTicket
         <div className="relative">
           <input
             type="text"
-            value={brandSearch || formData.brand}
+            value={brandSearch}
             onChange={(e) => {
               setBrandSearch(e.target.value);
               if (!e.target.value) {
-                setFormData({ ...formData, brand: '', model: '' });
+                setBrand('');
+                setModel('');
               }
             }}
             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
@@ -396,7 +396,7 @@ export default function TicketForm({ clientId, onSubmit, onCancel, editingTicket
                 <div
                   key={brand}
                   className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
-                  onClick={() => handleBrandSelect(brand)}
+                  onClick={() => handleAddBrand(brand)}
                 >
                   {brand}
                 </div>
@@ -404,7 +404,7 @@ export default function TicketForm({ clientId, onSubmit, onCancel, editingTicket
               {!filteredBrands.includes(brandSearch) && (
                 <div
                   className="px-4 py-2 hover:bg-gray-100 cursor-pointer text-indigo-600"
-                  onClick={() => handleBrandSelect(brandSearch)}
+                  onClick={() => handleAddBrand(brandSearch)}
                 >
                   Add "{brandSearch}"
                 </div>
@@ -430,14 +430,14 @@ export default function TicketForm({ clientId, onSubmit, onCancel, editingTicket
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
                   e.preventDefault(); // Prevent form submission
-                  handleAddNewModel();
+                  handleAddModel();
                   return false;
                 }
               }}
             />
             <button
               type="button"
-              onClick={handleAddNewModel}
+              onClick={handleAddModel}
               className="px-3 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
             >
               Add
@@ -456,8 +456,8 @@ export default function TicketForm({ clientId, onSubmit, onCancel, editingTicket
         ) : (
           <div className="flex gap-2 mt-1">
             <select
-              value={formData.model}
-              onChange={(e) => setFormData({ ...formData, model: e.target.value })}
+              value={model}
+              onChange={(e) => setModel(e.target.value)}
               className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
               required
             >
@@ -468,7 +468,7 @@ export default function TicketForm({ clientId, onSubmit, onCancel, editingTicket
                 </option>
               ))}
             </select>
-            {formData.brand && (
+            {brand && (
               <button
                 type="button"
                 onClick={() => setIsAddingModel(true)}
@@ -489,8 +489,8 @@ export default function TicketForm({ clientId, onSubmit, onCancel, editingTicket
             Assign to Technician
           </label>
           <select
-            value={formData.technicianId}
-            onChange={(e) => setFormData({ ...formData, technicianId: e.target.value })}
+            value={technicianId}
+            onChange={(e) => setTechnicianId(e.target.value)}
             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
           >
             <option value="">Unassigned</option>
@@ -520,13 +520,13 @@ export default function TicketForm({ clientId, onSubmit, onCancel, editingTicket
               <label key={task} className="flex items-center space-x-2">
                 <input
                   type="checkbox"
-                  checked={formData.tasksWithPrice.some(t => t.name === task)}
+                  checked={tasksWithPrice.some(t => t.name === task)}
                   onChange={() => handleTaskToggle(task)}
                   className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
                 />
                 <span className={isDarkMode ? 'text-gray-300' : 'text-gray-700'}>
                   {task}
-                  {!popularTasks.includes(task) && formData.tasksWithPrice.some(t => t.name === task) && (
+                  {!popularTasks.includes(task) && tasksWithPrice.some(t => t.name === task) && (
                     <span className="ml-1 text-green-600">✓</span>
                   )}
                 </span>
@@ -545,7 +545,7 @@ export default function TicketForm({ clientId, onSubmit, onCancel, editingTicket
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
                   e.preventDefault(); // Prevent form submission
-                  handleAddNewTask();
+                  handleAddTask();
                   return false; // Ensure no other handlers are triggered
                 }
               }}
@@ -561,7 +561,7 @@ export default function TicketForm({ clientId, onSubmit, onCancel, editingTicket
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
                     e.preventDefault(); // Prevent form submission
-                    handleAddNewTask();
+                    handleAddTask();
                     return false; // Ensure no other handlers are triggered
                   }
                 }}
@@ -569,7 +569,7 @@ export default function TicketForm({ clientId, onSubmit, onCancel, editingTicket
             </div>
             <button
               type="button"
-              onClick={handleAddNewTask}
+              onClick={handleAddTask}
               className="px-3 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 flex items-center gap-1"
             >
               <Plus className="h-4 w-4" />
@@ -578,13 +578,13 @@ export default function TicketForm({ clientId, onSubmit, onCancel, editingTicket
           </div>
           
           {/* Selected tasks with cost */}
-          {formData.tasksWithPrice.length > 0 && (
+          {tasksWithPrice.length > 0 && (
             <div className="mt-4">
               <h4 className={`text-sm font-medium mb-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                 Selected Tasks
               </h4>
               <div className="space-y-2 border rounded-md p-3">
-                {formData.tasksWithPrice.map((task) => (
+                {tasksWithPrice.map((task) => (
                   <div key={task.name} className="flex items-center justify-between">
                     <div className="flex items-center">
                       <button
@@ -603,7 +603,7 @@ export default function TicketForm({ clientId, onSubmit, onCancel, editingTicket
                       <input
                         type="number"
                         value={task.price}
-                        onChange={(e) => updateTaskPrice(task.name, Number(e.target.value))}
+                        onChange={(e) => handleUpdateTaskPrice(task.name, Number(e.target.value))}
                         className="w-20 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                         onKeyDown={(e) => {
                           if (e.key === 'Enter') {
@@ -627,8 +627,8 @@ export default function TicketForm({ clientId, onSubmit, onCancel, editingTicket
         </label>
         <input
           type="text"
-          value={formData.passcode}
-          onChange={(e) => setFormData({ ...formData, passcode: e.target.value })}
+          value={passcode}
+          onChange={(e) => setPasscode(e.target.value)}
           className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
           onKeyDown={(e) => {
             if (e.key === 'Enter') {
@@ -644,8 +644,8 @@ export default function TicketForm({ clientId, onSubmit, onCancel, editingTicket
           Issue Description (Optional)
         </label>
         <textarea
-          value={formData.issue}
-          onChange={(e) => setFormData({ ...formData, issue: e.target.value })}
+          value={issue}
+          onChange={(e) => setIssue(e.target.value)}
           className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
           onKeyDown={(e) => {
             if (e.key === 'Enter' && !e.shiftKey) {

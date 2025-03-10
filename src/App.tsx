@@ -4,7 +4,7 @@ import { onAuthStateChanged, getAuth } from 'firebase/auth';
 import Layout from './components/Layout';
 import Dashboard from './pages/Dashboard';
 import Clients from './pages/Clients';
-import Tickets from './pages/Tickets';
+import Tickets from './pages/NewTickets';
 import Products from './pages/Products';
 import Orders from './pages/Orders';
 import Invoices from './pages/Invoices';
@@ -82,7 +82,17 @@ function App() {
   }, []);
 
   // Protected route component with role-based access
-  const ProtectedRoute = ({ children, requiredRole = null, allowedRoles = null }) => {
+  interface ProtectedRouteProps {
+    children: React.ReactNode;
+    requiredRole?: string | null;
+    allowedRoles?: string[] | null;
+  }
+
+  const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ 
+    children, 
+    requiredRole = null, 
+    allowedRoles = null 
+  }) => {
     if (loading) {
       return <LoadingScreen />;
     }
@@ -97,11 +107,11 @@ function App() {
     }
     
     // Check if user's role is in the allowed roles list
-    if (allowedRoles && !allowedRoles.includes(userRole)) {
+    if (allowedRoles && userRole && !allowedRoles.includes(userRole)) {
       return <AccessDenied />;
     }
     
-    return children;
+    return <>{children}</>;
   };
 
   if (loading) {
