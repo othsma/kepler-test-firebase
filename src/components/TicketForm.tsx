@@ -171,91 +171,93 @@ export default function TicketForm({ clientId, onSubmit, onCancel, editingTicket
     }));
   };
 
-  const handleDeviceTypeSelect = async (type: string) => {
-    try {
-      // First update the form data to preserve the selection
-      setFormData(prev => ({ ...prev, deviceType: type }));
-      
-      // Then add the new device type if needed
-      if (!settings.deviceTypes.includes(type)) {
-        await addDeviceType(type);
-      }
-      
-      // Update the search field to match the selection but don't clear it
-      setDeviceTypeSearch(type);
-    } catch (error) {
-      console.error("Error selecting device type:", error);
-      // In case of error, we could show an error message here
+  const handleDeviceTypeSelect = (type: string) => {
+    // First update the form data to preserve the selection
+    setFormData(prev => ({ ...prev, deviceType: type }));
+    
+    // Update the search field to match the selection but don't clear it
+    setDeviceTypeSearch(type);
+    
+    // Then add the new device type if needed in the background
+    if (!settings.deviceTypes.includes(type)) {
+      setTimeout(() => {
+        addDeviceType(type)
+          .catch(error => {
+            console.error("Error adding device type:", error);
+          });
+      }, 0);
     }
   };
 
-  const handleBrandSelect = async (brand: string) => {
-    try {
-      // First update the form data to preserve the selection
-      // Note: We clear the model when changing brand
-      setFormData(prev => ({ ...prev, brand, model: '' }));
-      
-      // Then add the new brand if needed
-      if (!settings.brands.includes(brand)) {
-        await addBrand(brand);
-      }
-      
-      // Update the search field to match the selection but don't clear it
-      setBrandSearch(brand);
-    } catch (error) {
-      console.error("Error selecting brand:", error);
-      // In case of error, we could show an error message here
+  const handleBrandSelect = (brand: string) => {
+    // First update the form data to preserve the selection
+    // Note: We clear the model when changing brand
+    setFormData(prev => ({ ...prev, brand, model: '' }));
+    
+    // Update the search field to match the selection but don't clear it
+    setBrandSearch(brand);
+    
+    // Then add the new brand if needed in the background
+    if (!settings.brands.includes(brand)) {
+      setTimeout(() => {
+        addBrand(brand)
+          .catch(error => {
+            console.error("Error adding brand:", error);
+          });
+      }, 0);
     }
   };
 
-  const handleAddNewModel = async () => {
+  const handleAddNewModel = () => {
     const trimmedModelName = newModelName.trim();
     if (trimmedModelName && formData.brand) {
-      try {
-        // First update the form data to preserve the selection
-        setFormData(prev => ({ ...prev, model: trimmedModelName }));
-        
-        // Then add the new model
-        await addModel({ name: trimmedModelName, brandId: formData.brand });
-        
-        // Clear the new model input and exit adding mode
-        setNewModelName('');
-        setIsAddingModel(false);
-      } catch (error) {
-        console.error("Error adding new model:", error);
-        // In case of error, we could show an error message here
-      }
+      // First update the form data to preserve the selection
+      setFormData(prev => ({ ...prev, model: trimmedModelName }));
+      
+      // Clear the new model input and exit adding mode
+      setNewModelName('');
+      setIsAddingModel(false);
+      
+      // Then add the new model in the background
+      setTimeout(() => {
+        addModel({ name: trimmedModelName, brandId: formData.brand })
+          .catch(error => {
+            console.error("Error adding new model:", error);
+          });
+      }, 0);
     }
   };
 
-  const handleAddNewTask = async () => {
+  const handleAddNewTask = () => {
     const value = newTaskInput.trim();
     if (value && !formData.tasksWithPrice.some(t => t.name === value)) {
-      try {
-        // First update the form data to preserve the task and its cost
-        const newTask = { name: value, price: newTaskCost };
-        setFormData(prev => ({
-          ...prev,
-          tasksWithPrice: [...prev.tasksWithPrice, newTask]
-        }));
-        
-        // Then add the new task if needed
-        if (!settings.tasks.includes(value)) {
-          await addTask(value);
-          
-          // Update popular tasks to include the new task
-          setPopularTasks(prev => {
-            if (prev.includes(value)) return prev;
-            return [value, ...prev.slice(0, 5)];
-          });
-        }
-        
-        // Clear the inputs for the next task
-        setNewTaskInput('');
-        setNewTaskCost(0);
-      } catch (error) {
-        console.error("Error adding new task:", error);
-        // In case of error, we could show an error message here
+      // Update the form data with the new task
+      const newTask = { name: value, price: newTaskCost };
+      setFormData(prev => ({
+        ...prev,
+        tasksWithPrice: [...prev.tasksWithPrice, newTask]
+      }));
+      
+      // Clear the inputs for the next task
+      setNewTaskInput('');
+      setNewTaskCost(0);
+      
+      // Add the task to settings in the background
+      if (!settings.tasks.includes(value)) {
+        // Use setTimeout to make this non-blocking
+        setTimeout(() => {
+          addTask(value)
+            .then(() => {
+              // Update popular tasks to include the new task
+              setPopularTasks(prev => {
+                if (prev.includes(value)) return prev;
+                return [value, ...prev.slice(0, 5)];
+              });
+            })
+            .catch(error => {
+              console.error("Error adding new task:", error);
+            });
+        }, 0);
       }
     }
   };
@@ -297,6 +299,12 @@ export default function TicketForm({ clientId, onSubmit, onCancel, editingTicket
             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
             placeholder="Search or add new device type"
             required
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault(); // Prevent form submission
+                return false;
+              }
+            }}
           />
           {deviceTypeSearch && (
             <div className="absolute z-10 w-full mt-1 bg-white rounded-md shadow-lg">
@@ -339,6 +347,12 @@ export default function TicketForm({ clientId, onSubmit, onCancel, editingTicket
             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
             placeholder="Search or add new brand"
             required
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault(); // Prevent form submission
+                return false;
+              }
+            }}
           />
           {brandSearch && (
             <div className="absolute z-10 w-full mt-1 bg-white rounded-md shadow-lg">
@@ -377,6 +391,13 @@ export default function TicketForm({ clientId, onSubmit, onCancel, editingTicket
               placeholder="Enter new model name"
               className="flex-1 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
               autoFocus
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault(); // Prevent form submission
+                  handleAddNewModel();
+                  return false;
+                }
+              }}
             />
             <button
               type="button"
@@ -487,8 +508,9 @@ export default function TicketForm({ clientId, onSubmit, onCancel, editingTicket
               className="flex-1 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
-                  e.preventDefault();
+                  e.preventDefault(); // Prevent form submission
                   handleAddNewTask();
+                  return false; // Ensure no other handlers are triggered
                 }
               }}
             />
@@ -500,6 +522,13 @@ export default function TicketForm({ clientId, onSubmit, onCancel, editingTicket
                 onChange={(e) => setNewTaskCost(Number(e.target.value))}
                 placeholder="Cost"
                 className="w-20 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault(); // Prevent form submission
+                    handleAddNewTask();
+                    return false; // Ensure no other handlers are triggered
+                  }
+                }}
               />
             </div>
             <button
@@ -540,6 +569,12 @@ export default function TicketForm({ clientId, onSubmit, onCancel, editingTicket
                         value={task.price}
                         onChange={(e) => updateTaskPrice(task.name, Number(e.target.value))}
                         className="w-20 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault(); // Prevent form submission
+                            return false;
+                          }
+                        }}
                       />
                     </div>
                   </div>
@@ -559,6 +594,12 @@ export default function TicketForm({ clientId, onSubmit, onCancel, editingTicket
           value={formData.passcode}
           onChange={(e) => setFormData({ ...formData, passcode: e.target.value })}
           className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault(); // Prevent form submission
+              return false;
+            }
+          }}
         />
       </div>
 
@@ -570,6 +611,12 @@ export default function TicketForm({ clientId, onSubmit, onCancel, editingTicket
           value={formData.issue}
           onChange={(e) => setFormData({ ...formData, issue: e.target.value })}
           className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault(); // Prevent form submission
+              return false;
+            }
+          }}
         />
       </div>
 
