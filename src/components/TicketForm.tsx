@@ -172,50 +172,91 @@ export default function TicketForm({ clientId, onSubmit, onCancel, editingTicket
   };
 
   const handleDeviceTypeSelect = async (type: string) => {
-    if (!settings.deviceTypes.includes(type)) {
-      await addDeviceType(type);
+    try {
+      // First update the form data to preserve the selection
+      setFormData(prev => ({ ...prev, deviceType: type }));
+      
+      // Then add the new device type if needed
+      if (!settings.deviceTypes.includes(type)) {
+        await addDeviceType(type);
+      }
+      
+      // Update the search field to match the selection but don't clear it
+      setDeviceTypeSearch(type);
+    } catch (error) {
+      console.error("Error selecting device type:", error);
+      // In case of error, we could show an error message here
     }
-    setFormData({ ...formData, deviceType: type });
-    setDeviceTypeSearch('');
   };
 
   const handleBrandSelect = async (brand: string) => {
-    if (!settings.brands.includes(brand)) {
-      await addBrand(brand);
+    try {
+      // First update the form data to preserve the selection
+      // Note: We clear the model when changing brand
+      setFormData(prev => ({ ...prev, brand, model: '' }));
+      
+      // Then add the new brand if needed
+      if (!settings.brands.includes(brand)) {
+        await addBrand(brand);
+      }
+      
+      // Update the search field to match the selection but don't clear it
+      setBrandSearch(brand);
+    } catch (error) {
+      console.error("Error selecting brand:", error);
+      // In case of error, we could show an error message here
     }
-    setFormData({ ...formData, brand, model: '' });
-    setBrandSearch('');
   };
 
   const handleAddNewModel = async () => {
-    if (newModelName.trim() && formData.brand) {
-      await addModel({ name: newModelName.trim(), brandId: formData.brand });
-      setFormData({ ...formData, model: newModelName.trim() });
-      setNewModelName('');
-      setIsAddingModel(false);
+    const trimmedModelName = newModelName.trim();
+    if (trimmedModelName && formData.brand) {
+      try {
+        // First update the form data to preserve the selection
+        setFormData(prev => ({ ...prev, model: trimmedModelName }));
+        
+        // Then add the new model
+        await addModel({ name: trimmedModelName, brandId: formData.brand });
+        
+        // Clear the new model input and exit adding mode
+        setNewModelName('');
+        setIsAddingModel(false);
+      } catch (error) {
+        console.error("Error adding new model:", error);
+        // In case of error, we could show an error message here
+      }
     }
   };
 
   const handleAddNewTask = async () => {
     const value = newTaskInput.trim();
     if (value && !formData.tasksWithPrice.some(t => t.name === value)) {
-      if (!settings.tasks.includes(value)) {
-        await addTask(value);
-        // Update popular tasks to include the new task
-        setPopularTasks(prev => {
-          if (prev.includes(value)) return prev;
-          return [value, ...prev.slice(0, 5)];
-        });
+      try {
+        // First update the form data to preserve the task and its cost
+        const newTask = { name: value, price: newTaskCost };
+        setFormData(prev => ({
+          ...prev,
+          tasksWithPrice: [...prev.tasksWithPrice, newTask]
+        }));
+        
+        // Then add the new task if needed
+        if (!settings.tasks.includes(value)) {
+          await addTask(value);
+          
+          // Update popular tasks to include the new task
+          setPopularTasks(prev => {
+            if (prev.includes(value)) return prev;
+            return [value, ...prev.slice(0, 5)];
+          });
+        }
+        
+        // Clear the inputs for the next task
+        setNewTaskInput('');
+        setNewTaskCost(0);
+      } catch (error) {
+        console.error("Error adding new task:", error);
+        // In case of error, we could show an error message here
       }
-      
-      // Add the new task with its cost
-      setFormData(prev => ({
-        ...prev,
-        tasksWithPrice: [...prev.tasksWithPrice, { name: value, price: newTaskCost }]
-      }));
-      
-      setNewTaskInput('');
-      setNewTaskCost(0);
     }
   };
 
