@@ -8,8 +8,8 @@ import { getAllTechnicians, ROLES } from '../lib/firebase';
 
 export default function SimpleTickets() {
   const isDarkMode = useThemeStore((state) => state.isDarkMode);
-  const { tickets, updateTicket, deleteTicket, fetchTickets, fetchSettings, loading, error } = useTicketsStore();
-  const { clients, fetchClients } = useClientsStore();
+  const { tickets, updateTicket, deleteTicket, loading, error, filterStatus, setFilterStatus } = useTicketsStore();
+  const { clients } = useClientsStore();
   const { user, userRole } = useAuthStore();
   
   // State for UI controls
@@ -23,7 +23,6 @@ export default function SimpleTickets() {
   const [isAddingClient, setIsAddingClient] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [technicians, setTechnicians] = useState<any[]>([]);
-  const [filterStatus, setFilterStatus] = useState<'all' | 'pending' | 'in-progress' | 'completed'>('all');
   
   // Form state
   const [deviceType, setDeviceType] = useState('');
@@ -36,17 +35,6 @@ export default function SimpleTickets() {
   const [technicianId, setTechnicianId] = useState('');
   const [newTaskName, setNewTaskName] = useState('');
   const [newTaskPrice, setNewTaskPrice] = useState(0);
-
-  // Fetch data on component mount
-  useEffect(() => {
-    try {
-      fetchTickets();
-      fetchSettings();
-      fetchClients();
-    } catch (error) {
-      console.error("Error fetching data:", error);
-    }
-  }, []);
 
   // Fetch technicians for super admin
   useEffect(() => {
