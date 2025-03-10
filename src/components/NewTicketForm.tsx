@@ -61,26 +61,26 @@ export default function NewTicketForm({ clientId, onSubmit, onCancel, editingTic
   // Update form data when initialData changes
   useEffect(() => {
     if (initialData) {
-      setDeviceType(initialData.deviceType);
-      setBrand(initialData.brand);
-      setModel(initialData.model);
+      setDeviceType(initialData.deviceType || '');
+      setBrand(initialData.brand || '');
+      setModel(initialData.model || '');
       setTasksWithPrice(
         initialData.taskPrices || 
         initialData.tasks.map(task => ({
           name: task,
-          price: initialData.cost / initialData.tasks.length
-        }))
+          price: initialData.cost / (initialData.tasks.length || 1)
+        })) || []
       );
-      setIssue(initialData.issue);
+      setIssue(initialData.issue || '');
       setPasscode(initialData.passcode || '');
-      setStatus(initialData.status);
+      setStatus(initialData.status || 'pending');
       setTechnicianId(initialData.technicianId || (userRole === ROLES.TECHNICIAN ? user?.uid : '') || '');
 
       // Set search fields to match initial data
-      setDeviceTypeSearch(initialData.deviceType);
-      setBrandSearch(initialData.brand);
+      setDeviceTypeSearch(initialData.deviceType || '');
+      setBrandSearch(initialData.brand || '');
     }
-  }, [initialData, userRole, user?.uid]);
+  }, [initialData, userRole, user]);
 
   // Fetch technicians for super admin
   useEffect(() => {
@@ -96,18 +96,30 @@ export default function NewTicketForm({ clientId, onSubmit, onCancel, editingTic
 
   // Get most used tasks
   useEffect(() => {
-    const tickets = useTicketsStore.getState().tickets;
-    const taskCounts = new Map<string, number>();
-    tickets.forEach(ticket => {
-      ticket.tasks.forEach(task => {
-        taskCounts.set(task, (taskCounts.get(task) || 0) + 1);
+    try {
+      const tickets = useTicketsStore.getState().tickets || [];
+      const taskCounts = new Map<string, number>();
+      
+      tickets.forEach(ticket => {
+        if (ticket.tasks && Array.isArray(ticket.tasks)) {
+          ticket.tasks.forEach(task => {
+            if (task) {
+              taskCounts.set(task, (taskCounts.get(task) || 0) + 1);
+            }
+          });
+        }
       });
-    });
-    const sortedTasks = Array.from(taskCounts.entries())
-      .sort((a, b) => b[1] - a[1])
-      .map(([task]) => task)
-      .slice(0, 6);
-    setPopularTasks(sortedTasks);
+      
+      const sortedTasks = Array.from(taskCounts.entries())
+        .sort((a, b) => b[1] - a[1])
+        .map(([task]) => task)
+        .slice(0, 6);
+        
+      setPopularTasks(sortedTasks);
+    } catch (error) {
+      console.error("Error getting popular tasks:", error);
+      setPopularTasks([]);
+    }
   }, []);
 
   // Calculate total cost from all tasks
@@ -117,45 +129,50 @@ export default function NewTicketForm({ clientId, onSubmit, onCancel, editingTic
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Extract task names for the ticket
-    const tasks = tasksWithPrice.map(task => task.name);
-    
-    if (editingTicket) {
-      await updateTicket(editingTicket, { 
-        deviceType,
-        brand,
-        model,
-        tasks, 
-        taskPrices: tasksWithPrice,
-        issue,
-        passcode,
-        status,
-        technicianId,
-        cost: totalCost,
-        clientId 
-      });
-      onSubmit('');
-    } else {
-      if (!clientId) {
-        alert('Please select a client first');
-        return;
-      }
+    try {
+      // Extract task names for the ticket
+      const tasks = tasksWithPrice.map(task => task.name);
       
-      const ticket = { 
-        deviceType,
-        brand,
-        model,
-        tasks,
-        taskPrices: tasksWithPrice,
-        issue,
-        passcode,
-        status,
-        cost: totalCost,
-        clientId, 
-        technicianId: technicianId || '' 
-      };
-      const newTicketNumber = await addTicket(ticket);
-      onSubmit(newTicketNumber);
+      if (editingTicket) {
+        await updateTicket(editingTicket, { 
+          deviceType,
+          brand,
+          model,
+          tasks, 
+          taskPrices: tasksWithPrice,
+          issue,
+          passcode,
+          status,
+          technicianId,
+          cost: totalCost,
+          clientId 
+        });
+        onSubmit('');
+      } else {
+        if (!clientId) {
+          alert('Please select a client first');
+          return;
+        }
+        
+        const ticket = { 
+          deviceType,
+          brand,
+          model,
+          tasks,
+          taskPrices: tasksWithPrice,
+          issue,
+          passcode,
+          status,
+          cost: totalCost,
+          clientId, 
+          technicianId: technicianId || '' 
+        };
+        const newTicketNumber = await addTicket(ticket);
+        onSubmit(newTicketNumber);
+      }
+    } catch (error) {
+      console.error("Error submitting ticket:", error);
+      alert("An error occurred while saving the ticket. Please try again.");
     }
   };
 
@@ -292,26 +309,26 @@ export default function NewTicketForm({ clientId, onSubmit, onCancel, editingTic
   };
 
   // Filter device types based on search
-  const filteredDeviceTypes = localSettings.deviceTypes.filter(type => 
-    type.toLowerCase().includes(deviceTypeSearch.toLowerCase())
+  const filteredDeviceTypes = (localSettings.deviceTypes || []).filter(type => 
+    type && type.toLowerCase().includes((deviceTypeSearch || '').toLowerCase())
   );
 
   // Filter brands based on search
-  const filteredBrands = localSettings.brands.filter(brand => 
-    brand.toLowerCase().includes(brandSearch.toLowerCase())
+  const filteredBrands = (localSettings.brands || []).filter(brand => 
+    brand && brand.toLowerCase().includes((brandSearch || '').toLowerCase())
   );
 
   // Filter models based on selected brand
-  const availableModels = localSettings.models.filter(model => 
-    model.brandId === brand
+  const availableModels = (localSettings.models || []).filter(model => 
+    model && model.brandId === brand
   );
 
   // Combine popular tasks with all tasks for display
   const displayedTasks = [...new Set([
     ...popularTasks, 
-    ...localSettings.tasks.filter(task => 
-      !popularTasks.includes(task) && 
-      task.toLowerCase().includes(newTaskInput.toLowerCase())
+    ...(localSettings.tasks || []).filter(task => 
+      task && !popularTasks.includes(task) && 
+      task.toLowerCase().includes((newTaskInput || '').toLowerCase())
     )
   ])].slice(0, 8);
 

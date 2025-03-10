@@ -32,14 +32,18 @@ export default function NewTickets() {
     fetchTickets();
     fetchSettings();
     fetchClients();
-  }, []);
+  }, [fetchTickets, fetchSettings, fetchClients]);
 
   // Fetch technicians for filtering
   useEffect(() => {
     const fetchTechnicians = async () => {
-      if (userRole === ROLES.SUPER_ADMIN) {
-        const techList = await getAllTechnicians();
-        setTechnicians(techList);
+      try {
+        if (userRole === ROLES.SUPER_ADMIN) {
+          const techList = await getAllTechnicians();
+          setTechnicians(techList);
+        }
+      } catch (error) {
+        console.error("Error fetching technicians:", error);
       }
     };
     
@@ -48,14 +52,18 @@ export default function NewTickets() {
 
   // Filter clients based on search
   const filteredClients = useMemo(() => {
+    if (!clients || clients.length === 0) return [];
+    
     return clients.filter((client) =>
-      client.name.toLowerCase().includes(clientSearch.toLowerCase()) ||
-      client.email.toLowerCase().includes(clientSearch.toLowerCase())
+      client.name?.toLowerCase().includes(clientSearch.toLowerCase()) ||
+      client.email?.toLowerCase().includes(clientSearch.toLowerCase())
     );
   }, [clients, clientSearch]);
 
   // Filter tickets based on user role and search criteria
   const filteredTickets = useMemo(() => {
+    if (!tickets || tickets.length === 0) return [];
+    
     // First filter by user role - technicians can only see their assigned tickets
     let roleFilteredTickets = tickets;
     if (userRole === ROLES.TECHNICIAN && user) {
@@ -68,11 +76,11 @@ export default function NewTickets() {
         const matchesStatus = filterStatus === 'all' || ticket.status === filterStatus;
         const matchesTechnician = technicianFilter === 'all' || ticket.technicianId === technicianFilter;
         const matchesSearch = searchQuery 
-          ? ticket.ticketNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            ticket.deviceType.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            ticket.brand.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            clients.find(c => c.id === ticket.clientId)?.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            false
+          ? (ticket.ticketNumber?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            ticket.deviceType?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            ticket.brand?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            clients.find(c => c.id === ticket.clientId)?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            false)
           : true;
         return matchesStatus && matchesTechnician && matchesSearch;
       }
