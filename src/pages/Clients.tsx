@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { useThemeStore, useClientsStore, useTicketsStore, useOrdersStore } from '../lib/store';
 import { Search, Plus, Edit2, Trash2, History, PenTool as Tool, ShoppingBag, Calendar } from 'lucide-react';
 import { format } from 'date-fns';
-import TicketForm from '../components/TicketForm';
 
 export default function Clients() {
   const isDarkMode = useThemeStore((state) => state.isDarkMode);
@@ -178,17 +177,26 @@ export default function Clients() {
           <h2 className={`text-lg font-semibold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
             Create New Ticket for {clients.find(c => c.id === ticketClientId)?.name}
           </h2>
-          <TicketForm
-            clientId={ticketClientId}
-            onSubmit={() => {
+          <button
+            onClick={() => {
+              // Redirect to SimpleTickets page instead
+              window.location.href = '/tickets';
               setIsCreatingTicket(false);
               setTicketClientId(null);
             }}
-            onCancel={() => {
+            className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700"
+          >
+            Go to Tickets Page
+          </button>
+          <button
+            onClick={() => {
               setIsCreatingTicket(false);
               setTicketClientId(null);
             }}
-          />
+            className="ml-4 px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50"
+          >
+            Cancel
+          </button>
         </div>
       )}
 
