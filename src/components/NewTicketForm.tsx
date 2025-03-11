@@ -471,29 +471,44 @@ export default function NewTicketForm({ clientId, onSubmit, onCancel, editingTic
             </button>
           </div>
         ) : (
-          <div className="flex gap-2 mt-1">
-            <select
+          <div className="relative">
+            <input
+              type="text"
               value={model}
               onChange={(e) => setModel(e.target.value)}
-              className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-              required
-            >
-              <option value="">Select a model</option>
-              {availableModels.map((model) => (
-                <option key={model.id} value={model.name}>
-                  {model.name}
-                </option>
-              ))}
-            </select>
-            {brand && (
-              <button
-                type="button"
-                onClick={() => setIsAddingModel(true)}
-                className="px-3 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 flex items-center gap-1"
-              >
-                <Plus className="h-4 w-4" />
-                New
-              </button>
+              placeholder="Search or add new model"
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+              required={brand !== ''}
+              disabled={brand === ''}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault(); // Prevent form submission
+                  return false;
+                }
+              }}
+            />
+            {model && brand && (
+              <div className="absolute z-10 w-full mt-1 bg-white rounded-md shadow-lg">
+                {availableModels
+                  .filter(m => m.name.toLowerCase().includes(model.toLowerCase()))
+                  .map((model) => (
+                    <div
+                      key={model.id}
+                      className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
+                      onClick={() => setModel(model.name)}
+                    >
+                      {model.name}
+                    </div>
+                  ))}
+                {!availableModels.some(m => m.name.toLowerCase() === model.toLowerCase()) && (
+                  <div
+                    className="px-4 py-2 hover:bg-gray-100 cursor-pointer text-indigo-600"
+                    onClick={() => setIsAddingModel(true)}
+                  >
+                    Add "{model}"
+                  </div>
+                )}
+              </div>
             )}
           </div>
         )}
@@ -531,67 +546,110 @@ export default function NewTicketForm({ clientId, onSubmit, onCancel, editingTic
         </div>
         
         <div className="mt-2 space-y-4">
-          {/* Task selection */}
-          <div className="grid grid-cols-2 gap-2">
-            {displayedTasks.map((task) => (
-              <label key={task} className="flex items-center space-x-2">
-                <input
-                  type="checkbox"
-                  checked={tasksWithPrice.some(t => t.name === task)}
-                  onChange={() => handleTaskToggle(task)}
-                  className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                />
-                <span className={isDarkMode ? 'text-gray-300' : 'text-gray-700'}>
-                  {task}
-                  {!popularTasks.includes(task) && tasksWithPrice.some(t => t.name === task) && (
-                    <span className="ml-1 text-green-600">✓</span>
-                  )}
-                </span>
-              </label>
-            ))}
-          </div>
-          
-          {/* Add new task with cost */}
-          <div className="flex gap-2 items-center mt-2">
+          {/* Task search */}
+          <div className="relative">
             <input
               type="text"
               value={newTaskInput}
               onChange={(e) => setNewTaskInput(e.target.value)}
-              placeholder="Add new task"
-              className="flex-1 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+              placeholder="Search or add new task"
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
                   e.preventDefault(); // Prevent form submission
-                  handleAddTask();
-                  return false; // Ensure no other handlers are triggered
+                  return false;
                 }
               }}
             />
-            <div className="flex items-center">
-              <span className="mr-1">$</span>
-              <input
-                type="number"
-                value={newTaskCost}
-                onChange={(e) => setNewTaskCost(Number(e.target.value))}
-                placeholder="Cost"
-                className="w-20 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault(); // Prevent form submission
-                    handleAddTask();
-                    return false; // Ensure no other handlers are triggered
-                  }
-                }}
-              />
+            {newTaskInput && (
+              <div className="absolute z-10 w-full mt-1 bg-white rounded-md shadow-lg">
+                {localSettings.tasks
+                  .filter(task => task.toLowerCase().includes(newTaskInput.toLowerCase()))
+                  .slice(0, 5)
+                  .map((task) => (
+                    <div
+                      key={task}
+                      className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
+                      onClick={() => {
+                        if (!tasksWithPrice.some(t => t.name === task)) {
+                          setTasksWithPrice(prev => [...prev, { name: task, price: 0 }]);
+                        }
+                        setNewTaskInput('');
+                      }}
+                    >
+                      {task}
+                    </div>
+                  ))}
+                {!localSettings.tasks.some(task => 
+                  task.toLowerCase() === newTaskInput.toLowerCase()
+                ) && (
+                  <div className="flex flex-col">
+                    <div
+                      className="px-4 py-2 hover:bg-gray-100 cursor-pointer text-indigo-600"
+                      onClick={() => {
+                        setTasksWithPrice(prev => [...prev, { name: newTaskInput, price: newTaskCost }]);
+                        
+                        // Add to local settings if it doesn't exist
+                        if (!localSettings.tasks.includes(newTaskInput)) {
+                          setLocalSettings(prev => ({
+                            ...prev,
+                            tasks: [...prev.tasks, newTaskInput]
+                          }));
+                          
+                          // Add to global settings in the background
+                          const { addTask } = useTicketsStore.getState();
+                          setTimeout(() => {
+                            addTask(newTaskInput).catch(error => {
+                              console.error("Error adding task:", error);
+                            });
+                          }, 0);
+                        }
+                        
+                        setNewTaskInput('');
+                        setNewTaskCost(0);
+                      }}
+                    >
+                      Add "{newTaskInput}"
+                    </div>
+                    <div className="px-4 py-2 flex items-center">
+                      <span className="mr-2">Price:</span>
+                      <div className="flex items-center">
+                        <span className="mr-1">$</span>
+                        <input
+                          type="number"
+                          value={newTaskCost}
+                          onChange={(e) => setNewTaskCost(Number(e.target.value))}
+                          className="w-20 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+          
+          {/* Popular tasks */}
+          <div>
+            <h4 className={`text-sm font-medium mb-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+              Popular Tasks
+            </h4>
+            <div className="grid grid-cols-2 gap-2">
+              {popularTasks.map((task) => (
+                <label key={task} className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    checked={tasksWithPrice.some(t => t.name === task)}
+                    onChange={() => handleTaskToggle(task)}
+                    className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                  />
+                  <span className={isDarkMode ? 'text-gray-300' : 'text-gray-700'}>
+                    {task}
+                  </span>
+                </label>
+              ))}
             </div>
-            <button
-              type="button"
-              onClick={handleAddTask}
-              className="px-3 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 flex items-center gap-1"
-            >
-              <Plus className="h-4 w-4" />
-              Add
-            </button>
           </div>
           
           {/* Selected tasks with cost */}

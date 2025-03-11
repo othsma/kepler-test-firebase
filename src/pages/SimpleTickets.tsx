@@ -357,14 +357,66 @@ export default function SimpleTickets() {
                 <label className={`block text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                   Device Type
                 </label>
-                <input
-                  type="text"
-                  value={deviceType}
-                  onChange={(e) => setDeviceType(e.target.value)}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                  placeholder="e.g. Smartphone, Laptop, Tablet"
-                  required
-                />
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={deviceType}
+                    onChange={(e) => setDeviceType(e.target.value)}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                    placeholder="Search or add new device type"
+                    required
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault(); // Prevent form submission
+                        return false;
+                      }
+                    }}
+                  />
+                  {deviceType && (
+                    <div className="absolute z-10 w-full mt-1 bg-white rounded-md shadow-lg">
+                      {useTicketsStore.getState().settings.deviceTypes
+                        .filter(type => type.toLowerCase().includes(deviceType.toLowerCase()))
+                        .map((type) => (
+                          <div
+                            key={type}
+                            className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
+                            onClick={() => {
+                              setDeviceType(type);
+                              // Clear the search to close the dropdown
+                              setDeviceType('');
+                              setTimeout(() => setDeviceType(type), 10);
+                            }}
+                          >
+                            {type}
+                          </div>
+                        ))}
+                      {!useTicketsStore.getState().settings.deviceTypes.some(
+                        type => type.toLowerCase() === deviceType.toLowerCase()
+                      ) && (
+                          <div
+                            className="px-4 py-2 hover:bg-gray-100 cursor-pointer text-indigo-600"
+                            onClick={() => {
+                              // Add to global settings in the background
+                              const { addDeviceType } = useTicketsStore.getState();
+                              
+                              // Clear the search to close the dropdown
+                              const currentValue = deviceType;
+                              setDeviceType('');
+                              setTimeout(() => {
+                                setDeviceType(currentValue);
+                                // Add to settings
+                                addDeviceType(currentValue).catch(error => {
+                                  console.error("Error adding device type:", error);
+                                });
+                              }, 10);
+                            }}
+                          >
+                          Add "{deviceType}"
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Brand */}
@@ -372,14 +424,73 @@ export default function SimpleTickets() {
                 <label className={`block text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                   Brand
                 </label>
-                <input
-                  type="text"
-                  value={brand}
-                  onChange={(e) => setBrand(e.target.value)}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                  placeholder="e.g. Apple, Samsung, Dell"
-                  required
-                />
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={brand}
+                    onChange={(e) => {
+                      setBrand(e.target.value);
+                      if (!e.target.value) {
+                        setModel(''); // Clear model when brand is cleared
+                      }
+                    }}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                    placeholder="Search or add new brand"
+                    required
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault(); // Prevent form submission
+                        return false;
+                      }
+                    }}
+                  />
+                  {brand && (
+                    <div className="absolute z-10 w-full mt-1 bg-white rounded-md shadow-lg">
+                      {useTicketsStore.getState().settings.brands
+                        .filter(b => b.toLowerCase().includes(brand.toLowerCase()))
+                        .map((b) => (
+                          <div
+                            key={b}
+                            className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
+                            onClick={() => {
+                              // Clear model when changing brand
+                              setModel('');
+                              
+                              // Clear the search to close the dropdown
+                              setBrand('');
+                              setTimeout(() => setBrand(b), 10);
+                            }}
+                          >
+                            {b}
+                          </div>
+                        ))}
+                      {!useTicketsStore.getState().settings.brands.some(
+                        b => b.toLowerCase() === brand.toLowerCase()
+                      ) && (
+                          <div
+                            className="px-4 py-2 hover:bg-gray-100 cursor-pointer text-indigo-600"
+                            onClick={() => {
+                              // Add to global settings in the background
+                              const { addBrand } = useTicketsStore.getState();
+                              
+                              // Clear the search to close the dropdown
+                              const currentValue = brand;
+                              setBrand('');
+                              setTimeout(() => {
+                                setBrand(currentValue);
+                                // Add to settings
+                                addBrand(currentValue).catch(error => {
+                                  console.error("Error adding brand:", error);
+                                });
+                              }, 10);
+                            }}
+                          >
+                          Add "{brand}"
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Model */}
@@ -387,14 +498,67 @@ export default function SimpleTickets() {
                 <label className={`block text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                   Model
                 </label>
-                <input
-                  type="text"
-                  value={model}
-                  onChange={(e) => setModel(e.target.value)}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                  placeholder="e.g. iPhone 13, Galaxy S21, XPS 15"
-                  required
-                />
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={model}
+                    onChange={(e) => setModel(e.target.value)}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                    placeholder="Search or add new model"
+                    required
+                    disabled={!brand}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault(); // Prevent form submission
+                        return false;
+                      }
+                    }}
+                  />
+                  {model && brand && (
+                    <div className="absolute z-10 w-full mt-1 bg-white rounded-md shadow-lg">
+                      {useTicketsStore.getState().settings.models
+                        .filter(m => m.brandId === brand && m.name.toLowerCase().includes(model.toLowerCase()))
+                        .map((m) => (
+                          <div
+                            key={m.id}
+                            className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
+                            onClick={() => {
+                              // Clear the search to close the dropdown
+                              setModel('');
+                              setTimeout(() => setModel(m.name), 10);
+                            }}
+                          >
+                            {m.name}
+                          </div>
+                        ))}
+                      {!useTicketsStore.getState().settings.models.some(
+                        m => m.brandId === brand && m.name.toLowerCase() === model.toLowerCase()
+                      ) && (
+                          <div
+                            className="px-4 py-2 hover:bg-gray-100 cursor-pointer text-indigo-600"
+                            onClick={() => {
+                              // Add to global settings in the background
+                              const { addModel } = useTicketsStore.getState();
+                              
+                              // Clear the search to close the dropdown
+                              const currentValue = model;
+                              const currentBrand = brand;
+                              setModel('');
+                              setTimeout(() => {
+                                setModel(currentValue);
+                                // Add to settings
+                                addModel({ name: currentValue, brandId: currentBrand }).catch(error => {
+                                  console.error("Error adding model:", error);
+                                });
+                              }, 10);
+                            }}
+                          >
+                          Add "{model}"
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Technician Assignment - Only visible to super admin */}
@@ -429,32 +593,127 @@ export default function SimpleTickets() {
                   </div>
                 </div>
                 
-                {/* Add new task */}
-                <div className="flex gap-2 items-center mt-2">
+                {/* Task search */}
+                <div className="relative">
                   <input
                     type="text"
                     value={newTaskName}
                     onChange={(e) => setNewTaskName(e.target.value)}
-                    placeholder="Add new task"
-                    className="flex-1 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                    placeholder="Search or add new task"
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault(); // Prevent form submission
+                        return false;
+                      }
+                    }}
                   />
-                  <div className="flex items-center">
-                    <span className="mr-1">$</span>
-                    <input
-                      type="number"
-                      value={newTaskPrice}
-                      onChange={(e) => setNewTaskPrice(Number(e.target.value))}
-                      placeholder="Cost"
-                      className="w-20 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                    />
+                  {newTaskName && (
+                    <div className="absolute z-10 w-full mt-1 bg-white rounded-md shadow-lg">
+                      {useTicketsStore.getState().settings.tasks
+                        .filter(task => task.toLowerCase().includes(newTaskName.toLowerCase()))
+                        .slice(0, 5)
+                        .map((task) => (
+                          <div
+                            key={task}
+                            className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
+                            onClick={() => {
+                              if (!tasksWithPrice.some(t => t.name === task)) {
+                                setTasksWithPrice(prev => [...prev, { name: task, price: 0 }]);
+                              }
+                              // Clear the search to close the dropdown
+                              setNewTaskName('');
+                            }}
+                          >
+                            {task}
+                          </div>
+                        ))}
+                      {!useTicketsStore.getState().settings.tasks.some(
+                        task => task.toLowerCase() === newTaskName.toLowerCase()
+                      ) && (
+                        <div className="flex flex-col">
+                          <div
+                            className="px-4 py-2 hover:bg-gray-100 cursor-pointer text-indigo-600"
+                            onClick={() => {
+                              const taskName = newTaskName;
+                              const taskPrice = newTaskPrice;
+                              
+                              // Add to tasks with price
+                              setTasksWithPrice(prev => [...prev, { name: taskName, price: taskPrice }]);
+                              
+                              // Add to global settings in the background
+                              const { addTask } = useTicketsStore.getState();
+                              setTimeout(() => {
+                                addTask(taskName).catch(error => {
+                                  console.error("Error adding task:", error);
+                                });
+                              }, 0);
+                              
+                              // Clear the inputs to close the dropdown
+                              setNewTaskName('');
+                              setNewTaskPrice(0);
+                            }}
+                          >
+                            Add "{newTaskName}"
+                          </div>
+                          <div className="px-4 py-2 flex items-center">
+                            <span className="mr-2">Price:</span>
+                            <div className="flex items-center">
+                              <span className="mr-1">$</span>
+                              <input
+                                type="number"
+                                value={newTaskPrice}
+                                onChange={(e) => setNewTaskPrice(Number(e.target.value))}
+                                className="w-20 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                onClick={(e) => e.stopPropagation()}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+                
+                {/* Popular tasks */}
+                <div className="mt-4">
+                  <h4 className={`text-sm font-medium mb-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                    Popular Tasks
+                  </h4>
+                  <div className="grid grid-cols-2 gap-2">
+                    {Array.from(
+                      useTicketsStore.getState().tickets
+                        .flatMap(ticket => ticket.tasks)
+                        .reduce((counts: Map<string, number>, task: string) => {
+                          counts.set(task, (counts.get(task) || 0) + 1);
+                          return counts;
+                        }, new Map<string, number>())
+                        .entries()
+                    )
+                      .sort((a: [string, number], b: [string, number]) => b[1] - a[1])
+                      .slice(0, 6)
+                      .map(([task]: [string, number]) => (
+                        <label key={task} className="flex items-center space-x-2">
+                          <input
+                            type="checkbox"
+                            checked={tasksWithPrice.some(t => t.name === task)}
+                            onChange={() => {
+                              const exists = tasksWithPrice.some(t => t.name === task);
+                              if (exists) {
+                                setTasksWithPrice(prev => prev.filter(t => t.name !== task));
+                              } else {
+                                setTasksWithPrice(prev => [...prev, { name: task, price: 0 }]);
+                              }
+                            }}
+                            className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                          />
+                          <span className={isDarkMode ? 'text-gray-300' : 'text-gray-700'}>
+                            {task}
+                          </span>
+                        </label>
+                      ))
+                    }
                   </div>
-                  <button
-                    type="button"
-                    onClick={handleAddTask}
-                    className="px-3 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
-                  >
-                    Add
-                  </button>
                 </div>
                 
                 {/* Selected tasks */}
