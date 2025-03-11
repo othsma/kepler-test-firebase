@@ -3,7 +3,8 @@ import { useThemeStore, useTicketsStore, useClientsStore, useAuthStore, TaskWith
 import { Search, Plus, Calendar, User, Edit, Printer, FileText as FileIcon, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import ClientForm from '../components/ClientForm';
-import UnifiedTicketReceipt from '../components/UnifiedTicketReceipt';
+import UnifiedDocument from '../components/documents/UnifiedDocument';
+import { convertTicketToDocument } from '../components/documents/DocumentConverter';
 import { getAllTechnicians, ROLES } from '../lib/firebase';
 
 export default function SimpleTickets() {
@@ -1019,24 +1020,30 @@ export default function SimpleTickets() {
 
       {/* Receipt Modal */}
       {showReceipt && newTicketNumber && (
-        <UnifiedTicketReceipt
-          ticket={tickets.find(t => t.ticketNumber === newTicketNumber)!}
-          clientId={selectedClientId}
+        <UnifiedDocument
+          data={convertTicketToDocument(
+            tickets.find(t => t.ticketNumber === newTicketNumber)!,
+            selectedClientId,
+            clients.find(c => c.id === selectedClientId)
+          )}
           onClose={() => {
             setShowReceipt(false);
             setNewTicketNumber('');
           }}
-          type="receipt"
+          initialFormat="thermal"
         />
       )}
 
       {/* Invoice Modal */}
       {showInvoice && newTicketNumber && (
-        <UnifiedTicketReceipt
-          ticket={tickets.find(t => t.ticketNumber === newTicketNumber)!}
-          clientId={selectedClientId}
+        <UnifiedDocument
+          data={convertTicketToDocument(
+            tickets.find(t => t.ticketNumber === newTicketNumber)!,
+            selectedClientId,
+            clients.find(c => c.id === selectedClientId)
+          )}
           onClose={() => setShowInvoice(false)}
-          type="invoice"
+          initialFormat="a4"
         />
       )}
     </div>

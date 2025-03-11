@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import { useThemeStore, useOrdersStore, useProductsStore, useClientsStore } from '../lib/store';
 import { Search, Filter, Calendar, User, Package, DollarSign, ChevronDown, ChevronUp, Eye, Plus, Minus, Trash2, Edit, Printer, FileText } from 'lucide-react';
 import { format } from 'date-fns';
-import ThermalReceipt from '../components/ThermalReceipt';
-import A4Invoice from '../components/A4Invoice';
+import UnifiedDocument from '../components/documents/UnifiedDocument';
+import { convertReceiptToDocument } from '../components/documents/DocumentConverter';
 
 export default function Orders() {
   const isDarkMode = useThemeStore((state) => state.isDarkMode);
@@ -12,9 +12,9 @@ export default function Orders() {
   const { clients } = useClientsStore();
   const [filterStatus, setFilterStatus] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [showReceipt, setShowReceipt] = useState(false);
-  const [showA4Invoice, setShowA4Invoice] = useState(false);
+  const [showDocument, setShowDocument] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
+  const [documentFormat, setDocumentFormat] = useState<'thermal' | 'a4'>('thermal');
   const [showCreateForm, setShowCreateForm] = useState(true);
   const [isEditingOrder, setIsEditingOrder] = useState(false);
   const [editingOrderId, setEditingOrderId] = useState<string | null>(null);
@@ -119,16 +119,11 @@ export default function Orders() {
     };
   };
 
-  const handleViewReceipt = (order: any) => {
+  const handleViewDocument = (order: any, format: 'thermal' | 'a4') => {
     const invoiceData = generateInvoiceData(order);
     setSelectedOrder(invoiceData);
-    setShowReceipt(true);
-  };
-
-  const handleViewA4Invoice = (order: any) => {
-    const invoiceData = generateInvoiceData(order);
-    setSelectedOrder(invoiceData);
-    setShowA4Invoice(true);
+    setDocumentFormat(format);
+    setShowDocument(true);
   };
 
   const handleEditOrder = (order: any) => {
@@ -801,14 +796,14 @@ export default function Orders() {
                             <Edit className="h-5 w-5" />
                           </button>
                           <button
-                            onClick={() => handleViewReceipt(order)}
+                            onClick={() => handleViewDocument(order, 'thermal')}
                             className="text-green-600 hover:text-green-900"
                             title="Print Receipt"
                           >
                             <Printer className="h-5 w-5" />
                           </button>
                           <button
-                            onClick={() => handleViewA4Invoice(order)}
+                            onClick={() => handleViewDocument(order, 'a4')}
                             className="text-indigo-600 hover:text-indigo-900"
                             title="A4 Invoice"
                           >
@@ -838,19 +833,12 @@ export default function Orders() {
         </div>
       </div>
 
-      {/* Thermal Receipt Modal */}
-      {showReceipt && selectedOrder && (
-        <ThermalReceipt
-          invoice={selectedOrder}
-          onClose={() => setShowReceipt(false)}
-        />
-      )}
-
-      {/* A4 Invoice Modal */}
-      {showA4Invoice && selectedOrder && (
-        <A4Invoice
-          invoice={selectedOrder}
-          onClose={() => setShowA4Invoice(false)}
+      {/* Document Modal */}
+      {showDocument && selectedOrder && (
+        <UnifiedDocument
+          data={convertReceiptToDocument(selectedOrder)}
+          onClose={() => setShowDocument(false)}
+          initialFormat={documentFormat}
         />
       )}
     </div>

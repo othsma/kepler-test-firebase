@@ -2,8 +2,8 @@ import React, { useState, useMemo } from 'react';
 import { useThemeStore, useInvoicesStore, useClientsStore, useAuthStore } from '../lib/store';
 import { Search, Filter, Calendar, User, FileText, Printer, Trash2, Download } from 'lucide-react';
 import { format } from 'date-fns';
-import ThermalReceipt from '../components/ThermalReceipt';
-import A4Invoice from '../components/A4Invoice';
+import UnifiedDocument from '../components/documents/UnifiedDocument';
+import { convertInvoiceToDocument } from '../components/documents/DocumentConverter';
 
 export default function Invoices() {
   const isDarkMode = useThemeStore((state) => state.isDarkMode);
@@ -13,9 +13,9 @@ export default function Invoices() {
   
   const [filterStatus, setFilterStatus] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [showThermalReceipt, setShowThermalReceipt] = useState(false);
-  const [showA4Invoice, setShowA4Invoice] = useState(false);
+  const [showInvoice, setShowInvoice] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
+  const [invoiceFormat, setInvoiceFormat] = useState<'thermal' | 'a4'>('thermal');
   const [dateFilter, setDateFilter] = useState('all');
 
   // Filter invoices based on search criteria and filters
@@ -70,11 +70,8 @@ export default function Invoices() {
 
   const handleViewInvoice = (invoice: any, format: 'thermal' | 'a4') => {
     setSelectedInvoice(invoice);
-    if (format === 'thermal') {
-      setShowThermalReceipt(true);
-    } else {
-      setShowA4Invoice(true);
-    }
+    setInvoiceFormat(format);
+    setShowInvoice(true);
   };
 
   return (
@@ -235,23 +232,14 @@ export default function Invoices() {
         </div>
       </div>
 
-      {showThermalReceipt && selectedInvoice && (
-        <ThermalReceipt
-          invoice={selectedInvoice}
+      {showInvoice && selectedInvoice && (
+        <UnifiedDocument
+          data={convertInvoiceToDocument(selectedInvoice)}
           onClose={() => {
-            setShowThermalReceipt(false);
+            setShowInvoice(false);
             setSelectedInvoice(null);
           }}
-        />
-      )}
-
-      {showA4Invoice && selectedInvoice && (
-        <A4Invoice
-          invoice={selectedInvoice}
-          onClose={() => {
-            setShowA4Invoice(false);
-            setSelectedInvoice(null);
-          }}
+          initialFormat={invoiceFormat}
         />
       )}
     </div>

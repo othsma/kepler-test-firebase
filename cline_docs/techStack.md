@@ -1,79 +1,94 @@
-# Tech Stack
+# Tech Stack Documentation
 
 ## Frontend Framework
-- **React**: A JavaScript library for building user interfaces
+- **React 18**: Modern UI library for building component-based interfaces
 - **TypeScript**: Adds static typing to JavaScript for better developer experience and code quality
-- **Vite**: Modern build tool that provides faster development experience
-
-## UI and Styling
-- **Tailwind CSS**: Utility-first CSS framework for rapid UI development
-- **Headless UI**: Unstyled, accessible UI components
-- **Lucide React**: Icon library with a clean, consistent design
-- **clsx**: Utility for conditionally joining class names
+- **Vite**: Fast, modern frontend build tool that significantly improves development experience
 
 ## State Management
-- **Zustand**: Lightweight state management library
-  - Used for managing application state with separate stores for different domains:
-    - Theme store (dark/light mode)
-    - User preferences store
-    - Authentication store
-    - Clients store
-    - Tickets store
-    - Products store
-    - Orders store
-    - Invoices store
+- **Zustand**: Lightweight state management library that simplifies global state handling
+  - Used for managing application state including authentication, clients, tickets, products, orders, and invoices
+  - Chosen for its simplicity and performance compared to Redux
+
+## Styling
+- **Tailwind CSS**: Utility-first CSS framework for rapid UI development
+  - Enables consistent styling across the application
+  - Provides responsive design capabilities out of the box
+- **Headless UI**: Unstyled, accessible UI components that integrate well with Tailwind
 
 ## Routing
-- **React Router**: Library for handling routing in React applications
-  - Implements protected routes with role-based access control
+- **React Router v6**: Declarative routing for React applications
+  - Handles navigation between different pages
+  - Provides route protection for authenticated routes
 
-## Backend and Database
+## Backend & Database
 - **Firebase**: Google's platform for mobile and web application development
-  - **Firebase Authentication**: For user authentication and management
-  - **Firestore**: NoSQL document database for storing application data
-  - **Firebase Storage**: For storing files and images
+  - **Firebase Authentication**: Handles user authentication and management
+  - **Firestore**: NoSQL cloud database for storing application data
+  - **Firebase Storage**: For storing files like product images
 
-## Data Visualization
-- **Recharts**: Composable charting library built on React components
-  - Used for dashboard charts and analytics
-
-## Date Handling
+## Icons & UI Elements
+- **Lucide React**: Modern icon library with a clean, consistent design
+- **Recharts**: Composable charting library for data visualization
 - **date-fns**: Modern JavaScript date utility library
-  - Used for formatting dates and time calculations
 
 ## Document Generation
-- **React PDF Renderer**: For generating PDF documents
-- **html2canvas**: For converting HTML elements to canvas for image download
-- **QRCode.react**: For generating QR codes in receipts and invoices
+- **@react-pdf/renderer**: React renderer for creating PDF documents
+- **html2canvas**: Captures DOM nodes as canvas elements for image generation
+- **QRCode.react**: QR code generator for React applications
 
 ## Architecture Decisions
 
 ### Role-Based Access Control
-- Two main roles: Super Admin and Technician
-- Access control implemented at both routing and component levels
-- Different data access patterns based on user role
+- Two main roles: SUPER_ADMIN and TECHNICIAN
+- Role-based route protection using React Router
+- Role-specific data fetching to ensure users only access appropriate data
 
 ### State Management Strategy
-- Domain-specific stores using Zustand
-- Each store handles its own data fetching, updates, and state management
-- Stores interact with Firebase services directly
+- Zustand stores organized by domain (clients, tickets, products, etc.)
+- Each store handles its own CRUD operations and Firebase interactions
+- Optimistic UI updates for better user experience
+
+### Component Structure
+- Layout component for consistent page structure
+- Reusable UI components for common elements
+- Page components for specific features
 
 ### Data Flow
-- Components subscribe to relevant stores
-- Stores handle data fetching and mutations
-- Firebase listeners update state in real-time when possible
+1. User actions trigger Zustand store methods
+2. Store methods update Firebase (Firestore)
+3. On successful Firebase operations, local state is updated
+4. UI reacts to state changes
 
-### Responsive Design
-- Mobile-first approach using Tailwind CSS
-- Responsive layout with collapsible sidebar
-- Adaptive components that work across device sizes
+### Authentication Flow
+1. User logs in via Firebase Authentication
+2. Auth state changes are monitored via onAuthStateChanged
+3. User role is fetched from Firestore
+4. Based on role, appropriate data is loaded
+5. Protected routes ensure proper access control
 
-### Receipt and Invoice Generation
-- Unified component for generating different types of documents
-- Support for both thermal (narrow) and A4 formats
-- Multiple output options: print, email, download
+### Responsive Design Strategy
+- Mobile-first approach using Tailwind's responsive utilities
+- Sidebar collapses on smaller screens
+- Responsive grid layouts for different screen sizes
 
-### Form Handling
-- Custom form components with validation
-- Dynamic form fields based on user input
-- Autocomplete and suggestion features for better UX
+### Document System Architecture
+- **Unified Document System**: Consolidated approach to document generation
+  - Replaces multiple overlapping components with a single, flexible system
+  - Supports multiple formats (Thermal, A4, PDF) through a common interface
+  
+- **Core Components**:
+  - `DocumentTypes.ts`: TypeScript interfaces defining document data structure
+  - `DocumentConverter.ts`: Utilities to convert legacy formats to the new system
+  - `UnifiedDocument.tsx`: Container component with format switching capabilities
+  
+- **Format Components**:
+  - Format-specific rendering components that implement a common interface
+  - Each format (Thermal, A4, PDF) has its own component with specialized rendering
+  - Formats can be easily switched at runtime
+  
+- **Benefits**:
+  - Reduced code duplication
+  - Consistent document styling and behavior
+  - Easier maintenance and feature additions
+  - Better type safety through TypeScript interfaces

@@ -2,9 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useThemeStore, useProductsStore, useClientsStore, useTicketsStore, useOrdersStore } from '../lib/store';
 import { Search, ShoppingCart, Plus, Minus, Trash2, CreditCard, Banknote, Smartphone, FileText, Printer, X, ArrowRight } from 'lucide-react';
 import { format } from 'date-fns';
-import ThermalReceipt from '../components/ThermalReceipt';
-import A4Invoice from '../components/A4Invoice';
-import ReceiptFormatSelector from '../components/ReceiptFormatSelector';
+import UnifiedDocument from '../components/documents/UnifiedDocument';
+import { convertReceiptToDocument } from '../components/documents/DocumentConverter';
 
 // Payment methods
 const PAYMENT_METHODS = [
@@ -28,13 +27,11 @@ export default function Pos() {
   const [clientSearch, setClientSearch] = useState('');
   const [ticketSearch, setTicketSearch] = useState('');
   const [paymentMethod, setPaymentMethod] = useState(PAYMENT_METHODS[0].id);
-  const [showReceipt, setShowReceipt] = useState(false);
   const [invoiceId, setInvoiceId] = useState('');
   const [note, setNote] = useState('');
   const [quickSale, setQuickSale] = useState(false);
-  const [receiptFormat, setReceiptFormat] = useState<'thermal' | 'a4' | 'both'>('thermal');
-  const [showThermalReceipt, setShowThermalReceipt] = useState(false);
-  const [showA4Invoice, setShowA4Invoice] = useState(false);
+  const [receiptFormat, setReceiptFormat] = useState<'thermal' | 'a4'>('thermal');
+  const [showReceipt, setShowReceipt] = useState(false);
   const [currentInvoice, setCurrentInvoice] = useState<any>(null);
   
   // Filtered products based on search and category
@@ -160,12 +157,8 @@ export default function Pos() {
     
     setCurrentInvoice(invoiceData);
     
-    // Show the appropriate receipt format
-    if (receiptFormat === 'thermal') {
-      setShowThermalReceipt(true);
-    } else if (receiptFormat === 'a4') {
-      setShowA4Invoice(true);
-    }
+    // Show the receipt
+    setShowReceipt(true);
     
     // Create the order in the store
     if (selectedClient) {
@@ -201,23 +194,14 @@ export default function Pos() {
         </h1>
       </div>
       
-      {showThermalReceipt && currentInvoice && (
-        <ThermalReceipt 
-          invoice={currentInvoice}
+      {showReceipt && currentInvoice && (
+        <UnifiedDocument 
+          data={convertReceiptToDocument(currentInvoice)}
           onClose={() => {
-            setShowThermalReceipt(false);
+            setShowReceipt(false);
             clearCart();
           }}
-        />
-      )}
-      
-      {showA4Invoice && currentInvoice && (
-        <A4Invoice 
-          invoice={currentInvoice}
-          onClose={() => {
-            setShowA4Invoice(false);
-            clearCart();
-          }}
+          initialFormat={receiptFormat}
         />
       )}
       
@@ -478,10 +462,37 @@ export default function Pos() {
                 </div>
               )}
               
-              <ReceiptFormatSelector 
-                selectedFormat={receiptFormat}
-                onFormatChange={setReceiptFormat}
-              />
+              <div className="mb-4">
+                <label className={`block text-sm font-medium mb-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                  Receipt Format
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setReceiptFormat('thermal')}
+                    className={`flex flex-col items-center justify-center gap-2 p-3 rounded-md ${
+                      receiptFormat === 'thermal'
+                        ? 'bg-indigo-600 text-white'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    <Printer className="h-5 w-5" />
+                    <span className="text-sm">Thermal Receipt</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setReceiptFormat('a4')}
+                    className={`flex flex-col items-center justify-center gap-2 p-3 rounded-md ${
+                      receiptFormat === 'a4'
+                        ? 'bg-indigo-600 text-white'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    <FileText className="h-5 w-5" />
+                    <span className="text-sm">A4 Invoice</span>
+                  </button>
+                </div>
+              </div>
               
               <div>
                 <label className={`block text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'} mb-1`}>

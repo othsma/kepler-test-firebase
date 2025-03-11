@@ -1,103 +1,135 @@
 # Codebase Summary
 
-## Project Structure
+## Project Structure Overview
 
-The Kepler Test Firebase project follows a standard React application structure with TypeScript support. Here's an overview of the main directories and files:
+The O'MEGA SERVICES Tech Repair Dashboard is organized as follows:
 
 ```
-/
-├── public/                 # Static assets
-├── src/                    # Source code
-│   ├── components/         # Reusable UI components
-│   ├── lib/                # Utilities and services
-│   ├── pages/              # Page components
-│   ├── App.tsx             # Main application component
-│   ├── index.css           # Global styles
-│   └── main.tsx            # Application entry point
-├── package.json            # Project dependencies and scripts
-├── tsconfig.json           # TypeScript configuration
-├── vite.config.ts          # Vite build configuration
-└── tailwind.config.js      # Tailwind CSS configuration
+src/
+├── components/       # Reusable UI components
+├── lib/              # Utilities and state management
+├── pages/            # Page components for each route
+├── App.tsx           # Main application component with routing
+├── main.tsx          # Application entry point
+└── index.css         # Global styles
 ```
 
 ## Key Components and Their Interactions
 
-### Layout Components
-- **Layout.tsx**: Main layout wrapper with sidebar and header
+### Core Components
+
+- **Layout.tsx**: Main layout wrapper that includes the Sidebar and Header
 - **Sidebar.tsx**: Navigation sidebar with role-based menu items
-- **Header.tsx**: Top navigation bar with user menu and theme toggle
+- **Header.tsx**: Top navigation bar with user controls and theme toggle
 
 ### Authentication Components
-- **Login.tsx**: User login form
-- **Register.tsx**: User registration form
-- **ForgotPassword.tsx**: Password reset form
+
+- **Login.tsx**: User login page
+- **Register.tsx**: User registration page
+- **ForgotPassword.tsx**: Password reset functionality
 - **Profile.tsx**: User profile management
 
-### Ticket Management Components
-- **TicketForm.tsx**: Form for creating and editing repair tickets
-- **UnifiedTicketReceipt.tsx**: Component for generating receipts, quotes, and invoices
-- **TicketReceipt.tsx**: Simplified receipt component
-
 ### Client Management Components
-- **ClientForm.tsx**: Form for adding and editing client information
 
-### POS Components
-- **DailySalesWidget.tsx**: Widget displaying daily sales metrics
-- **ReceiptFormatSelector.tsx**: Component for selecting receipt format
-- **InvoiceForm.tsx**: Form for creating invoices
-- **InvoiceReceipt.tsx**: Component for generating invoice receipts
+- **Clients.tsx**: Client listing and management page
+- **ClientForm.tsx**: Reusable form for adding/editing clients
+
+### Ticket Management Components
+
+- **SimpleTickets.tsx**: Repair ticket management page
+- **UnifiedTicketReceipt.tsx**: Receipt generation for tickets
+
+### Inventory and POS Components
+
+- **Products.tsx**: Product management page
+- **Pos.tsx**: Point of sale interface
+- **Orders.tsx**: Order management page
+- **Invoices.tsx**: Invoice management page
+
+### Document System Components
+
+#### Legacy Components (Deprecated)
+- **ThermalReceipt.tsx**: Thermal printer format receipt
+- **A4Invoice.tsx**: A4 format invoice
+- **A4InvoicePDF.tsx**: PDF generation for A4 invoices
+- **InvoiceReceipt.tsx**: Receipt component for invoices
+- **TicketReceipt.tsx**: Receipt component for tickets
+- **UnifiedTicketReceipt.tsx**: Combined receipt for tickets
+- **ReceiptFormatSelector.tsx**: UI for selecting receipt format
+
+#### New Unified Document System
+- **documents/DocumentTypes.ts**: Shared interfaces for document data
+- **documents/DocumentConverter.ts**: Utilities to convert from old formats
+- **documents/UnifiedDocument.tsx**: Main container with format switching
+- **documents/formats/ThermalFormat.tsx**: Thermal receipt format
+- **documents/formats/A4Format.tsx**: A4 paper format
+- **documents/formats/PDFFormat.tsx**: PDF generation format
+
+### Admin Components
+
+- **UserManagement.tsx**: User administration page
+- **Settings.tsx**: Application settings page
 
 ## Data Flow
 
-The application follows a unidirectional data flow pattern:
+1. **Authentication Flow**:
+   - User authenticates via Firebase Auth
+   - User role is fetched from Firestore
+   - App.tsx loads appropriate data based on user role
 
-1. **User Interaction**: User interacts with a component (e.g., submits a form)
-2. **Store Action**: Component calls a method from the appropriate store
-3. **Firebase Operation**: Store performs CRUD operations on Firebase
-4. **State Update**: Store updates its internal state based on Firebase response
-5. **Component Re-render**: Components subscribed to the store re-render with new data
+2. **Client Management Flow**:
+   - Clients are fetched from Firestore via useClientsStore
+   - CRUD operations update both Firestore and local state
+   - Client data is used in tickets, orders, and invoices
 
-### Example Flow for Creating a Ticket:
-- User fills out TicketForm and submits
-- TicketForm calls `addTicket` method from useTicketsStore
-- Store adds ticket to Firestore and updates local state
-- Tickets page re-renders to show the new ticket
-- Receipt is generated and displayed to the user
+3. **Ticket Management Flow**:
+   - Tickets are created and assigned to technicians
+   - Status updates are tracked and persisted
+   - Invoices are generated from tickets
+
+4. **POS Flow**:
+   - Products are added to cart
+   - Orders are created and linked to clients
+   - Receipts and invoices are generated
 
 ## External Dependencies
 
-### Firebase Services
-- **Authentication**: User management and role-based access
-- **Firestore**: Document database for all application data
-- **Storage**: File storage for images and documents
+### Firebase Integration
+- Authentication via Firebase Auth
+- Data storage in Firestore collections:
+  - users
+  - clients
+  - tickets
+  - products
+  - categories
+  - orders
+  - invoices
+  - settings
 
 ### UI Libraries
-- **Tailwind CSS**: For styling components
-- **Headless UI**: For accessible UI components like dropdowns and modals
-- **Lucide React**: For icons throughout the application
+- Tailwind CSS for styling
+- Lucide React for icons
+- Headless UI for accessible components
+- Recharts for dashboard charts
 
-### Utility Libraries
-- **date-fns**: For date formatting and manipulation
-- **html2canvas**: For converting receipts to downloadable images
-- **QRCode.react**: For generating QR codes on receipts
+### Document Generation
+- @react-pdf/renderer for PDF generation
+- html2canvas for capturing HTML as images
+- QRCode.react for QR code generation
 
 ## Recent Significant Changes
 
-The project is currently in a stable state with all core functionality implemented:
-
-- Role-based authentication system
-- Repair ticket management
-- Client management
-- Point-of-sale system
-- Invoicing and receipt generation
-- Dashboard with key metrics
+- Implemented role-based access control
+- Consolidated receipt/invoice components into a unified document system
+- Integrated point-of-sale functionality
+- Enhanced dashboard with sales metrics
+- Added user management capabilities
 
 ## User Feedback Integration
 
-The application has been designed with user feedback in mind:
+Recent user feedback has highlighted:
+- ✅ Need for consolidation of receipt/invoice components (Implemented)
+- Potential performance issues with redundant code
+- Desire for more consistent UI across the application
 
-- **Technicians**: Need quick access to their assigned tickets and ability to update status
-- **Super Admins**: Need comprehensive overview of business operations and ability to manage all aspects
-- **Clients**: Need clear receipts and invoices with detailed information about services
-
-The UI has been optimized for different user roles, with role-specific dashboards and access controls to ensure users only see what's relevant to them.
+These points have been incorporated into the current cleanup task to improve the overall quality and maintainability of the codebase. The consolidation of receipt/invoice components has been completed, resulting in a more maintainable and consistent document generation system.
