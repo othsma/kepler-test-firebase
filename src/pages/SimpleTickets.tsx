@@ -234,19 +234,45 @@ export default function SimpleTickets() {
       }
     }
   };
+  // Fixed brand selection handler
+  const handleBrandSelect = (selectedBrand: string) => {
+    setBrand(selectedBrand);
+    setModel('');
+    setDeviceType('');
+  };
 
   // Get technician name by ID
+  // Get technician name by ID
   const getTechnicianName = (techId: string) => {
-    const tech = technicians.find(t => t.id === techId);
+    const tech = technicians.find((t: any) => t.id === techId);
     return tech ? tech.fullName : 'Unassigned';
   };
+
+  // Fixed device type addition handler
+  const handleAddDeviceType = async (value: string) => {
+    const { addDeviceType } = useTicketsStore.getState();
+    await addDeviceType(value);
+    setDeviceType(value); // Keep selection visible
+    setBrand(''); // Clear dependent fields
+    setModel('');
+  };
+  
 
   // Check if user can edit a ticket
   const canEditTicket = (ticket: any) => {
     if (userRole === ROLES.SUPER_ADMIN) return true;
-    if (userRole === ROLES.TECHNICIAN && user && ticket.technicianId === user.uid) return true;
+    if (userRole === ROLES.TECHNICIAN && user && ticket.technicianId === user?.uid) return true;
     return false;
   };
+
+  // Fixed brand addition handler
+  const handleAddBrand = async (value: string) => {
+    const { addBrand } = useTicketsStore.getState();
+    await addBrand(value);
+    setBrand(value); // Keep selection visible
+    setModel(''); // Clear dependent field
+  };
+  
 
   // Get status badge
   const getStatusBadge = (status: string) => {
@@ -260,6 +286,12 @@ export default function SimpleTickets() {
       default:
         return null;
     }
+  };
+  // Fixed model addition handler
+  const handleAddModel = async (value: string, brand: string) => {
+    const { addModel } = useTicketsStore.getState();
+    await addModel({ name: value, brandId: brand });
+    setModel(value);
   };
 
   return (
