@@ -396,20 +396,17 @@ export default function SimpleTickets() {
                       ) && (
                           <div
                             className="px-4 py-2 hover:bg-gray-100 cursor-pointer text-indigo-600"
-                            onClick={() => {
+                            onClick={async () => {
                               // Add to global settings in the background
                               const { addDeviceType } = useTicketsStore.getState();
-                              
-                              // Clear the search to close the dropdown
                               const currentValue = deviceType;
-                              setDeviceType('');
-                              setTimeout(() => {
-                                setDeviceType(currentValue);
-                                // Add to settings
-                                addDeviceType(currentValue).catch(error => {
-                                  console.error("Error adding device type:", error);
-                                });
-                              }, 10);
+                              
+                              try {
+                                // Add to settings without clearing the form
+                                await addDeviceType(currentValue);
+                              } catch (error) {
+                                console.error("Error adding device type:", error);
+                              }
                             }}
                           >
                           Add "{deviceType}"
@@ -470,20 +467,17 @@ export default function SimpleTickets() {
                       ) && (
                           <div
                             className="px-4 py-2 hover:bg-gray-100 cursor-pointer text-indigo-600"
-                            onClick={() => {
+                            onClick={async () => {
                               // Add to global settings in the background
                               const { addBrand } = useTicketsStore.getState();
-                              
-                              // Clear the search to close the dropdown
                               const currentValue = brand;
-                              setBrand('');
-                              setTimeout(() => {
-                                setBrand(currentValue);
-                                // Add to settings
-                                addBrand(currentValue).catch(error => {
-                                  console.error("Error adding brand:", error);
-                                });
-                              }, 10);
+                              
+                              try {
+                                // Add to settings without clearing the form
+                                await addBrand(currentValue);
+                              } catch (error) {
+                                console.error("Error adding brand:", error);
+                              }
                             }}
                           >
                           Add "{brand}"
@@ -537,21 +531,18 @@ export default function SimpleTickets() {
                       ) && (
                           <div
                             className="px-4 py-2 hover:bg-gray-100 cursor-pointer text-indigo-600"
-                            onClick={() => {
+                            onClick={async () => {
                               // Add to global settings in the background
                               const { addModel } = useTicketsStore.getState();
-                              
-                              // Clear the search to close the dropdown
                               const currentValue = model;
                               const currentBrand = brand;
-                              setModel('');
-                              setTimeout(() => {
-                                setModel(currentValue);
-                                // Add to settings
-                                addModel({ name: currentValue, brandId: currentBrand }).catch(error => {
-                                  console.error("Error adding model:", error);
-                                });
-                              }, 10);
+                              
+                              try {
+                                // Add to settings without clearing the form
+                                await addModel({ name: currentValue, brandId: currentBrand });
+                              } catch (error) {
+                                console.error("Error adding model:", error);
+                              }
                             }}
                           >
                           Add "{model}"
@@ -635,7 +626,7 @@ export default function SimpleTickets() {
                         <div className="flex flex-col">
                           <div
                             className="px-4 py-2 hover:bg-gray-100 cursor-pointer text-indigo-600"
-                            onClick={() => {
+                            onClick={async () => {
                               const taskName = newTaskName;
                               const taskPrice = newTaskPrice;
                               
@@ -644,11 +635,11 @@ export default function SimpleTickets() {
                               
                               // Add to global settings in the background
                               const { addTask } = useTicketsStore.getState();
-                              setTimeout(() => {
-                                addTask(taskName).catch(error => {
-                                  console.error("Error adding task:", error);
-                                });
-                              }, 0);
+                              try {
+                                await addTask(taskName);
+                              } catch (error) {
+                                console.error("Error adding task:", error);
+                              }
                               
                               // Clear the inputs to close the dropdown
                               setNewTaskName('');
