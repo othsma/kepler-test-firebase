@@ -193,11 +193,9 @@ export default function SimpleTickets() {
   };
 
   // Handle adding a new task
-  const handleAddTask = () => {
-    if (newTaskName.trim()) {
-      setTasksWithPrice([...tasksWithPrice, { name: newTaskName.trim(), price: newTaskPrice }]);
-      setNewTaskName('');
-      setNewTaskPrice(0);
+  const handleAddTask = (taskName: string) => {
+    if (taskName.trim()) {
+      setTasksWithPrice([...tasksWithPrice, { name: taskName.trim(), price: 0 }]);
     }
   };
 
@@ -430,16 +428,7 @@ export default function SimpleTickets() {
                           <div
                             className="px-4 py-2 hover:bg-gray-100 cursor-pointer text-indigo-600"
                             onClick={async () => {
-                              // Add to global settings in the background
-                              const { addDeviceType } = useTicketsStore.getState();
-                              const currentValue = deviceType;
-                              
-                              try {
-                                // Add to settings without clearing the form
-                                await addDeviceType(currentValue);
-                              } catch (error) {
-                                console.error("Error adding device type:", error);
-                              }
+                              await handleAddDeviceType(deviceType);
                             }}
                           >
                           Add "{deviceType}"
@@ -565,17 +554,7 @@ export default function SimpleTickets() {
                           <div
                             className="px-4 py-2 hover:bg-gray-100 cursor-pointer text-indigo-600"
                             onClick={async () => {
-                              // Add to global settings in the background
-                              const { addModel } = useTicketsStore.getState();
-                              const currentValue = model;
-                              const currentBrand = brand;
-                              
-                              try {
-                                // Add to settings without clearing the form
-                                await addModel({ name: currentValue, brandId: currentBrand });
-                              } catch (error) {
-                                console.error("Error adding model:", error);
-                              }
+                              await handleAddModel(model, brand);
                             }}
                           >
                           Add "{model}"
@@ -643,10 +622,7 @@ export default function SimpleTickets() {
                             key={task}
                             className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
                             onClick={() => {
-                              if (!tasksWithPrice.some(t => t.name === task)) {
-                                setTasksWithPrice(prev => [...prev, { name: task, price: 0 }]);
-                              }
-                              // Clear the search to close the dropdown
+                              handleAddTask(task);
                               setNewTaskName('');
                             }}
                           >
@@ -727,7 +703,7 @@ export default function SimpleTickets() {
                               if (exists) {
                                 setTasksWithPrice(prev => prev.filter(t => t.name !== task));
                               } else {
-                                setTasksWithPrice(prev => [...prev, { name: task, price: 0 }]);
+                                handleAddTask(task);
                               }
                             }}
                             className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
