@@ -169,20 +169,22 @@ export default function SimpleTickets() {
         setShowReceipt(true);
       }
       
-      // Reset form
-      setIsAddingTicket(false);
-      setClientSearch('');
-      setSelectedClientId('');
-      
-      // Reset form fields
-      setDeviceType('');
-      setBrand('');
-      setModel('');
-      setTasksWithPrice([]);
-      setIssue('');
-      setPasscode('');
-      setStatus('pending');
-      setTechnicianId('');
+      // Only reset form if not editing
+      if (!editingTicket) {
+        setIsAddingTicket(false);
+        setClientSearch('');
+        setSelectedClientId('');
+        
+        // Reset form fields
+        setDeviceType('');
+        setBrand('');
+        setModel('');
+        setTasksWithPrice([]);
+        setIssue('');
+        setPasscode('');
+        setStatus('pending');
+        setTechnicianId('');
+      }
       
     } catch (error) {
       console.error("Error submitting ticket:", error);
@@ -383,9 +385,8 @@ export default function SimpleTickets() {
                             className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
                             onClick={() => {
                               setDeviceType(type);
-                              // Clear the search to close the dropdown
-                              setDeviceType('');
-                              setTimeout(() => setDeviceType(type), 10);
+                              // Clear search input to close dropdown
+                              setDeviceType(type);
                             }}
                           >
                             {type}
