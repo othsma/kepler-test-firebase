@@ -385,32 +385,6 @@ const useTicketsStore = create<TicketsState>((set, get) => ({
       // Add ticket to Firestore
       const docRef = await addDoc(collection(db, 'tickets'), ticketData);
       
-      // Create corresponding invoice
-      const invoiceStore = useInvoicesStore.getState();
-      const invoiceData = {
-        date: new Date().toISOString(),
-        clientId: ticket.clientId,
-        items: ticket.taskPrices ? ticket.taskPrices.map(task => ({
-          id: 'task',
-          name: task.name,
-          quantity: 1,
-          price: task.price
-        })) : ticket.tasks.map(task => ({
-          id: 'task',
-          name: task,
-          quantity: 1,
-          price: ticket.cost / ticket.tasks.length
-        })),
-        subtotal: ticket.cost,
-        tax: ticket.cost * 0.2, // 20% VAT
-        total: ticket.cost * 1.2,
-        status: 'pending',
-        sourceType: 'ticket',
-        sourceId: docRef.id
-      };
-      
-      await invoiceStore.addInvoice(invoiceData);
-      
       // Add the new ticket to the local state
       const newTicket = {
         id: docRef.id,
@@ -1104,28 +1078,6 @@ const useOrdersStore = create<OrdersState>((set, get) => ({
       
       const docRef = await addDoc(collection(db, 'orders'), orderData);
       
-      // Create corresponding invoice
-      const invoiceStore = useInvoicesStore.getState();
-      const invoiceData = {
-        date: new Date().toISOString(),
-        clientId,
-        items: orderItems.map(item => ({
-          id: item.productId,
-          name: item.name || '',
-          quantity: item.quantity,
-          price: item.price || 0,
-          sku: ''
-        })),
-        subtotal: total / 1.2, // Assuming 20% VAT
-        tax: total - (total / 1.2),
-        total,
-        status: 'pending',
-        sourceType: 'pos',
-        sourceId: docRef.id
-      };
-      
-      await invoiceStore.addInvoice(invoiceData);
-      
       // Update product stock
       for (const item of orderItems) {
         if (item.productId && item.productId !== 'custom') {
@@ -1223,165 +1175,6 @@ const useOrdersStore = create<OrdersState>((set, get) => ({
   }
 }));
 
-interface InvoiceItem {
-  id: string;
-  name: string;
-  quantity: number;
-  price: number;
-  sku?: string;
-}
-
-interface Invoice {
-  id: string;
-  invoiceNumber: string;
-  date: string;
-  clientId: string;
-  items: InvoiceItem[];
-  subtotal: number;
-  tax: number;
-  total: number;
-  status: 'pending' | 'completed' | 'cancelled';
-  paymentMethod?: string;
-  paymentStatus?: string;
-  amountPaid?: number;
-  sourceType: 'pos' | 'ticket';
-  sourceId: string;
-  createdAt: string;
-}
-
-interface InvoicesState {
-  invoices: Invoice[];
-  loading: boolean;
-  error: string | null;
-  fetchInvoices: () => Promise<void>;
-  addInvoice: (invoice: Omit<Invoice, 'id' | 'invoiceNumber' | 'createdAt'>) => Promise<void>;
-  updateInvoice: (id: string, invoice: Partial<Invoice>) => Promise<void>;
-  updateInvoiceStatus: (invoiceId: string, status: Invoice['status']) => Promise<void>;
-  deleteInvoice: (invoiceId: string) => Promise<void>;
-}
-
-const generateInvoiceNumber = () => {
-  const month = new Date().toLocaleString('en-US', { month: 'short' }).toLowerCase();
-  const randomNum = Math.floor(1000 + Math.random() * 9000);
-  return `${month}${randomNum}`;
-};
-
-const useInvoicesStore = create<InvoicesState>((set, get) => ({
-  invoices: [],
-  loading: false,
-  error: null,
-  
-  fetchInvoices: async () => {
-    set({ loading: true, error: null });
-    try {
-      const invoicesCollection = collection(db, 'invoices');
-      const invoicesSnapshot = await getDocs(invoicesCollection);
-      const invoicesList = invoicesSnapshot.docs.map(doc => {
-        const data = doc.data();
-        return {
-          id: doc.id,
-          ...data,
-          date: data.date?.toDate().toISOString() || new Date().toISOString(),
-          createdAt: data.createdAt?.toDate().toISOString() || new Date().toISOString()
-        } as Invoice;
-      });
-      
-      set({ invoices: invoicesList, loading: false });
-    } catch (error) {
-      console.error('Error fetching invoices:', error);
-      set({ error: 'Failed to fetch invoices', loading: false });
-    }
-  },
-  
-  addInvoice: async (invoice: Omit<Invoice, 'id' | 'invoiceNumber' | 'createdAt'>) => {
-    set({ loading: true, error: null });
-    try {
-      const invoiceNumber = generateInvoiceNumber();
-      
-      const invoiceData = {
-        ...invoice,
-        invoiceNumber,
-        createdAt: serverTimestamp(),
-        date: Timestamp.fromDate(new Date(invoice.date))
-      };
-      
-      const docRef = await addDoc(collection(db, 'invoices'), invoiceData);
-      
-      const newInvoice = {
-        id: docRef.id,
-        invoiceNumber,
-        ...invoice,
-        createdAt: new Date().toISOString()
-      };
-      
-      set(state => ({
-        invoices: [...state.invoices, newInvoice],
-        loading: false
-      }));
-    } catch (error) {
-      console.error('Error adding invoice:', error);
-      set({ error: 'Failed to add invoice', loading: false });
-    }
-  },
-  
-  updateInvoice: async (id: string, invoiceData: Partial<Invoice>) => {
-    set({ loading: true, error: null });
-    try {
-      const invoiceRef = doc(db, 'invoices', id);
-      
-      const updateData = { ...invoiceData };
-      if (updateData.date) {
-        updateData.date = Timestamp.fromDate(new Date(updateData.date));
-      }
-      
-      await updateDoc(invoiceRef, updateData);
-      
-      set(state => ({
-        invoices: state.invoices.map(invoice => 
-          invoice.id === id ? { ...invoice, ...invoiceData } : invoice
-        ),
-        loading: false
-      }));
-    } catch (error) {
-      console.error('Error updating invoice:', error);
-      set({ error: 'Failed to update invoice', loading: false });
-    }
-  },
-  
-  updateInvoiceStatus: async (invoiceId: string, status: Invoice['status']) => {
-    set({ loading: true, error: null });
-    try {
-      const invoiceRef = doc(db, 'invoices', invoiceId);
-      await updateDoc(invoiceRef, { status });
-      
-      set(state => ({
-        invoices: state.invoices.map(invoice => 
-          invoice.id === invoiceId ? { ...invoice, status } : invoice
-        ),
-        loading: false
-      }));
-    } catch (error) {
-      console.error('Error updating invoice status:', error);
-      set({ error: 'Failed to update invoice status', loading: false });
-    }
-  },
-  
-  deleteInvoice: async (invoiceId: string) => {
-    set({ loading: true, error: null });
-    try {
-      await deleteDoc(doc(db, 'invoices', invoiceId));
-      
-      set(state => ({
-        invoices: state.invoices.filter(invoice => invoice.id !== invoiceId),
-        loading: false
-      }));
-    } catch (error) {
-      console.error('Error deleting invoice:', error);
-      set({ error: 'Failed to delete invoice', loading: false });
-    }
-  }
-}));
-
 // Export all stores
 export {
   useThemeStore,
@@ -1390,8 +1183,7 @@ export {
   useClientsStore,
   useTicketsStore,
   useProductsStore,
-  useOrdersStore,
-  useInvoicesStore
+  useOrdersStore
 };
 
 // Initialize the super admin account

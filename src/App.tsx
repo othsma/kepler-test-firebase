@@ -7,7 +7,6 @@ import Clients from './pages/Clients';
 import Tickets from './pages/SimpleTickets';
 import Products from './pages/Products';
 import Orders from './pages/Orders';
-import Invoices from './pages/Invoices';
 import Pos from './pages/Pos';
 import Settings from './pages/Settings';
 import Login from './pages/Login';
@@ -15,7 +14,7 @@ import Register from './pages/Register';
 import ForgotPassword from './pages/ForgotPassword';
 import Profile from './pages/Profile';
 import UserManagement from './pages/UserManagement';
-import { useClientsStore, useTicketsStore, useProductsStore, useOrdersStore, useInvoicesStore, useAuthStore } from './lib/store';
+import { useClientsStore, useTicketsStore, useProductsStore, useOrdersStore, useAuthStore } from './lib/store';
 import { getUserRole, ROLES } from './lib/firebase';
 import LoadingScreen from './components/LoadingScreen';
 import AccessDenied from './components/AccessDenied';
@@ -35,7 +34,6 @@ function App() {
   const { fetchTickets, fetchSettings, fetchTechnicianTickets } = useTicketsStore();
   const { fetchProducts, fetchCategories } = useProductsStore();
   const { fetchOrders } = useOrdersStore();
-  const { fetchInvoices } = useInvoicesStore();
 
   useEffect(() => {
     const auth = getAuth();
@@ -60,7 +58,6 @@ function App() {
           fetchProducts();
           fetchCategories();
           fetchOrders();
-          fetchInvoices();
         } else {
           // Technicians only get their assigned tickets
           fetchSettings();
@@ -162,11 +159,6 @@ function App() {
           <Route path="pos/orders" element={
             <ProtectedRoute requiredRole={ROLES.SUPER_ADMIN}>
               <Orders />
-            </ProtectedRoute>
-          } />
-          <Route path="pos/invoices" element={
-            <ProtectedRoute requiredRole={ROLES.SUPER_ADMIN}>
-              <Invoices />
             </ProtectedRoute>
           } />
           
