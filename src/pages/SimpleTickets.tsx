@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useThemeStore, useTicketsStore, useClientsStore, useAuthStore, TaskWithPrice } from '../lib/store';
-import { Search, Plus, Calendar, User, Edit, Printer, FileText as FileIcon, Trash2 } from 'lucide-react';
+import { Search, Plus, Calendar, User, Edit, Printer, FileText as FileIcon, Trash2, ArrowUpDown } from 'lucide-react';
 import { format } from 'date-fns';
 import ClientForm from '../components/ClientForm';
 import UnifiedDocument from '../components/documents/UnifiedDocument';
@@ -36,6 +36,10 @@ export default function SimpleTickets() {
   const [technicianId, setTechnicianId] = useState('');
   const [newTaskName, setNewTaskName] = useState('');
   const [newTaskPrice, setNewTaskPrice] = useState(0);
+
+  // Add new state variables for sorting and filtering
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+  const [searchField, setSearchField] = useState<'all' | 'tasks' | 'client' | 'ticket'>('all');
 
   // Fetch technicians for super admin
   useEffect(() => {
@@ -102,16 +106,39 @@ export default function SimpleTickets() {
       const client = clients.find(c => c.id === ticket.clientId);
       const searchLower = searchQuery.toLowerCase();
       
-      return (
-        ticket.ticketNumber?.toLowerCase().includes(searchLower) ||
-        ticket.deviceType?.toLowerCase().includes(searchLower) ||
-        ticket.brand?.toLowerCase().includes(searchLower) ||
-        client?.name?.toLowerCase().includes(searchLower) ||
-        false
-      );
+      switch (searchField) {
+        case 'tasks':
+          return ticket.tasks.some(task => 
+            task.toLowerCase().includes(searchLower)
+          );
+        case 'client':
+          return (
+            client?.name?.toLowerCase().includes(searchLower) ||
+            client?.email?.toLowerCase().includes(searchLower) ||
+            client?.phone?.toLowerCase().includes(searchLower)
+          );
+        case 'ticket':
+          return ticket.ticketNumber?.toLowerCase().includes(searchLower);
+        case 'all':
+        default:
+          return (
+            ticket.ticketNumber?.toLowerCase().includes(searchLower) ||
+            ticket.deviceType?.toLowerCase().includes(searchLower) ||
+            ticket.brand?.toLowerCase().includes(searchLower) ||
+            client?.name?.toLowerCase().includes(searchLower) ||
+            client?.email?.toLowerCase().includes(searchLower) ||
+            client?.phone?.toLowerCase().includes(searchLower) ||
+            ticket.tasks.some(task => task.toLowerCase().includes(searchLower))
+          );
+      }
     }
     
     return true;
+  }).sort((a, b) => {
+    // Sort by date
+    const dateA = new Date(a.createdAt).getTime();
+    const dateB = new Date(b.createdAt).getTime();
+    return sortDirection === 'asc' ? dateA - dateB : dateB - dateA;
   });
 
   // Filter clients based on search
@@ -232,6 +259,7 @@ export default function SimpleTickets() {
       }
     }
   };
+
   // Fixed brand selection handler
   const handleBrandSelect = (selectedBrand: string) => {
     setBrand(selectedBrand);
@@ -239,7 +267,6 @@ export default function SimpleTickets() {
     setDeviceType('');
   };
 
-  // Get technician name by ID
   // Get technician name by ID
   const getTechnicianName = (techId: string) => {
     const tech = technicians.find((t: any) => t.id === techId);
@@ -254,7 +281,6 @@ export default function SimpleTickets() {
     setBrand(''); // Clear dependent fields
     setModel('');
   };
-  
 
   // Check if user can edit a ticket
   const canEditTicket = (ticket: any) => {
@@ -270,7 +296,6 @@ export default function SimpleTickets() {
     setBrand(value); // Keep selection visible
     setModel(''); // Clear dependent field
   };
-  
 
   // Get status badge
   const getStatusBadge = (status: string) => {
@@ -285,6 +310,7 @@ export default function SimpleTickets() {
         return null;
     }
   };
+
   // Fixed model addition handler
   const handleAddModel = async (value: string, brand: string) => {
     const { addModel } = useTicketsStore.getState();
@@ -729,6 +755,7 @@ export default function SimpleTickets() {
                           <div className="flex items-center">
                             <button
                               type="button"
+                              
                               onClick={() => handleRemoveTask(task.name)}
                               className="mr-2 text-red-500 hover:text-red-700"
                             >
@@ -828,19 +855,34 @@ export default function SimpleTickets() {
       {/* Tickets Table */}
       <div className={`rounded-lg ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow p-6`}>
         <div className="flex flex-col sm:flex-row gap-4 mb-6">
-          {/* Search */}
-          <div className="flex-1 flex items-center gap-4 bg-white dark:bg-gray-700 p-4 rounded-lg shadow-inner">
-            <Search className="h-5 w-5 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search tickets..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="flex-1 bg-transparent border-0 focus:ring-0 text-gray-900 dark:text-white placeholder-gray-400"
-            />
+          {/* Search and Filters */}
+          <div className="flex-1 space-y-4 sm:space-y-0 sm:flex sm:items-center sm:gap-4">
+            {/* Search Field Selector */}
+            <select
+              value={searchField}
+              onChange={(e) => setSearchField(e.target.value as any)}
+              className="w-full sm:w-40 rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+            >
+              <option value="all">Search All</option>
+              <option value="ticket">Ticket Number</option>
+              <option value="client">Client Info</option>
+              <option value="tasks">Tasks</option>
+            </select>
+
+            {/* Search Input */}
+            <div className="flex-1 flex items-center gap-4 bg-white dark:bg-gray-700 p-4 rounded-lg shadow-inner">
+              <Search className="h-5 w-5 text-gray-400" />
+              <input
+                type="text"
+                placeholder={`Search ${searchField === 'all' ? 'tickets' : searchField}...`}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="flex-1 bg-transparent border-0 focus:ring-0 text-gray-900 dark:text-white placeholder-gray-400"
+              />
+            </div>
           </div>
           
-          {/* Status Filter */}
+          {/* Status and Date Sort */}
           <div className="flex items-center gap-2">
             <select
               value={filterStatus}
@@ -852,6 +894,16 @@ export default function SimpleTickets() {
               <option value="in-progress">In Progress</option>
               <option value="completed">Completed</option>
             </select>
+
+            <button
+              onClick={() => setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc')}
+              className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
+              title="Sort by date"
+            >
+              <Calendar className="h-4 w-4" />
+              <ArrowUpDown className="h-4 w-4" />
+              <span className="hidden sm:inline">{sortDirection === 'asc' ? 'Oldest First' : 'Newest First'}</span>
+            </button>
           </div>
         </div>
 
