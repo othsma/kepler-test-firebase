@@ -23,12 +23,12 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
     // Base navigation items for all users
     const baseNavigation = [
       { name: 'Dashboard', href: '/', icon: LayoutDashboard },
+      { name: 'Clients', href: '/clients', icon: Users },
       { name: 'Tickets', href: '/tickets', icon: Tool },
     ];
 
     // Additional items only for super admin
     if (userRole === ROLES.SUPER_ADMIN) {
-      baseNavigation.push({ name: 'Clients', href: '/clients', icon: Users });
       baseNavigation.push({ 
         name: 'POS',
         href: '/pos',

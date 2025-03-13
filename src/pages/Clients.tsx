@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useThemeStore, useClientsStore, useTicketsStore, useOrdersStore } from '../lib/store';
-import { Search, Plus, Edit2, Trash2, History, PenTool as Tool, ShoppingBag, Calendar } from 'lucide-react';
+import { Search, Plus, Edit2, Trash2, History, Calendar } from 'lucide-react';
 import { format } from 'date-fns';
 
 export default function Clients() {
@@ -11,8 +11,6 @@ export default function Clients() {
   const [isAddingClient, setIsAddingClient] = useState(false);
   const [editingClient, setEditingClient] = useState<string | null>(null);
   const [selectedClient, setSelectedClient] = useState<string | null>(null);
-  const [isCreatingTicket, setIsCreatingTicket] = useState(false);
-  const [ticketClientId, setTicketClientId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -46,11 +44,6 @@ export default function Clients() {
     const clientTickets = tickets.filter(ticket => ticket.clientId === clientId);
     const clientOrders = orders.filter(order => order.clientId === clientId);
     return { tickets: clientTickets, orders: clientOrders };
-  };
-
-  const startNewTicket = (clientId: string) => {
-    setIsCreatingTicket(true);
-    setTicketClientId(clientId);
   };
 
   const handleDeleteClient = async (id: string) => {
@@ -172,34 +165,6 @@ export default function Clients() {
         </div>
       )}
 
-      {isCreatingTicket && ticketClientId && (
-        <div className={`rounded-lg ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow p-6`}>
-          <h2 className={`text-lg font-semibold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-            Create New Ticket for {clients.find(c => c.id === ticketClientId)?.name}
-          </h2>
-          <button
-            onClick={() => {
-              // Redirect to SimpleTickets page instead
-              window.location.href = '/tickets';
-              setIsCreatingTicket(false);
-              setTicketClientId(null);
-            }}
-            className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700"
-          >
-            Go to Tickets Page
-          </button>
-          <button
-            onClick={() => {
-              setIsCreatingTicket(false);
-              setTicketClientId(null);
-            }}
-            className="ml-4 px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50"
-          >
-            Cancel
-          </button>
-        </div>
-      )}
-
       <div className="grid gap-6">
         {filteredClients.map((client) => {
           const { tickets: clientTickets, orders: clientOrders } = getClientHistory(client.id);
@@ -237,13 +202,6 @@ export default function Clients() {
                   </div>
                 </div>
                 <div className="flex gap-2">
-                  <button
-                    onClick={() => startNewTicket(client.id)}
-                    className="p-2 text-indigo-600 hover:text-indigo-700 bg-indigo-50 rounded-full"
-                    title="Create New Ticket"
-                  >
-                    <Tool className="h-5 w-5" />
-                  </button>
                   <button
                     onClick={() => {
                       setSelectedClient(isSelected ? null : client.id);
@@ -289,10 +247,9 @@ export default function Clients() {
 
                   <div className="space-y-6">
                     <div>
-                      <h5 className={`text-sm font-medium mb-2 flex items-center gap-2 ${
+                      <h5 className={`text-sm font-medium mb-2 ${
                         isDarkMode ? 'text-gray-300' : 'text-gray-700'
                       }`}>
-                        <Tool className="h-4 w-4" />
                         Repair Tickets
                       </h5>
                       <div className="space-y-2">
@@ -349,10 +306,9 @@ export default function Clients() {
                     </div>
 
                     <div>
-                      <h5 className={`text-sm font-medium mb-2 flex items-center gap-2 ${
+                      <h5 className={`text-sm font-medium mb-2 ${
                         isDarkMode ? 'text-gray-300' : 'text-gray-700'
                       }`}>
-                        <ShoppingBag className="h-4 w-4" />
                         Purchase History
                       </h5>
                       <div className="space-y-2">
