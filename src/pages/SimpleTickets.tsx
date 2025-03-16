@@ -57,7 +57,37 @@ export default function SimpleTickets() {
     fetchTechnicianData();
   }, [userRole]);
 
- 
+  // Reset form when editing ticket changes
+  useEffect(() => {
+    if (editingTicket) {
+      const ticket = tickets.find(t => t.id === editingTicket);
+      if (ticket) {
+        setDeviceType(ticket.deviceType || '');
+        setBrand(ticket.brand || '');
+        setModel(ticket.model || '');
+        setTasksWithPrice(ticket.taskPrices || 
+          ticket.tasks.map(task => ({
+            name: task,
+            price: ticket.cost / (ticket.tasks.length || 1)
+          }))
+        );
+        setIssue(ticket.issue || '');
+        setPasscode(ticket.passcode || '');
+        setStatus(ticket.status || 'pending');
+        setTechnicianId(ticket.technicianId || '');
+      }
+    } else {
+      // Reset form for new ticket
+      setDeviceType('');
+      setBrand('');
+      setModel('');
+      setTasksWithPrice([]);
+      setIssue('');
+      setPasscode('');
+      setStatus('pending');
+      setTechnicianId(userRole === ROLES.TECHNICIAN && user ? user.uid : '');
+    }
+  }, [editingTicket, tickets, userRole, user]);
 
   // Filter tickets based on search and status
   const filteredTickets = tickets.filter(ticket => {
@@ -166,7 +196,22 @@ export default function SimpleTickets() {
         setShowReceipt(true);
       }
       
-  
+      // Only reset form if not editing
+      if (!editingTicket) {
+        setIsAddingTicket(false);
+        setClientSearch('');
+        setSelectedClientId('');
+        
+        // Reset form fields
+        setDeviceType('');
+        setBrand('');
+        setModel('');
+        setTasksWithPrice([]);
+        setIssue('');
+        setPasscode('');
+        setStatus('pending');
+        setTechnicianId('');
+      }
       
     } catch (error) {
       console.error("Error submitting ticket:", error);
