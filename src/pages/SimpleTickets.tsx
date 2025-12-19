@@ -25,6 +25,13 @@ export default function SimpleTickets() {
   const [searchQuery, setSearchQuery] = useState('');
   const [technicians, setTechnicians] = useState<any[]>([]);
   
+  // Dropdown open states
+  const [showDeviceDropdown, setShowDeviceDropdown] = useState(false);
+  const [showBrandDropdown, setShowBrandDropdown] = useState(false);
+  const [showModelDropdown, setShowModelDropdown] = useState(false);
+  const [showTaskDropdown, setShowTaskDropdown] = useState(false);
+  const [showClientDropdown, setShowClientDropdown] = useState(false);
+  
   // Form state
   const [deviceType, setDeviceType] = useState('');
   const [brand, setBrand] = useState('');
@@ -369,7 +376,9 @@ export default function SimpleTickets() {
                     onChange={(e) => {
                       setClientSearch(e.target.value);
                       setSelectedClientId('');
+                      setShowClientDropdown(true);
                     }}
+                    onFocus={() => setShowClientDropdown(true)}
                     placeholder="Search for a client..."
                     className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                   />
@@ -381,8 +390,8 @@ export default function SimpleTickets() {
                     New Client
                   </button>
                 </div>
-                {clientSearch && !selectedClientId && !isAddingClient && filteredClients.length > 0 && (
-                  <div className="absolute z-10 w-full mt-1 bg-white rounded-md shadow-lg">
+                {showClientDropdown && !selectedClientId && !isAddingClient && filteredClients.length > 0 && (
+                  <div className="absolute z-10 w-full mt-1 bg-white rounded-md shadow-lg border border-gray-200 ring-1 ring-black ring-opacity-5">
                     {filteredClients.map((client) => (
                       <div
                         key={client.id}
@@ -390,6 +399,7 @@ export default function SimpleTickets() {
                         onClick={() => {
                           setSelectedClientId(client.id);
                           setClientSearch(client.name);
+                          setShowClientDropdown(false);
                         }}
                       >
                         <div className="font-medium">{client.name}</div>
@@ -420,7 +430,11 @@ export default function SimpleTickets() {
                   <input
                     type="text"
                     value={deviceType}
-                    onChange={(e) => setDeviceType(e.target.value)}
+                    onChange={(e) => {
+                      setDeviceType(e.target.value);
+                      setShowDeviceDropdown(true);
+                    }}
+                    onFocus={() => setShowDeviceDropdown(true)}
                     className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                     placeholder="Search or add new device type"
                     required
@@ -431,30 +445,30 @@ export default function SimpleTickets() {
                       }
                     }}
                   />
-                  {deviceType && (
-                    <div className="absolute z-10 w-full mt-1 bg-white rounded-md shadow-lg">
+                  {showDeviceDropdown && (
+                    <div className="absolute z-10 w-full mt-1 bg-white rounded-md shadow-lg border border-gray-200 ring-1 ring-black ring-opacity-5">
                       {useTicketsStore.getState().settings.deviceTypes
                         .filter(type => type.toLowerCase().includes(deviceType.toLowerCase()))
                         .map((type) => (
                           <div
                             key={type}
-                            className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
+                            className="px-4 py-2 hover:bg-gray-100 cursor-pointer text-gray-900"
                             onClick={() => {
                               setDeviceType(type);
-                              // Clear search input to close dropdown
-                              setDeviceType(type);
+                              setShowDeviceDropdown(false);
                             }}
                           >
                             {type}
                           </div>
                         ))}
-                      {!useTicketsStore.getState().settings.deviceTypes.some(
+                      {deviceType && !useTicketsStore.getState().settings.deviceTypes.some(
                         type => type.toLowerCase() === deviceType.toLowerCase()
                       ) && (
                           <div
                             className="px-4 py-2 hover:bg-gray-100 cursor-pointer text-indigo-600"
                             onClick={async () => {
                               await handleAddDeviceType(deviceType);
+                              setShowDeviceDropdown(false);
                             }}
                           >
                           Add "{deviceType}"
@@ -476,10 +490,12 @@ export default function SimpleTickets() {
                     value={brand}
                     onChange={(e) => {
                       setBrand(e.target.value);
+                      setShowBrandDropdown(true);
                       if (!e.target.value) {
                         setModel(''); // Clear model when brand is cleared
                       }
                     }}
+                    onFocus={() => setShowBrandDropdown(true)}
                     className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                     placeholder="Search or add new brand"
                     required
@@ -490,27 +506,25 @@ export default function SimpleTickets() {
                       }
                     }}
                   />
-                  {brand && (
-                    <div className="absolute z-10 w-full mt-1 bg-white rounded-md shadow-lg">
+                  {showBrandDropdown && (
+                    <div className="absolute z-10 w-full mt-1 bg-white rounded-md shadow-lg border border-gray-200 ring-1 ring-black ring-opacity-5">
                       {useTicketsStore.getState().settings.brands
                         .filter(b => b.toLowerCase().includes(brand.toLowerCase()))
                         .map((b) => (
                           <div
                             key={b}
-                            className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
+                            className="px-4 py-2 hover:bg-gray-100 cursor-pointer text-gray-900"
                             onClick={() => {
                               // Clear model when changing brand
                               setModel('');
-                              
-                              // Clear the search to close the dropdown
-                              setBrand('');
-                              setTimeout(() => setBrand(b), 10);
+                              setBrand(b);
+                              setShowBrandDropdown(false);
                             }}
                           >
                             {b}
                           </div>
                         ))}
-                      {!useTicketsStore.getState().settings.brands.some(
+                      {brand && !useTicketsStore.getState().settings.brands.some(
                         b => b.toLowerCase() === brand.toLowerCase()
                       ) && (
                           <div
@@ -518,14 +532,12 @@ export default function SimpleTickets() {
                             onClick={async () => {
                               // Add to global settings in the background
                               const { addBrand } = useTicketsStore.getState();
-                              const currentValue = brand;
-                              
                               try {
-                                // Add to settings without clearing the form
-                                await addBrand(currentValue);
+                                await addBrand(brand);
                               } catch (error) {
                                 console.error("Error adding brand:", error);
                               }
+                              setShowBrandDropdown(false);
                             }}
                           >
                           Add "{brand}"
@@ -545,7 +557,11 @@ export default function SimpleTickets() {
                   <input
                     type="text"
                     value={model}
-                    onChange={(e) => setModel(e.target.value)}
+                    onChange={(e) => {
+                      setModel(e.target.value);
+                      setShowModelDropdown(true);
+                    }}
+                    onFocus={() => setShowModelDropdown(true)}
                     className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                     placeholder="Search or add new model"
                     required
@@ -557,30 +573,30 @@ export default function SimpleTickets() {
                       }
                     }}
                   />
-                  {model && brand && (
-                    <div className="absolute z-10 w-full mt-1 bg-white rounded-md shadow-lg">
+                  {showModelDropdown && brand && (
+                    <div className="absolute z-10 w-full mt-1 bg-white rounded-md shadow-lg border border-gray-200 ring-1 ring-black ring-opacity-5">
                       {useTicketsStore.getState().settings.models
                         .filter(m => m.brandId === brand && m.name.toLowerCase().includes(model.toLowerCase()))
                         .map((m) => (
                           <div
                             key={m.id}
-                            className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
+                            className="px-4 py-2 hover:bg-gray-100 cursor-pointer text-gray-900"
                             onClick={() => {
-                              // Clear the search to close the dropdown
-                              setModel('');
-                              setTimeout(() => setModel(m.name), 10);
+                              setModel(m.name);
+                              setShowModelDropdown(false);
                             }}
                           >
                             {m.name}
                           </div>
                         ))}
-                      {!useTicketsStore.getState().settings.models.some(
+                      {model && !useTicketsStore.getState().settings.models.some(
                         m => m.brandId === brand && m.name.toLowerCase() === model.toLowerCase()
                       ) && (
                           <div
                             className="px-4 py-2 hover:bg-gray-100 cursor-pointer text-indigo-600"
                             onClick={async () => {
                               await handleAddModel(model, brand);
+                              setShowModelDropdown(false);
                             }}
                           >
                           Add "{model}"
@@ -628,7 +644,11 @@ export default function SimpleTickets() {
                   <input
                     type="text"
                     value={newTaskName}
-                    onChange={(e) => setNewTaskName(e.target.value)}
+                    onChange={(e) => {
+                      setNewTaskName(e.target.value);
+                      setShowTaskDropdown(true);
+                    }}
+                    onFocus={() => setShowTaskDropdown(true)}
                     placeholder="Search or add new task"
                     className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                     onKeyDown={(e) => {
@@ -638,24 +658,25 @@ export default function SimpleTickets() {
                       }
                     }}
                   />
-                  {newTaskName && (
-                    <div className="absolute z-10 w-full mt-1 bg-white rounded-md shadow-lg">
+                  {showTaskDropdown && (
+                    <div className="absolute z-10 w-full mt-1 bg-white rounded-md shadow-lg border border-gray-200 ring-1 ring-black ring-opacity-5">
                       {useTicketsStore.getState().settings.tasks
                         .filter(task => task.toLowerCase().includes(newTaskName.toLowerCase()))
                         .slice(0, 5)
                         .map((task) => (
                           <div
                             key={task}
-                            className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
+                            className="px-4 py-2 hover:bg-gray-100 cursor-pointer text-gray-900"
                             onClick={() => {
                               handleAddTask(task);
                               setNewTaskName('');
+                              setShowTaskDropdown(false);
                             }}
                           >
                             {task}
                           </div>
                         ))}
-                      {!useTicketsStore.getState().settings.tasks.some(
+                      {newTaskName && !useTicketsStore.getState().settings.tasks.some(
                         task => task.toLowerCase() === newTaskName.toLowerCase()
                       ) && (
                         <div className="flex flex-col">
@@ -679,6 +700,7 @@ export default function SimpleTickets() {
                               // Clear the inputs to close the dropdown
                               setNewTaskName('');
                               setNewTaskPrice(0);
+                              setShowTaskDropdown(false);
                             }}
                           >
                             Add "{newTaskName}"
