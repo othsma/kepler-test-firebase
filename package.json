@@ -12,14 +12,15 @@
   "dependencies": {
     "@headlessui/react": "^1.7.18",
     "@react-pdf/renderer": "^4.2.2",
+    "caniuse-lite": "^1.0.30001761",
     "clsx": "^2.1.0",
     "date-fns": "^3.3.1",
     "firebase": "^10.8.0",
     "html2canvas": "^1.4.1",
     "lucide-react": "^0.344.0",
     "qrcode.react": "^4.2.0",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3",
     "react-router-dom": "^6.22.2",
     "recharts": "^2.12.2",
     "zustand": "^4.5.2"

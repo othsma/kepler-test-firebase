@@ -1,23 +1,25 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, Suspense, lazy } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { onAuthStateChanged, getAuth } from 'firebase/auth';
 import Layout from './components/Layout';
-import Dashboard from './pages/Dashboard';
-import Clients from './pages/Clients';
-import Tickets from './pages/SimpleTickets';
-import Products from './pages/Products';
-import Orders from './pages/Orders';
-import Pos from './pages/Pos';
-import Settings from './pages/Settings';
-import Login from './pages/Login';
-import Register from './pages/Register';
-import ForgotPassword from './pages/ForgotPassword';
-import Profile from './pages/Profile';
-import UserManagement from './pages/UserManagement';
 import { useClientsStore, useTicketsStore, useProductsStore, useOrdersStore, useAuthStore } from './lib/store';
 import { getUserRole, ROLES } from './lib/firebase';
 import LoadingScreen from './components/LoadingScreen';
 import AccessDenied from './components/AccessDenied';
+
+// Lazy load pages
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const Clients = lazy(() => import('./pages/Clients'));
+const Tickets = lazy(() => import('./pages/SimpleTickets'));
+const Products = lazy(() => import('./pages/Products'));
+const Orders = lazy(() => import('./pages/Orders'));
+const Pos = lazy(() => import('./pages/Pos'));
+const Settings = lazy(() => import('./pages/Settings'));
+const Login = lazy(() => import('./pages/Login'));
+const Register = lazy(() => import('./pages/Register'));
+const ForgotPassword = lazy(() => import('./pages/ForgotPassword'));
+const Profile = lazy(() => import('./pages/Profile'));
+const UserManagement = lazy(() => import('./pages/UserManagement'));
 
 function App() {
   const { 
@@ -117,71 +119,73 @@ function App() {
 
   return (
     <BrowserRouter>
-      <Routes>
-        {/* Auth routes */}
-        <Route path="/login" element={user ? <Navigate to="/" /> : <Login />} />
-        <Route path="/register" element={user ? <Navigate to="/" /> : <Register />} />
-        <Route path="/forgot-password" element={user ? <Navigate to="/" /> : <ForgotPassword />} />
-        
-        {/* Protected routes */}
-        <Route path="/" element={
-          <ProtectedRoute>
-            <Layout />
-          </ProtectedRoute>
-        }>
-          <Route index element={<Dashboard />} />
+      <Suspense fallback={<LoadingScreen />}>
+        <Routes>
+          {/* Auth routes */}
+          <Route path="/login" element={user ? <Navigate to="/" /> : <Login />} />
+          <Route path="/register" element={user ? <Navigate to="/" /> : <Register />} />
+          <Route path="/forgot-password" element={user ? <Navigate to="/" /> : <ForgotPassword />} />
           
-          {/* Super Admin Only Routes */}
-          <Route path="clients" element={
-            <ProtectedRoute requiredRole={ROLES.SUPER_ADMIN}>
-              <Clients />
-            </ProtectedRoute>
-          } />
-          
-          {/* Both Super Admin and Technicians */}
-          <Route path="tickets" element={
-            <ProtectedRoute allowedRoles={[ROLES.SUPER_ADMIN, ROLES.TECHNICIAN]}>
-              <Tickets />
-            </ProtectedRoute>
-          } />
-          
-          {/* Super Admin Only Routes */}
-          <Route path="pos" element={
-            <ProtectedRoute requiredRole={ROLES.SUPER_ADMIN}>
-              <Pos />
-            </ProtectedRoute>
-          } />
-          <Route path="pos/products" element={
-            <ProtectedRoute requiredRole={ROLES.SUPER_ADMIN}>
-              <Products />
-            </ProtectedRoute>
-          } />
-          <Route path="pos/orders" element={
-            <ProtectedRoute requiredRole={ROLES.SUPER_ADMIN}>
-              <Orders />
-            </ProtectedRoute>
-          } />
-          
-          {/* Both Super Admin and Technicians */}
-          <Route path="profile" element={
+          {/* Protected routes */}
+          <Route path="/" element={
             <ProtectedRoute>
-              <Profile />
+              <Layout />
             </ProtectedRoute>
-          } />
-          
-          {/* Super Admin Only Routes */}
-          <Route path="settings" element={
-            <ProtectedRoute requiredRole={ROLES.SUPER_ADMIN}>
-              <Settings />
-            </ProtectedRoute>
-          } />
-          <Route path="user-management" element={
-            <ProtectedRoute requiredRole={ROLES.SUPER_ADMIN}>
-              <UserManagement />
-            </ProtectedRoute>
-          } />
-        </Route>
-      </Routes>
+          }>
+            <Route index element={<Dashboard />} />
+            
+            {/* Super Admin Only Routes */}
+            <Route path="clients" element={
+              <ProtectedRoute requiredRole={ROLES.SUPER_ADMIN}>
+                <Clients />
+              </ProtectedRoute>
+            } />
+            
+            {/* Both Super Admin and Technicians */}
+            <Route path="tickets" element={
+              <ProtectedRoute allowedRoles={[ROLES.SUPER_ADMIN, ROLES.TECHNICIAN]}>
+                <Tickets />
+              </ProtectedRoute>
+            } />
+            
+            {/* Super Admin Only Routes */}
+            <Route path="pos" element={
+              <ProtectedRoute requiredRole={ROLES.SUPER_ADMIN}>
+                <Pos />
+              </ProtectedRoute>
+            } />
+            <Route path="pos/products" element={
+              <ProtectedRoute requiredRole={ROLES.SUPER_ADMIN}>
+                <Products />
+              </ProtectedRoute>
+            } />
+            <Route path="pos/orders" element={
+              <ProtectedRoute requiredRole={ROLES.SUPER_ADMIN}>
+                <Orders />
+              </ProtectedRoute>
+            } />
+            
+            {/* Both Super Admin and Technicians */}
+            <Route path="profile" element={
+              <ProtectedRoute>
+                <Profile />
+              </ProtectedRoute>
+            } />
+            
+            {/* Super Admin Only Routes */}
+            <Route path="settings" element={
+              <ProtectedRoute requiredRole={ROLES.SUPER_ADMIN}>
+                <Settings />
+              </ProtectedRoute>
+            } />
+            <Route path="user-management" element={
+              <ProtectedRoute requiredRole={ROLES.SUPER_ADMIN}>
+                <UserManagement />
+              </ProtectedRoute>
+            } />
+          </Route>
+        </Routes>
+      </Suspense>
     </BrowserRouter>
   );
 }
