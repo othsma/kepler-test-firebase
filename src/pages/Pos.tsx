@@ -237,6 +237,20 @@ export default function Pos() {
         </h1>
       </div>
 
+      {/* Receipt Modal - Always available regardless of current view */}
+      {showReceipt && currentInvoice && (
+        <UnifiedDocument
+          data={convertReceiptToDocument(currentInvoice)}
+          onClose={() => {
+            clearReceipt();
+            localStorage.removeItem('pos_showReceipt');
+            localStorage.removeItem('pos_currentInvoice');
+            clearCart();
+          }}
+          initialFormat={receiptFormat}
+        />
+      )}
+
       {/* Tabs */}
       <div className="border-b border-gray-200">
         <nav className="-mb-px flex space-x-8">
@@ -369,19 +383,6 @@ export default function Pos() {
         </div>
       ) : (
         <>
-          {showReceipt && currentInvoice && (
-            <UnifiedDocument
-              data={convertReceiptToDocument(currentInvoice)}
-              onClose={() => {
-                clearReceipt();
-                localStorage.removeItem('pos_showReceipt');
-                localStorage.removeItem('pos_currentInvoice');
-                clearCart();
-              }}
-              initialFormat={receiptFormat}
-            />
-          )}
-
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Product Catalog */}
         <div className="lg:col-span-2 space-y-6">
