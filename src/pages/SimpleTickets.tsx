@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useThemeStore, useTicketsStore, useClientsStore, useAuthStore, TaskWithPrice } from '../lib/store';
 import { Search, Plus, Calendar, User, Edit, Printer, FileText as FileIcon, Trash2, ArrowUpDown } from 'lucide-react';
 import { format } from 'date-fns';
@@ -12,37 +12,163 @@ export default function SimpleTickets() {
   const { tickets, updateTicket, deleteTicket, loading, error, filterStatus, setFilterStatus } = useTicketsStore();
   const { clients } = useClientsStore();
   const { user, userRole } = useAuthStore();
-  
+
+  // Check if this is a fresh page load or component re-mount during session
+  const isFreshLoad = useRef(!sessionStorage.getItem('ticketSessionActive'));
+  if (isFreshLoad.current) {
+    // Clear all form data on fresh page load
+    sessionStorage.clear();
+    sessionStorage.setItem('ticketSessionActive', 'true');
+  }
+
+  // State to track if user has started filling out the form
+  const [hasStartedFillingForm, setHasStartedFillingForm] = useState(() => {
+    try {
+      return JSON.parse(sessionStorage.getItem('ticketFormStarted') || 'false');
+    } catch {
+      return false;
+    }
+  });
+
   // State for UI controls
   const [isAddingTicket, setIsAddingTicket] = useState(false);
   const [editingTicket, setEditingTicket] = useState<string | null>(null);
-  const [clientSearch, setClientSearch] = useState('');
-  const [selectedClientId, setSelectedClientId] = useState<string>('');
+  const [clientSearch, setClientSearch] = useState(() => {
+    if (!isFreshLoad.current) {
+      try {
+        return sessionStorage.getItem('ticketClientSearch') || '';
+      } catch {
+        return '';
+      }
+    }
+    return '';
+  });
+  const [selectedClientId, setSelectedClientId] = useState<string>(() => {
+    if (!isFreshLoad.current) {
+      try {
+        return sessionStorage.getItem('ticketSelectedClientId') || '';
+      } catch {
+        return '';
+      }
+    }
+    return '';
+  });
   const [showReceipt, setShowReceipt] = useState(false);
   const [showInvoice, setShowInvoice] = useState(false);
   const [newTicketNumber, setNewTicketNumber] = useState('');
   const [isAddingClient, setIsAddingClient] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [technicians, setTechnicians] = useState<any[]>([]);
-  
+
   // Dropdown open states
   const [showDeviceDropdown, setShowDeviceDropdown] = useState(false);
   const [showBrandDropdown, setShowBrandDropdown] = useState(false);
   const [showModelDropdown, setShowModelDropdown] = useState(false);
   const [showTaskDropdown, setShowTaskDropdown] = useState(false);
   const [showClientDropdown, setShowClientDropdown] = useState(false);
-  
-  // Form state
-  const [deviceType, setDeviceType] = useState('');
-  const [brand, setBrand] = useState('');
-  const [model, setModel] = useState('');
-  const [tasksWithPrice, setTasksWithPrice] = useState<TaskWithPrice[]>([]);
-  const [issue, setIssue] = useState('');
-  const [passcode, setPasscode] = useState('');
-  const [status, setStatus] = useState<'pending' | 'in-progress' | 'completed'>('pending');
-  const [technicianId, setTechnicianId] = useState('');
-  const [paymentStatus, setPaymentStatus] = useState<'not_paid' | 'partially_paid' | 'fully_paid'>('not_paid');
-  const [amountPaid, setAmountPaid] = useState(0);
+
+  // Form state - controlled components with sessionStorage persistence
+  const [deviceType, setDeviceType] = useState(() => {
+    if (!isFreshLoad.current) {
+      try {
+        return sessionStorage.getItem('ticketDeviceType') || '';
+      } catch {
+        return '';
+      }
+    }
+    return '';
+  });
+  const [brand, setBrand] = useState(() => {
+    if (!isFreshLoad.current) {
+      try {
+        return sessionStorage.getItem('ticketBrand') || '';
+      } catch {
+        return '';
+      }
+    }
+    return '';
+  });
+  const [model, setModel] = useState(() => {
+    if (!isFreshLoad.current) {
+      try {
+        return sessionStorage.getItem('ticketModel') || '';
+      } catch {
+        return '';
+      }
+    }
+    return '';
+  });
+  const [tasksWithPrice, setTasksWithPrice] = useState<TaskWithPrice[]>(() => {
+    if (!isFreshLoad.current) {
+      try {
+        const stored = sessionStorage.getItem('ticketTasksWithPrice');
+        return stored ? JSON.parse(stored) : [];
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  });
+  const [issue, setIssue] = useState(() => {
+    if (!isFreshLoad.current) {
+      try {
+        return sessionStorage.getItem('ticketIssue') || '';
+      } catch {
+        return '';
+      }
+    }
+    return '';
+  });
+  const [passcode, setPasscode] = useState(() => {
+    if (!isFreshLoad.current) {
+      try {
+        return sessionStorage.getItem('ticketPasscode') || '';
+      } catch {
+        return '';
+      }
+    }
+    return '';
+  });
+  const [status, setStatus] = useState<'pending' | 'in-progress' | 'completed'>(() => {
+    if (!isFreshLoad.current) {
+      try {
+        return (sessionStorage.getItem('ticketStatus') as 'pending' | 'in-progress' | 'completed') || 'pending';
+      } catch {
+        return 'pending';
+      }
+    }
+    return 'pending';
+  });
+  const [technicianId, setTechnicianId] = useState(() => {
+    if (!isFreshLoad.current) {
+      try {
+        return sessionStorage.getItem('ticketTechnicianId') || '';
+      } catch {
+        return '';
+      }
+    }
+    return '';
+  });
+  const [paymentStatus, setPaymentStatus] = useState<'not_paid' | 'partially_paid' | 'fully_paid'>(() => {
+    if (!isFreshLoad.current) {
+      try {
+        return (sessionStorage.getItem('ticketPaymentStatus') as 'not_paid' | 'partially_paid' | 'fully_paid') || 'not_paid';
+      } catch {
+        return 'not_paid';
+      }
+    }
+    return 'not_paid';
+  });
+  const [amountPaid, setAmountPaid] = useState(() => {
+    if (!isFreshLoad.current) {
+      try {
+        return parseFloat(sessionStorage.getItem('ticketAmountPaid') || '0');
+      } catch {
+        return 0;
+      }
+    }
+    return 0;
+  });
   const [newTaskName, setNewTaskName] = useState('');
   const [newTaskPrice, setNewTaskPrice] = useState(0);
 
@@ -69,7 +195,7 @@ export default function SimpleTickets() {
     fetchTechnicianData();
   }, [userRole]);
 
-  // Reset form when editing ticket changes
+  // Populate form when editing ticket changes
   useEffect(() => {
     if (editingTicket) {
       const ticket = tickets.find(t => t.id === editingTicket);
@@ -77,33 +203,43 @@ export default function SimpleTickets() {
         setDeviceType(ticket.deviceType || '');
         setBrand(ticket.brand || '');
         setModel(ticket.model || '');
+        setIssue(ticket.issue || '');
+        setPasscode(ticket.passcode || '');
+        setAmountPaid(ticket.amountPaid || 0);
+
         setTasksWithPrice(ticket.taskPrices ||
           ticket.tasks.map(task => ({
             name: task,
             price: ticket.cost / (ticket.tasks.length || 1)
           }))
         );
-        setIssue(ticket.issue || '');
-        setPasscode(ticket.passcode || '');
         setStatus(ticket.status || 'pending');
         setTechnicianId(ticket.technicianId || '');
         setPaymentStatus(ticket.paymentStatus || 'not_paid');
-        setAmountPaid(ticket.amountPaid || 0);
       }
-    } else {
-      // Reset form for new ticket
-      setDeviceType('');
-      setBrand('');
-      setModel('');
-      setTasksWithPrice([]);
-      setIssue('');
-      setPasscode('');
-      setStatus('pending');
-      setTechnicianId(userRole === ROLES.TECHNICIAN && user ? user.uid : '');
-      setPaymentStatus('not_paid');
-      setAmountPaid(0);
     }
-  }, [editingTicket, tickets, userRole, user]);
+  }, [editingTicket]);
+
+  // Save form state to sessionStorage when it changes
+  useEffect(() => {
+    try {
+      sessionStorage.setItem('ticketFormStarted', JSON.stringify(hasStartedFillingForm));
+      sessionStorage.setItem('ticketClientSearch', clientSearch);
+      sessionStorage.setItem('ticketSelectedClientId', selectedClientId);
+      sessionStorage.setItem('ticketDeviceType', deviceType);
+      sessionStorage.setItem('ticketBrand', brand);
+      sessionStorage.setItem('ticketModel', model);
+      sessionStorage.setItem('ticketTasksWithPrice', JSON.stringify(tasksWithPrice));
+      sessionStorage.setItem('ticketIssue', issue);
+      sessionStorage.setItem('ticketPasscode', passcode);
+      sessionStorage.setItem('ticketStatus', status);
+      sessionStorage.setItem('ticketTechnicianId', technicianId);
+      sessionStorage.setItem('ticketPaymentStatus', paymentStatus);
+      sessionStorage.setItem('ticketAmountPaid', amountPaid.toString());
+    } catch (error) {
+      console.error('Error saving form state to sessionStorage:', error);
+    }
+  }, [hasStartedFillingForm, clientSearch, selectedClientId, deviceType, brand, model, tasksWithPrice, issue, passcode, status, technicianId, paymentStatus, amountPaid]);
 
   // Filter tickets based on search and status
   const filteredTickets = tickets.filter(ticket => {
@@ -190,6 +326,7 @@ export default function SimpleTickets() {
         return;
       }
       
+      // Read values from state variables
       const ticketData = {
         deviceType,
         brand,
@@ -203,7 +340,7 @@ export default function SimpleTickets() {
         technicianId: technicianId || '',
         clientId,
         paymentStatus,
-        amountPaid: amountPaid || 0
+        amountPaid
       };
       
       if (editingTicket) {
@@ -221,7 +358,7 @@ export default function SimpleTickets() {
         setIsAddingTicket(false);
         setClientSearch('');
         setSelectedClientId('');
-        
+
         // Reset form fields
         setDeviceType('');
         setBrand('');
@@ -233,6 +370,9 @@ export default function SimpleTickets() {
         setTechnicianId('');
         setPaymentStatus('not_paid');
         setAmountPaid(0);
+
+        // Reset the form tracking state
+        setHasStartedFillingForm(false);
       }
       
       // Reset form fields for new tickets
@@ -305,9 +445,7 @@ export default function SimpleTickets() {
   const handleAddDeviceType = async (value: string) => {
     const { addDeviceType } = useTicketsStore.getState();
     await addDeviceType(value);
-    setDeviceType(value); // Keep selection visible
-    setBrand(''); // Clear dependent fields
-    setModel('');
+    // Keep selection visible - already set in the input
   };
 
   // Check if user can edit a ticket
@@ -321,8 +459,7 @@ export default function SimpleTickets() {
   const handleAddBrand = async (value: string) => {
     const { addBrand } = useTicketsStore.getState();
     await addBrand(value);
-    setBrand(value); // Keep selection visible
-    setModel(''); // Clear dependent field
+    // Keep selection visible - already set in the input
   };
 
   // Get status badge
@@ -357,7 +494,7 @@ export default function SimpleTickets() {
   const handleAddModel = async (value: string, brand: string) => {
     const { addModel } = useTicketsStore.getState();
     await addModel({ name: value, brandId: brand });
-    setModel(value);
+    // Keep selection visible - already set in the input
   };
 
   return (
@@ -487,6 +624,7 @@ export default function SimpleTickets() {
                     type="text"
                     value={deviceType}
                     onChange={(e) => {
+                      setHasStartedFillingForm(true);
                       setDeviceType(e.target.value);
                       setShowDeviceDropdown(true);
                     }}
@@ -545,6 +683,7 @@ export default function SimpleTickets() {
                     type="text"
                     value={brand}
                     onChange={(e) => {
+                      setHasStartedFillingForm(true);
                       setBrand(e.target.value);
                       setShowBrandDropdown(true);
                       if (!e.target.value) {
@@ -572,8 +711,8 @@ export default function SimpleTickets() {
                             className="px-4 py-2 hover:bg-gray-100 cursor-pointer text-gray-900"
                             onClick={() => {
                               // Clear model when changing brand
-                              setModel('');
                               setBrand(b);
+                              setModel('');
                               setShowBrandDropdown(false);
                             }}
                           >
@@ -590,6 +729,7 @@ export default function SimpleTickets() {
                               const { addBrand } = useTicketsStore.getState();
                               try {
                                 await addBrand(brand);
+                                setModel(''); // Clear dependent field
                               } catch (error) {
                                 console.error("Error adding brand:", error);
                               }
@@ -614,6 +754,7 @@ export default function SimpleTickets() {
                     type="text"
                     value={model}
                     onChange={(e) => {
+                      setHasStartedFillingForm(true);
                       setModel(e.target.value);
                       setShowModelDropdown(true);
                     }}
@@ -741,10 +882,13 @@ export default function SimpleTickets() {
                             onClick={async () => {
                               const taskName = newTaskName;
                               const taskPrice = newTaskPrice;
-                              
-                              // Add to tasks with price
-                              setTasksWithPrice(prev => [...prev, { name: taskName, price: taskPrice }]);
-                              
+
+                              // Add to tasks with price for current ticket - update sessionStorage directly
+                              const newTasks = [...tasksWithPrice, { name: taskName, price: taskPrice }];
+                              sessionStorage.setItem('ticketTasksWithPrice', JSON.stringify(newTasks));
+                              setTasksWithPrice(newTasks);
+                              setHasStartedFillingForm(true);
+
                               // Add to global settings in the background
                               const { addTask } = useTicketsStore.getState();
                               try {
@@ -752,15 +896,15 @@ export default function SimpleTickets() {
                               } catch (error) {
                                 console.error("Error adding task:", error);
                               }
-                              
+
                               // Clear the inputs to close the dropdown
                               setNewTaskName('');
                               setNewTaskPrice(0);
                               setShowTaskDropdown(false);
                             }}
                           >
-                            Add "{newTaskName}"
-                          </div>
+                          Add "{newTaskName}"
+                        </div>
                           <div className="px-4 py-2 flex items-center">
                             <span className="mr-2">Price:</span>
                             <div className="flex items-center">
@@ -802,14 +946,15 @@ export default function SimpleTickets() {
                           <input
                             type="checkbox"
                             checked={tasksWithPrice.some(t => t.name === task)}
-                            onChange={() => {
-                              const exists = tasksWithPrice.some(t => t.name === task);
-                              if (exists) {
-                                setTasksWithPrice(prev => prev.filter(t => t.name !== task));
-                              } else {
-                                handleAddTask(task);
-                              }
-                            }}
+                    onChange={() => {
+                      setHasStartedFillingForm(true);
+                      const exists = tasksWithPrice.some(t => t.name === task);
+                      if (exists) {
+                        setTasksWithPrice(prev => prev.filter(t => t.name !== task));
+                      } else {
+                        handleAddTask(task);
+                      }
+                    }}
                             className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
                           />
                           <span className={isDarkMode ? 'text-gray-300' : 'text-gray-700'}>
@@ -945,6 +1090,21 @@ export default function SimpleTickets() {
                     setEditingTicket(null);
                     setClientSearch('');
                     setSelectedClientId('');
+
+                    // Reset all form fields
+                    setDeviceType('');
+                    setBrand('');
+                    setModel('');
+                    setTasksWithPrice([]);
+                    setIssue('');
+                    setPasscode('');
+                    setStatus('pending');
+                    setTechnicianId('');
+                    setPaymentStatus('not_paid');
+                    setAmountPaid(0);
+
+                    // Reset the form tracking state
+                    setHasStartedFillingForm(false);
                   }}
                   className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50"
                   disabled={loading}
