@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useThemeStore, useProductsStore, useClientsStore, useTicketsStore, useOrdersStore, useSalesStore, usePosStore } from '../lib/store';
-import { Search, ShoppingCart, Plus, Minus, Trash2, CreditCard, Banknote, Smartphone, FileText, Printer, X, ArrowRight } from 'lucide-react';
+import { Search, ShoppingCart, Plus, Minus, Trash2, CreditCard, Banknote, Smartphone, FileText, Printer, X, ArrowRight, ArrowUpDown, ArrowUp, ArrowDown, Calendar } from 'lucide-react';
 import { format } from 'date-fns';
 import UnifiedDocument from '../components/documents/UnifiedDocument';
 import { convertReceiptToDocument } from '../components/documents/DocumentConverter';
@@ -34,6 +34,12 @@ export default function Pos() {
   const [quickSale, setQuickSale] = useState(false);
   const [receiptFormat, setReceiptFormat] = useState<'thermal' | 'a4'>('thermal');
   const [currentView, setCurrentView] = useState<'pos' | 'sales'>('pos');
+
+  // Sales table state
+  const [salesSearchQuery, setSalesSearchQuery] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc'); // desc = newest first
   
   // Filtered products based on search and category
   const filteredProducts = products.filter((product) => {
@@ -229,6 +235,47 @@ export default function Pos() {
     fetchSales();
   }, [fetchSales]);
 
+  // Filtered and sorted sales for the table
+  const filteredAndSortedSales = useMemo(() => {
+    let filtered = sales.filter((sale) => {
+      // Keyword search
+      const matchesKeyword = salesSearchQuery
+        ? sale.invoiceNumber.toLowerCase().includes(salesSearchQuery.toLowerCase()) ||
+          (sale.customer?.name || '').toLowerCase().includes(salesSearchQuery.toLowerCase()) ||
+          (sale.note || '').toLowerCase().includes(salesSearchQuery.toLowerCase()) ||
+          sale.paymentMethod.toLowerCase().includes(salesSearchQuery.toLowerCase()) ||
+          sale.items.some(item =>
+            item.name.toLowerCase().includes(salesSearchQuery.toLowerCase()) ||
+            (item.sku || '').toLowerCase().includes(salesSearchQuery.toLowerCase())
+          )
+        : true;
+
+      // Date filtering
+      const saleDate = new Date(sale.date);
+      const matchesDateFrom = dateFrom ? saleDate >= new Date(dateFrom) : true;
+      const matchesDateTo = dateTo ? saleDate <= new Date(dateTo + 'T23:59:59') : true;
+
+      return matchesKeyword && matchesDateFrom && matchesDateTo;
+    });
+
+    // Sort by date
+    filtered.sort((a, b) => {
+      const dateA = new Date(a.date).getTime();
+      const dateB = new Date(b.date).getTime();
+      return sortOrder === 'desc' ? dateB - dateA : dateA - dateB;
+    });
+
+    return filtered;
+  }, [sales, salesSearchQuery, dateFrom, dateTo, sortOrder]);
+
+  // Clear filters function
+  const clearFilters = () => {
+    setSalesSearchQuery('');
+    setDateFrom('');
+    setDateTo('');
+    setSortOrder('desc');
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -278,11 +325,11 @@ export default function Pos() {
       </div>
 
       {currentView === 'sales' ? (
-        /* Sales List View */
+        /* Sales Table View */
         <div className={`rounded-lg ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow p-6`}>
           <div className="flex justify-between items-center mb-6">
             <h2 className={`text-xl font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-              All Sales
+              All Sales ({filteredAndSortedSales.length})
             </h2>
             <button
               onClick={() => fetchSales()}
@@ -292,92 +339,174 @@ export default function Pos() {
             </button>
           </div>
 
-          {sales.length === 0 ? (
+          {/* Filters and Search */}
+          <div className="mb-6 space-y-4">
+            {/* Search and Sort Controls */}
+            <div className="flex flex-col sm:flex-row gap-4">
+              <div className="flex-1">
+                <div className={`flex items-center gap-2 p-3 rounded-lg ${isDarkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
+                  <Search className="h-5 w-5 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Search by invoice, customer, product, payment method..."
+                    value={salesSearchQuery}
+                    onChange={(e) => setSalesSearchQuery(e.target.value)}
+                    className={`flex-1 bg-transparent border-0 focus:ring-0 ${isDarkMode ? 'text-white placeholder-gray-400' : 'text-gray-900 placeholder-gray-500'}`}
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setSortOrder(sortOrder === 'desc' ? 'asc' : 'desc')}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-md border ${isDarkMode ? 'border-gray-600 text-gray-300 hover:bg-gray-700' : 'border-gray-300 text-gray-700 hover:bg-gray-50'}`}
+                >
+                  {sortOrder === 'desc' ? <ArrowDown className="h-4 w-4" /> : <ArrowUp className="h-4 w-4" />}
+                  Date {sortOrder === 'desc' ? 'Newest' : 'Oldest'}
+                </button>
+
+                <button
+                  onClick={clearFilters}
+                  className="px-3 py-2 text-sm text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200"
+                >
+                  Clear Filters
+                </button>
+              </div>
+            </div>
+
+            {/* Date Filters */}
+            <div className="flex flex-col sm:flex-row gap-4">
+              <div className="flex items-center gap-2">
+                <Calendar className="h-4 w-4 text-gray-400" />
+                <label className={`text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                  From:
+                </label>
+                <input
+                  type="date"
+                  value={dateFrom}
+                  onChange={(e) => setDateFrom(e.target.value)}
+                  className={`px-3 py-2 border rounded-md focus:ring-indigo-500 focus:border-indigo-500 ${isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
+                />
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Calendar className="h-4 w-4 text-gray-400" />
+                <label className={`text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                  To:
+                </label>
+                <input
+                  type="date"
+                  value={dateTo}
+                  onChange={(e) => setDateTo(e.target.value)}
+                  className={`px-3 py-2 border rounded-md focus:ring-indigo-500 focus:border-indigo-500 ${isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
+                />
+              </div>
+            </div>
+          </div>
+
+          {filteredAndSortedSales.length === 0 ? (
             <div className="text-center py-8">
               <p className={`text-lg ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                No sales found.
+                {sales.length === 0 ? 'No sales found.' : 'No sales match your filters.'}
               </p>
             </div>
           ) : (
-            <div className="space-y-4">
-              {sales.map((sale) => (
-                <div
-                  key={sale.id}
-                  className={`border rounded-lg p-4 ${isDarkMode ? 'border-gray-700 bg-gray-700' : 'border-gray-200 bg-gray-50'}`}
-                >
-                  <div className="flex justify-between items-start mb-2">
-                    <div>
-                      <h3 className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+            <div className="overflow-x-auto">
+              <table className={`min-w-full divide-y ${isDarkMode ? 'divide-gray-700' : 'divide-gray-200'}`}>
+                <thead className={isDarkMode ? 'bg-gray-700' : 'bg-gray-50'}>
+                  <tr>
+                    <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${isDarkMode ? 'text-gray-300' : 'text-gray-500'}`}>
+                      Invoice
+                    </th>
+                    <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${isDarkMode ? 'text-gray-300' : 'text-gray-500'}`}>
+                      Date
+                    </th>
+                    <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${isDarkMode ? 'text-gray-300' : 'text-gray-500'}`}>
+                      Customer
+                    </th>
+                    <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${isDarkMode ? 'text-gray-300' : 'text-gray-500'}`}>
+                      Items
+                    </th>
+                    <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${isDarkMode ? 'text-gray-300' : 'text-gray-500'}`}>
+                      Payment
+                    </th>
+                    <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${isDarkMode ? 'text-gray-300' : 'text-gray-500'}`}>
+                      Total
+                    </th>
+                    <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${isDarkMode ? 'text-gray-300' : 'text-gray-500'}`}>
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className={`divide-y ${isDarkMode ? 'bg-gray-800 divide-gray-700' : 'bg-white divide-gray-200'}`}>
+                  {filteredAndSortedSales.map((sale) => (
+                    <tr key={sale.id} className={isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-50'}>
+                      <td className={`px-6 py-4 whitespace-nowrap text-sm font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                         {sale.invoiceNumber}
-                      </h3>
-                      <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                        {format(new Date(sale.date), 'PPp')}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className={`font-bold text-lg ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                        €{sale.total.toFixed(2)}
-                      </p>
-                      <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                      </td>
+                      <td className={`px-6 py-4 whitespace-nowrap text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-500'}`}>
+                        {format(new Date(sale.date), 'MMM dd, yyyy')}
+                        <br />
+                        <span className="text-xs">{format(new Date(sale.date), 'HH:mm')}</span>
+                      </td>
+                      <td className={`px-6 py-4 whitespace-nowrap text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-500'}`}>
+                        {sale.customer?.name || 'Walk-in Customer'}
+                      </td>
+                      <td className={`px-6 py-4 text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-500'}`}>
+                        <div className="max-w-xs truncate">
+                          {sale.items.length} item(s)
+                          {sale.items.length > 0 && (
+                            <div className="text-xs mt-1">
+                              {sale.items.slice(0, 2).map((item, idx) => (
+                                <span key={idx}>
+                                  {item.name}{idx < sale.items.slice(0, 2).length - 1 ? ', ' : ''}
+                                </span>
+                              ))}
+                              {sale.items.length > 2 && '...'}
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                      <td className={`px-6 py-4 whitespace-nowrap text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-500'}`}>
                         {sale.paymentMethod}
-                      </p>
-                    </div>
-                  </div>
-
-                  {sale.customer && (
-                    <div className="mb-2">
-                      <p className={`text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                        <span className="font-medium">Customer:</span> {sale.customer.name}
-                      </p>
-                    </div>
-                  )}
-
-                  <div className="mb-2">
-                    <p className={`text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                      <span className="font-medium">Items:</span> {sale.items.length} item(s)
-                    </p>
-                  </div>
-
-                  {sale.note && (
-                    <div className="mb-2">
-                      <p className={`text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                        <span className="font-medium">Note:</span> {sale.note}
-                      </p>
-                    </div>
-                  )}
-
-                  <div className="flex justify-end gap-2 mt-4">
-                    <button
-                      onClick={() => {
-                        // Show receipt for this sale
-                        setCurrentInvoice({
-                          invoiceNumber: sale.invoiceNumber,
-                          date: sale.date,
-                          customer: sale.customer,
-                          items: sale.items.map(item => ({
-                            id: item.productId,
-                            name: item.name,
-                            sku: item.sku,
-                            quantity: item.quantity,
-                            price: item.price,
-                          })),
-                          subtotal: sale.subtotal,
-                          tax: sale.tax,
-                          total: sale.total,
-                          paymentMethod: sale.paymentMethod,
-                          paymentStatus: sale.paymentStatus,
-                          note: sale.note,
-                          type: 'receipt'
-                        });
-                        setShowReceipt(true);
-                      }}
-                      className="bg-indigo-600 text-white px-3 py-1 rounded text-sm hover:bg-indigo-700"
-                    >
-                      View Receipt
-                    </button>
-                  </div>
-                </div>
-              ))}
+                      </td>
+                      <td className={`px-6 py-4 whitespace-nowrap text-sm font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                        €{sale.total.toFixed(2)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm">
+                        <button
+                          onClick={() => {
+                            // Show receipt for this sale
+                            setCurrentInvoice({
+                              invoiceNumber: sale.invoiceNumber,
+                              date: sale.date,
+                              customer: sale.customer,
+                              items: sale.items.map(item => ({
+                                id: item.productId,
+                                name: item.name,
+                                sku: item.sku,
+                                quantity: item.quantity,
+                                price: item.price,
+                              })),
+                              subtotal: sale.subtotal,
+                              tax: sale.tax,
+                              total: sale.total,
+                              paymentMethod: sale.paymentMethod,
+                              paymentStatus: sale.paymentStatus,
+                              note: sale.note,
+                              type: 'receipt'
+                            });
+                            setShowReceipt(true);
+                          }}
+                          className="bg-indigo-600 text-white px-3 py-1 rounded text-sm hover:bg-indigo-700 transition-colors"
+                        >
+                          View Receipt
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
         </div>
