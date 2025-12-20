@@ -41,6 +41,8 @@ export default function SimpleTickets() {
   const [passcode, setPasscode] = useState('');
   const [status, setStatus] = useState<'pending' | 'in-progress' | 'completed'>('pending');
   const [technicianId, setTechnicianId] = useState('');
+  const [paymentStatus, setPaymentStatus] = useState<'not_paid' | 'partially_paid' | 'fully_paid'>('not_paid');
+  const [amountPaid, setAmountPaid] = useState(0);
   const [newTaskName, setNewTaskName] = useState('');
   const [newTaskPrice, setNewTaskPrice] = useState(0);
 
@@ -72,7 +74,7 @@ export default function SimpleTickets() {
         setDeviceType(ticket.deviceType || '');
         setBrand(ticket.brand || '');
         setModel(ticket.model || '');
-        setTasksWithPrice(ticket.taskPrices || 
+        setTasksWithPrice(ticket.taskPrices ||
           ticket.tasks.map(task => ({
             name: task,
             price: ticket.cost / (ticket.tasks.length || 1)
@@ -82,6 +84,8 @@ export default function SimpleTickets() {
         setPasscode(ticket.passcode || '');
         setStatus(ticket.status || 'pending');
         setTechnicianId(ticket.technicianId || '');
+        setPaymentStatus(ticket.paymentStatus || 'not_paid');
+        setAmountPaid(ticket.amountPaid || 0);
       }
     } else {
       // Reset form for new ticket
@@ -93,6 +97,8 @@ export default function SimpleTickets() {
       setPasscode('');
       setStatus('pending');
       setTechnicianId(userRole === ROLES.TECHNICIAN && user ? user.uid : '');
+      setPaymentStatus('not_paid');
+      setAmountPaid(0);
     }
   }, [editingTicket, tickets, userRole, user]);
 
@@ -154,8 +160,10 @@ export default function SimpleTickets() {
     client.email?.toLowerCase().includes(clientSearch.toLowerCase())
   );
 
-  // Calculate total cost
+  // Calculate total cost (VAT-inclusive pricing - task prices already include VAT)
   const totalCost = tasksWithPrice.reduce((sum, task) => sum + (task.price || 0), 0);
+  const vatAmount = totalCost * (0.2 / 1.2); // Extract VAT from inclusive total
+  const subtotal = totalCost - vatAmount; // Net amount (excluding VAT)
 
   // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
@@ -190,7 +198,9 @@ export default function SimpleTickets() {
         status,
         cost: totalCost,
         technicianId: technicianId || '',
-        clientId
+        clientId,
+        paymentStatus,
+        amountPaid: amountPaid || 0
       };
       
       if (editingTicket) {
@@ -218,6 +228,14 @@ export default function SimpleTickets() {
         setPasscode('');
         setStatus('pending');
         setTechnicianId('');
+        setPaymentStatus('not_paid');
+        setAmountPaid(0);
+      }
+      
+      // Reset form fields for new tickets
+      if (!editingTicket) {
+        setPaymentStatus('not_paid');
+        setAmountPaid(0);
       }
       
     } catch (error) {
@@ -313,6 +331,20 @@ export default function SimpleTickets() {
         return <span className="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">In Progress</span>;
       case 'completed':
         return <span className="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">Completed</span>;
+      default:
+        return null;
+    }
+  };
+
+  // Get payment status badge
+  const getPaymentStatusBadge = (status: string) => {
+    switch (status) {
+      case 'not_paid':
+        return <span className="px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-800">Not Paid</span>;
+      case 'partially_paid':
+        return <span className="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">Partially Paid</span>;
+      case 'fully_paid':
+        return <span className="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">Fully Paid</span>;
       default:
         return null;
     }
@@ -846,6 +878,40 @@ export default function SimpleTickets() {
                 </div>
               )}
 
+              {/* Payment Status */}
+              <div>
+                <label className={`block text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                  Payment Status
+                </label>
+                <select
+                  value={paymentStatus}
+                  onChange={(e) => setPaymentStatus(e.target.value as 'not_paid' | 'partially_paid' | 'fully_paid')}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                >
+                  <option value="not_paid">Not Paid</option>
+                  <option value="partially_paid">Partially Paid</option>
+                  <option value="fully_paid">Fully Paid</option>
+                </select>
+              </div>
+
+              {/* Amount Paid */}
+              {(paymentStatus === 'partially_paid' || paymentStatus === 'fully_paid') && (
+                <div>
+                  <label className={`block text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                    Amount Paid (€)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={amountPaid}
+                    onChange={(e) => setAmountPaid(parseFloat(e.target.value) || 0)}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                    placeholder="0.00"
+                  />
+                </div>
+              )}
+
               {/* Form Buttons */}
               <div className="flex justify-end gap-4">
                 <button
@@ -957,7 +1023,10 @@ export default function SimpleTickets() {
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                   Status
                 </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider min-w-[120px] w-[180px] sm:w-[160px] md:w-[180px]">
+                  Payment
+                </th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider min-w-[120px]">
                   Date
                 </th>
                 <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
@@ -971,8 +1040,8 @@ export default function SimpleTickets() {
                   const client = clients.find((c) => c.id === ticket.clientId);
                   
                   // Display task prices if available
-                  const taskPriceDisplay = ticket.taskPrices ? 
-                    ticket.taskPrices.map(tp => `${tp.name} ($${tp.price})`).join(', ') :
+                  const taskPriceDisplay = ticket.taskPrices ?
+                    ticket.taskPrices.map(tp => `${tp.name} (€${tp.price})`).join(', ') :
                     ticket.tasks.join(', ');
                   
                   return (
@@ -1018,6 +1087,27 @@ export default function SimpleTickets() {
                           </select>
                         ) : (
                           getStatusBadge(ticket.status)
+                        )}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {canEditTicket(ticket) ? (
+                          <select
+                            value={ticket.paymentStatus || 'not_paid'}
+                            onChange={(e) => {
+                              const newPaymentStatus = e.target.value as 'not_paid' | 'partially_paid' | 'fully_paid';
+                              updateTicket(ticket.id, {
+                                paymentStatus: newPaymentStatus,
+                                amountPaid: newPaymentStatus === 'not_paid' ? 0 : ticket.amountPaid || 0
+                              });
+                            }}
+                            className="text-sm rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                          >
+                            <option value="not_paid">Not Paid</option>
+                            <option value="partially_paid">Partially Paid</option>
+                            <option value="fully_paid">Fully Paid</option>
+                          </select>
+                        ) : (
+                          getPaymentStatusBadge(ticket.paymentStatus || 'not_paid')
                         )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">

@@ -217,6 +217,8 @@ interface Ticket {
   cost: number;
   technicianId: string;
   passcode?: string;
+  paymentStatus?: 'not_paid' | 'partially_paid' | 'fully_paid';
+  amountPaid?: number;
   createdAt: string;
   updatedAt: string;
 }

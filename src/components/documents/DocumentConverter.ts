@@ -11,11 +11,11 @@ import { DocumentData, DocumentItem } from './DocumentTypes';
  * Convert a ticket to the unified document format
  */
 export function convertTicketToDocument(ticket: any, clientId: string, client: any): DocumentData {
-  // Calculate tax and total
-  const subtotal = ticket.cost || 0;
+  // Ticket cost is VAT-inclusive, extract VAT from total
+  const total = ticket.cost || 0; // This is already VAT-inclusive
   const taxRate = 0.20; // 20% VAT
-  const taxAmount = subtotal * taxRate;
-  const total = subtotal + taxAmount;
+  const taxAmount = total * (taxRate / (1 + taxRate)); // Extract VAT from inclusive total
+  const subtotal = total - taxAmount; // Net amount (excluding VAT)
 
   // Create items from tasks
   const items: DocumentItem[] = [];
