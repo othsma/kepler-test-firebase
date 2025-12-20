@@ -434,7 +434,7 @@ export default function Orders() {
                   Amount Paid
                 </label>
                 <div className="relative">
-                  <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">$</span>
+                  <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">€</span>
                   <input
                     type="number"
                     min="0"
@@ -488,7 +488,7 @@ export default function Orders() {
                           onClick={() => handleSelectProduct(product)}
                         >
                           <div className="font-medium">{product.name}</div>
-                          <div className="text-sm text-gray-500">${product.price} - Stock: {product.stock}</div>
+                          <div className="text-sm text-gray-500">€{product.price} - Stock: {product.stock}</div>
                         </div>
                       ))}
                     </div>

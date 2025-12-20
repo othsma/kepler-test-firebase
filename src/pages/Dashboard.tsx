@@ -64,7 +64,7 @@ export default function Dashboard() {
       { name: 'Pending Repairs', value: pendingTickets.toString(), icon: Clock, color: 'bg-yellow-500' },
       { name: 'In Progress', value: inProgressTickets.toString(), icon: Wrench, color: 'bg-blue-500' },
       { name: 'Completed Repairs', value: completedTickets.toString(), icon: CheckCircle, color: 'bg-green-500' },
-      { name: 'Total Earnings', value: `$${totalEarnings.toFixed(2)}`, icon: DollarSign, color: 'bg-indigo-500' },
+      { name: 'Total Earnings', value: `€${totalEarnings.toFixed(2)}`, icon: DollarSign, color: 'bg-indigo-500' },
     ];
     
     // Add super admin specific stats
@@ -130,7 +130,7 @@ export default function Dashboard() {
               <YAxis />
               <Tooltip />
               {userRole === ROLES.SUPER_ADMIN && (
-                <Bar dataKey="sales" fill="#4F46E5" name="Sales ($)" />
+                <Bar dataKey="sales" fill="#4F46E5" name="Sales (€)" />
               )}
               <Bar dataKey="repairs" fill="#10B981" name="Repairs ($)" />
             </BarChart>
@@ -164,7 +164,7 @@ export default function Dashboard() {
                       {client?.name} - {ticket.deviceType} {ticket.brand}
                     </p>
                     <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                      Status: {ticket.status} | ${ticket.cost}
+                      Status: {ticket.status} | €{ticket.cost}
                     </p>
                   </div>
                 </div>

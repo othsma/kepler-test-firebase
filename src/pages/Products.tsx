@@ -265,7 +265,7 @@ export default function Products() {
               </p>
               <div className="mt-4 flex justify-between items-center">
                 <span className={`text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                  ${product.price}
+                  €{product.price}
                 </span>
                 <span className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                   Stock: {product.stock}

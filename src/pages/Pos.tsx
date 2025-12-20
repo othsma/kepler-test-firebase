@@ -560,7 +560,7 @@ export default function Pos() {
                     </h3>
                     <div className="flex justify-between items-center mt-2">
                       <span className={`font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                        ${product.price.toFixed(2)}
+                        €{product.price.toFixed(2)}
                       </span>
                       <button
                         onClick={() => addToCart(product)}
@@ -620,7 +620,7 @@ export default function Pos() {
                         {item.product.name}
                       </h3>
                       <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                        ${item.product.price.toFixed(2)} x {item.quantity}
+                        €{item.product.price.toFixed(2)} x {item.quantity}
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
@@ -650,19 +650,19 @@ export default function Pos() {
               <div className="flex justify-between">
                 <span className={isDarkMode ? 'text-gray-300' : 'text-gray-600'}>Subtotal</span>
                 <span className={isDarkMode ? 'text-white' : 'text-gray-900'}>
-                  ${subtotal.toFixed(2)}
+                  €{subtotal.toFixed(2)}
                 </span>
               </div>
               <div className="flex justify-between">
                 <span className={isDarkMode ? 'text-gray-300' : 'text-gray-600'}>VAT (20%)</span>
                 <span className={isDarkMode ? 'text-white' : 'text-gray-900'}>
-                  ${vatAmount.toFixed(2)}
+                  €{vatAmount.toFixed(2)}
                 </span>
               </div>
               <div className="flex justify-between font-bold text-lg">
                 <span className={isDarkMode ? 'text-white' : 'text-gray-900'}>Total</span>
                 <span className={isDarkMode ? 'text-white' : 'text-gray-900'}>
-                  ${total.toFixed(2)}
+                  €{total.toFixed(2)}
                 </span>
               </div>
             </div>

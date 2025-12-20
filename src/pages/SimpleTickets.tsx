@@ -635,7 +635,7 @@ export default function SimpleTickets() {
                     Tasks
                   </label>
                   <div className={`text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                    Total Cost: ${totalCost.toFixed(2)}
+                    Total Cost: €{totalCost.toFixed(2)}
                   </div>
                 </div>
                 
@@ -708,7 +708,7 @@ export default function SimpleTickets() {
                           <div className="px-4 py-2 flex items-center">
                             <span className="mr-2">Price:</span>
                             <div className="flex items-center">
-                              <span className="mr-1">$</span>
+                              <span className="mr-1">€</span>
                               <input
                                 type="number"
                                 value={newTaskPrice}
@@ -788,7 +788,7 @@ export default function SimpleTickets() {
                             </span>
                           </div>
                           <div className="flex items-center">
-                            <span className="mr-1">$</span>
+                            <span className="mr-1">€</span>
                             <input
                               type="number"
                               value={task.price}
@@ -993,7 +993,7 @@ export default function SimpleTickets() {
                         {taskPriceDisplay}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
-                        ${ticket.cost}
+                        €{ticket.cost}
                       </td>
                       {userRole === ROLES.SUPER_ADMIN && (
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">

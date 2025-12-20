@@ -277,7 +277,7 @@ export default function Clients() {
                                 <span className={`text-sm ${
                                   isDarkMode ? 'text-gray-300' : 'text-gray-600'
                                 }`}>
-                                  ${ticket.cost}
+                                  €{ticket.cost}
                                 </span>
                               </div>
                               <p className={`text-sm ${
@@ -338,7 +338,7 @@ export default function Clients() {
                                   <span className={`text-sm ${
                                     isDarkMode ? 'text-gray-300' : 'text-gray-600'
                                   }`}>
-                                    ${order.total}
+                                    €{order.total}
                                   </span>
                                 </div>
                                 <div className="flex justify-between items-center mt-2">
