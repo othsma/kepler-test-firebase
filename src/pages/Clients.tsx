@@ -1,11 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useThemeStore, useClientsStore, useTicketsStore, useOrdersStore, useSalesStore } from '../lib/store';
 import { Search, Plus, Edit2, Trash2, History, Calendar } from 'lucide-react';
 import { format } from 'date-fns';
 
 export default function Clients() {
   const isDarkMode = useThemeStore((state) => state.isDarkMode);
-  const { clients, searchQuery, setSearchQuery, addClient, updateClient, deleteClient, loading, error } = useClientsStore();
+  const { clients, addClient, updateClient, deleteClient, loading, error } = useClientsStore();
   const { tickets } = useTicketsStore();
   const { orders } = useOrdersStore();
   const { sales } = useSalesStore();
@@ -19,15 +19,22 @@ export default function Clients() {
     address: '',
   });
 
-  const filteredClients = clients.filter((client) => {
-    const searchLower = searchQuery.toLowerCase();
-    return (
+  // Local search state - completely independent of store
+  const [localSearchQuery, setLocalSearchQuery] = useState('');
+
+  const filteredClients = useMemo(() => {
+    if (!localSearchQuery.trim()) {
+      return clients;
+    }
+
+    const searchLower = localSearchQuery.toLowerCase();
+    return clients.filter((client) => (
       client.name.toLowerCase().includes(searchLower) ||
       client.email.toLowerCase().includes(searchLower) ||
       client.phone.toLowerCase().includes(searchLower) ||
       client.address.toLowerCase().includes(searchLower)
-    );
-  });
+    ));
+  }, [clients, localSearchQuery]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -74,8 +81,8 @@ export default function Clients() {
         <input
           type="text"
           placeholder="Search clients..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
+          value={localSearchQuery}
+          onChange={(e) => setLocalSearchQuery(e.target.value)}
           className="flex-1 bg-transparent border-0 focus:ring-0 text-gray-900 dark:text-white placeholder-gray-400"
         />
       </div>
