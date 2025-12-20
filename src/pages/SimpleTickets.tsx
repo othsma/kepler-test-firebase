@@ -50,6 +50,9 @@ export default function SimpleTickets() {
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [searchField, setSearchField] = useState<'all' | 'tasks' | 'client' | 'ticket'>('all');
 
+  // Tab navigation state
+  const [currentView, setCurrentView] = useState<'create' | 'all'>('create');
+
   // Fetch technicians for super admin
   useEffect(() => {
     const fetchTechnicianData = async () => {
@@ -363,15 +366,33 @@ export default function SimpleTickets() {
         <h1 className={`text-2xl font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
           {userRole === ROLES.TECHNICIAN ? 'My Assigned Tickets' : 'Repair Tickets'}
         </h1>
-        {userRole === ROLES.SUPER_ADMIN && (
+        {/* Form is always visible in Create Ticket tab */}
+      </div>
+
+      {/* Tabs */}
+      <div className="border-b border-gray-200">
+        <nav className="-mb-px flex space-x-8">
           <button
-            onClick={() => setIsAddingTicket(!isAddingTicket)}
-            className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 flex items-center gap-2"
+            onClick={() => setCurrentView('create')}
+            className={`py-2 px-1 border-b-2 font-medium text-sm ${
+              currentView === 'create'
+                ? 'border-indigo-500 text-indigo-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
           >
-            <Plus className="h-4 w-4" />
-            {isAddingTicket ? 'Hide Form' : 'New Ticket'}
+            Create Ticket
           </button>
-        )}
+          <button
+            onClick={() => setCurrentView('all')}
+            className={`py-2 px-1 border-b-2 font-medium text-sm ${
+              currentView === 'all'
+                ? 'border-indigo-500 text-indigo-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            All Tickets
+          </button>
+        </nav>
       </div>
 
       {loading && (
@@ -387,8 +408,11 @@ export default function SimpleTickets() {
         </div>
       )}
 
-      {/* Create/Edit Ticket Form */}
-      {(isAddingTicket || editingTicket) && userRole === ROLES.SUPER_ADMIN && (
+      {/* Create Ticket Tab Content */}
+      {currentView === 'create' && (
+        <>
+          {/* Create/Edit Ticket Form - Always visible in Create Ticket tab */}
+          {userRole === ROLES.SUPER_ADMIN && (
         <div className={`rounded-lg ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow p-6`}>
           <h2 className={`text-lg font-semibold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
             {editingTicket ? 'Edit Ticket' : 'Create New Ticket'}
@@ -939,8 +963,13 @@ export default function SimpleTickets() {
           )}
         </div>
       )}
+      </>
+      )}
 
-      {/* Tickets Table */}
+      {/* All Tickets Tab Content */}
+      {currentView === 'all' && (
+        <>
+          {/* Tickets Table */}
       <div className={`rounded-lg ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow p-6`}>
         <div className="flex flex-col sm:flex-row gap-4 mb-6">
           {/* Search and Filters */}
@@ -1121,7 +1150,10 @@ export default function SimpleTickets() {
                           {/* Edit button - only for assigned technician or super admin */}
                           {canEditTicket(ticket) && (
                             <button
-                              onClick={() => setEditingTicket(ticket.id)}
+                              onClick={() => {
+                                setEditingTicket(ticket.id);
+                                setCurrentView('create'); // Switch to create tab for editing
+                              }}
                               className="text-blue-600 hover:text-blue-800"
                               title="Edit"
                             >
@@ -1181,6 +1213,8 @@ export default function SimpleTickets() {
           </table>
         </div>
       </div>
+      </>
+      )}
 
       {/* Receipt Modal */}
       {showReceipt && newTicketNumber && (
