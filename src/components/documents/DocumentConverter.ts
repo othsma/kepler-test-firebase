@@ -45,6 +45,15 @@ export function convertTicketToDocument(ticket: any, clientId: string, client: a
     });
   }
 
+  // Calculate amount paid based on payment status
+  let amountPaid = 0;
+  if (ticket.paymentStatus === 'fully_paid') {
+    amountPaid = total; // Full amount paid
+  } else if (ticket.paymentStatus === 'partially_paid') {
+    amountPaid = ticket.amountPaid || 0; // Partial amount paid
+  }
+  // For 'not_paid', amountPaid remains 0
+
   return {
     id: ticket.id || `ticket-${Math.random().toString(36).substring(2, 9)}`,
     number: ticket.ticketNumber || '',
@@ -60,6 +69,8 @@ export function convertTicketToDocument(ticket: any, clientId: string, client: a
     subtotal,
     tax: taxAmount,
     total,
+    paymentStatus: ticket.paymentStatus || 'not_paid',
+    amountPaid,
     status: ticket.status || 'Pending',
     type: 'ticket',
     deviceType: ticket.deviceType || '',

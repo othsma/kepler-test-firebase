@@ -894,8 +894,8 @@ export default function SimpleTickets() {
                 </select>
               </div>
 
-              {/* Amount Paid */}
-              {(paymentStatus === 'partially_paid' || paymentStatus === 'fully_paid') && (
+              {/* Amount Paid - Only show for partially paid tickets */}
+              {paymentStatus === 'partially_paid' && (
                 <div>
                   <label className={`block text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                     Amount Paid (€)
