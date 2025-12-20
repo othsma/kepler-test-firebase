@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useThemeStore, useClientsStore, useTicketsStore, useOrdersStore } from '../lib/store';
+import { useThemeStore, useClientsStore, useTicketsStore, useOrdersStore, useSalesStore } from '../lib/store';
 import { Search, Plus, Edit2, Trash2, History, Calendar } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -8,6 +8,7 @@ export default function Clients() {
   const { clients, searchQuery, setSearchQuery, addClient, updateClient, deleteClient, loading, error } = useClientsStore();
   const { tickets } = useTicketsStore();
   const { orders } = useOrdersStore();
+  const { sales } = useSalesStore();
   const [isAddingClient, setIsAddingClient] = useState(false);
   const [editingClient, setEditingClient] = useState<string | null>(null);
   const [selectedClient, setSelectedClient] = useState<string | null>(null);
@@ -43,7 +44,8 @@ export default function Clients() {
   const getClientHistory = (clientId: string) => {
     const clientTickets = tickets.filter(ticket => ticket.clientId === clientId);
     const clientOrders = orders.filter(order => order.clientId === clientId);
-    return { tickets: clientTickets, orders: clientOrders };
+    const clientSales = sales.filter(sale => sale.customer?.id === clientId);
+    return { tickets: clientTickets, orders: clientOrders, sales: clientSales };
   };
 
   const handleDeleteClient = async (id: string) => {
@@ -167,7 +169,7 @@ export default function Clients() {
 
       <div className="grid gap-6">
         {filteredClients.map((client) => {
-          const { tickets: clientTickets, orders: clientOrders } = getClientHistory(client.id);
+          const { tickets: clientTickets, orders: clientOrders, sales: clientSales } = getClientHistory(client.id);
           const isSelected = selectedClient === client.id;
 
           return (
@@ -312,38 +314,82 @@ export default function Clients() {
                         Purchase History
                       </h5>
                       <div className="space-y-2">
-                        {clientOrders.length > 0 ? (
-                          clientOrders.map((order) => (
-                            <div
-                              key={order.id}
-                              className={`p-3 rounded-md ${
-                                isDarkMode ? 'bg-gray-700' : 'bg-gray-50'
-                              }`}
-                            >
-                              <div className="flex justify-between">
-                                <span className={isDarkMode ? 'text-white' : 'text-gray-900'}>
-                                  Order #{order.id}
-                                </span>
-                                <span className={`text-sm ${
-                                  isDarkMode ? 'text-gray-300' : 'text-gray-600'
-                                }`}>
-                                  ${order.total}
-                                </span>
+                        {clientOrders.length > 0 || clientSales.length > 0 ? (
+                          <>
+                            {/* Orders */}
+                            {clientOrders.map((order) => (
+                              <div
+                                key={`order-${order.id}`}
+                                className={`p-3 rounded-md ${
+                                  isDarkMode ? 'bg-gray-700' : 'bg-gray-50'
+                                }`}
+                              >
+                                <div className="flex justify-between">
+                                  <span className={isDarkMode ? 'text-white' : 'text-gray-900'}>
+                                    Order #{order.id}
+                                  </span>
+                                  <span className={`text-sm ${
+                                    isDarkMode ? 'text-gray-300' : 'text-gray-600'
+                                  }`}>
+                                    ${order.total}
+                                  </span>
+                                </div>
+                                <div className="flex justify-between items-center mt-2">
+                                  <span className={`text-sm ${
+                                    isDarkMode ? 'text-gray-400' : 'text-gray-500'
+                                  }`}>
+                                    Type: Order • Status: {order.status}
+                                  </span>
+                                  <span className={`text-sm ${
+                                    isDarkMode ? 'text-gray-400' : 'text-gray-500'
+                                  }`}>
+                                    {format(new Date(order.createdAt), 'MMM d, yyyy')}
+                                  </span>
+                                </div>
                               </div>
-                              <div className="flex justify-between items-center mt-2">
-                                <span className={`text-sm ${
-                                  isDarkMode ? 'text-gray-400' : 'text-gray-500'
-                                }`}>
-                                  Status: {order.status}
-                                </span>
-                                <span className={`text-sm ${
-                                  isDarkMode ? 'text-gray-400' : 'text-gray-500'
-                                }`}>
-                                  {format(new Date(order.createdAt), 'MMM d, yyyy')}
-                                </span>
+                            ))}
+
+                            {/* Sales/Invoices */}
+                            {clientSales.map((sale) => (
+                              <div
+                                key={`sale-${sale.id}`}
+                                className={`p-3 rounded-md ${
+                                  isDarkMode ? 'bg-gray-700' : 'bg-gray-50'
+                                }`}
+                              >
+                                <div className="flex justify-between">
+                                  <span className={isDarkMode ? 'text-white' : 'text-gray-900'}>
+                                    Invoice {sale.invoiceNumber}
+                                  </span>
+                                  <span className={`text-sm ${
+                                    isDarkMode ? 'text-gray-300' : 'text-gray-600'
+                                  }`}>
+                                    €{sale.total.toFixed(2)}
+                                  </span>
+                                </div>
+                                <div className="mt-1">
+                                  <p className={`text-sm ${
+                                    isDarkMode ? 'text-gray-400' : 'text-gray-500'
+                                  }`}>
+                                    {sale.items.length} item(s): {sale.items.slice(0, 2).map(item => item.name).join(', ')}
+                                    {sale.items.length > 2 ? '...' : ''}
+                                  </p>
+                                </div>
+                                <div className="flex justify-between items-center mt-2">
+                                  <span className={`text-sm ${
+                                    isDarkMode ? 'text-gray-400' : 'text-gray-500'
+                                  }`}>
+                                    Type: POS Sale • Payment: {sale.paymentMethod}
+                                  </span>
+                                  <span className={`text-sm ${
+                                    isDarkMode ? 'text-gray-400' : 'text-gray-500'
+                                  }`}>
+                                    {format(new Date(sale.date), 'MMM d, yyyy')}
+                                  </span>
+                                </div>
                               </div>
-                            </div>
-                          ))
+                            ))}
+                          </>
                         ) : (
                           <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                             No purchase history yet
