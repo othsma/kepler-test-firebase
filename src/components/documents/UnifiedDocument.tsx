@@ -13,7 +13,7 @@
  * ```
  */
 
-import { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useThemeStore } from '../../lib/store';
 import { Printer, Mail, Download, X, FileText, Receipt } from 'lucide-react';
 import { DocumentData, DocumentFormat } from './DocumentTypes';
@@ -37,7 +37,7 @@ export default function UnifiedDocument({
 }: UnifiedDocumentProps) {
   const isDarkMode = useThemeStore((state) => state.isDarkMode);
   const [format, setFormat] = useState<DocumentFormat>(initialFormat);
-  const documentRef = useState<HTMLDivElement | null>(null);
+  const documentRef = useRef<HTMLDivElement>(null);
 
   // Get title based on document type
   const getTitle = () => {
@@ -108,7 +108,7 @@ export default function UnifiedDocument({
 
   return (
     <div className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-50">
-      <div className={`relative ${format === 'a4' ? 'w-[210mm] max-h-[90vh]' : 'w-120'} ${isDarkMode ? 'bg-gray-800' : 'bg-white'} rounded-lg shadow-xl overflow-y-auto`}>
+      <div className={`relative ${format === 'a4' ? 'w-[210mm] max-h-[90vh]' : 'w-[400px]'} ${isDarkMode ? 'bg-gray-800' : 'bg-white'} rounded-lg shadow-xl overflow-y-auto`}>
         {/* Header */}
         <div className="flex justify-between items-center p-4 border-b sticky top-0 bg-white z-10">
           <h2 className="text-lg font-semibold text-gray-900">

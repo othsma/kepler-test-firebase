@@ -6,6 +6,7 @@ import { useClientsStore, useTicketsStore, useProductsStore, useOrdersStore, use
 import { getUserRole, ROLES } from './lib/firebase';
 import LoadingScreen from './components/LoadingScreen';
 import AccessDenied from './components/AccessDenied';
+import Pos from './pages/Pos'; // Not lazy for debugging
 
 // Lazy load pages
 const Dashboard = lazy(() => import('./pages/Dashboard'));
@@ -13,7 +14,6 @@ const Clients = lazy(() => import('./pages/Clients'));
 const Tickets = lazy(() => import('./pages/SimpleTickets'));
 const Products = lazy(() => import('./pages/Products'));
 const Orders = lazy(() => import('./pages/Orders'));
-const Pos = lazy(() => import('./pages/Pos'));
 const Settings = lazy(() => import('./pages/Settings'));
 const Login = lazy(() => import('./pages/Login'));
 const Register = lazy(() => import('./pages/Register'));

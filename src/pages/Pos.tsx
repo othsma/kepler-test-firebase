@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useThemeStore, useProductsStore, useClientsStore, useTicketsStore, useOrdersStore } from '../lib/store';
+import { useThemeStore, useProductsStore, useClientsStore, useTicketsStore, useOrdersStore, usePosStore } from '../lib/store';
 import { Search, ShoppingCart, Plus, Minus, Trash2, CreditCard, Banknote, Smartphone, FileText, Printer, X, ArrowRight } from 'lucide-react';
 import { format } from 'date-fns';
 import UnifiedDocument from '../components/documents/UnifiedDocument';
@@ -19,6 +19,7 @@ export default function Pos() {
   const { clients } = useClientsStore();
   const { tickets } = useTicketsStore();
   const { createOrder } = useOrdersStore();
+  const { showReceipt, currentInvoice, setShowReceipt, setCurrentInvoice, clearReceipt } = usePosStore();
   
   // Cart state
   const [cart, setCart] = useState<Array<{ product: any; quantity: number }>>([]);
@@ -31,8 +32,6 @@ export default function Pos() {
   const [note, setNote] = useState('');
   const [quickSale, setQuickSale] = useState(false);
   const [receiptFormat, setReceiptFormat] = useState<'thermal' | 'a4'>('thermal');
-  const [showReceipt, setShowReceipt] = useState(false);
-  const [currentInvoice, setCurrentInvoice] = useState<any>(null);
   
   // Filtered products based on search and category
   const filteredProducts = products.filter((product) => {
@@ -123,13 +122,13 @@ export default function Pos() {
   // Create invoice
   const createInvoice = async () => {
     if (cart.length === 0) return;
-    
+
     // In a real app, you would save this to a database
     const newInvoiceId = generateInvoiceId();
     setInvoiceId(newInvoiceId);
-    
+
     const client = selectedClient ? clients.find(c => c.id === selectedClient) : undefined;
-    
+
     const invoiceData = {
       invoiceNumber: newInvoiceId,
       date: new Date().toISOString(),
@@ -154,23 +153,35 @@ export default function Pos() {
       paymentStatus: 'Paid',
       note: note || undefined,
     };
-    
-    setCurrentInvoice(invoiceData);
-    
-    // Show the receipt
-    setShowReceipt(true);
-    
-    // Create the order in the store
+
+    // For client sales, create the order first
     if (selectedClient) {
-      // Convert cart items to the format expected by createOrder
       const orderItems = cart.map(item => ({
         productId: item.product.id,
-        quantity: item.quantity
+        quantity: item.quantity,
+        name: item.product.name,
+        price: item.product.price
       }));
-      
-      await createOrder(selectedClient, total);
+
+      const orderId = await createOrder(selectedClient, total, orderItems);
+      if (!orderId) {
+        // Order creation failed, don't proceed
+        console.error('Failed to create order for client sale');
+        return;
+      }
     }
-    
+
+    // Show the receipt AFTER order creation
+    console.log('Before setCurrentInvoice');
+    setCurrentInvoice(invoiceData);
+    console.log('Before setShowReceipt');
+    setShowReceipt(true);
+    console.log('After setShowReceipt');
+
+    // Save to localStorage immediately to prevent loss on remount
+    localStorage.setItem('pos_showReceipt', 'true');
+    localStorage.setItem('pos_currentInvoice', JSON.stringify(invoiceData));
+
     // Here you would typically save the sale to your database
     console.log('Sale created:', {
       invoiceId: newInvoiceId,
@@ -185,7 +196,9 @@ export default function Pos() {
       note
     });
   };
-  
+
+  console.log('Pos component rendering, showReceipt:', showReceipt, 'currentInvoice:', !!currentInvoice);
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -198,7 +211,9 @@ export default function Pos() {
         <UnifiedDocument 
           data={convertReceiptToDocument(currentInvoice)}
           onClose={() => {
-            setShowReceipt(false);
+            clearReceipt();
+            localStorage.removeItem('pos_showReceipt');
+            localStorage.removeItem('pos_currentInvoice');
             clearCart();
           }}
           initialFormat={receiptFormat}

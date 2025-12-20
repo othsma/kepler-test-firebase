@@ -442,7 +442,7 @@ const useTicketsStore = create<TicketsState>((set, get) => ({
   assignTicket: async (ticketId: string, technicianId: string) => {
     set({ loading: true, error: null });
     try {
-      const ticketRef = doc(db, 'tickets', id);
+      const ticketRef = doc(db, 'tickets', ticketId);
       
       const updateData = {
         technicianId,
@@ -1058,15 +1058,14 @@ const useOrdersStore = create<OrdersState>((set, get) => ({
   clearCart: () => set({ cart: [] }),
   
   createOrder: async (clientId: string, total: number, items?: OrderItem[]) => {
-    set({ loading: true, error: null });
     try {
       const { cart } = get();
       const orderItems = items || [...cart];
-      
+
       const orderData = {
         items: orderItems,
         total,
-        status: 'pending' as const,
+        status: 'pending',
         clientId,
         createdAt: serverTimestamp(),
         paymentMethod: 'cash',
@@ -1075,26 +1074,12 @@ const useOrdersStore = create<OrdersState>((set, get) => ({
         orderDate: new Date().toISOString(),
         deliveryDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
       };
-      
+
+      console.log('Creating order with data:', orderData);
       const docRef = await addDoc(collection(db, 'orders'), orderData);
-      
-      // Update product stock
-      for (const item of orderItems) {
-        if (item.productId && item.productId !== 'custom') {
-          const productRef = doc(db, 'products', item.productId);
-          const productsState = useProductsStore.getState();
-          const product = productsState.products.find(p => p.id === item.productId);
-          
-          if (product) {
-            await updateDoc(productRef, {
-              stock: product.stock - item.quantity
-            });
-            
-            productsState.updateStock(item.productId, -item.quantity);
-          }
-        }
-      }
-      
+      console.log('Order created with ID:', docRef.id);
+
+      // Create order object for local state
       const newOrder = {
         id: docRef.id,
         items: orderItems,
@@ -1108,13 +1093,14 @@ const useOrdersStore = create<OrdersState>((set, get) => ({
         orderDate: new Date().toISOString(),
         deliveryDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
       };
-      
+
+      // Update local state
       set(state => ({
         orders: [...state.orders, newOrder],
         cart: [],
         loading: false
       }));
-      
+
       return docRef.id;
     } catch (error) {
       console.error('Error creating order:', error);
@@ -1175,6 +1161,22 @@ const useOrdersStore = create<OrdersState>((set, get) => ({
   }
 }));
 
+interface PosState {
+  showReceipt: boolean;
+  currentInvoice: any;
+  setShowReceipt: (show: boolean) => void;
+  setCurrentInvoice: (invoice: any) => void;
+  clearReceipt: () => void;
+}
+
+const usePosStore = create<PosState>((set) => ({
+  showReceipt: false,
+  currentInvoice: null,
+  setShowReceipt: (show: boolean) => set({ showReceipt: show }),
+  setCurrentInvoice: (invoice: any) => set({ currentInvoice: invoice }),
+  clearReceipt: () => set({ showReceipt: false, currentInvoice: null }),
+}));
+
 // Export all stores
 export {
   useThemeStore,
@@ -1183,7 +1185,8 @@ export {
   useClientsStore,
   useTicketsStore,
   useProductsStore,
-  useOrdersStore
+  useOrdersStore,
+  usePosStore
 };
 
 // Initialize the super admin account

@@ -1,17 +1,20 @@
 ## Current Objective
-- Fix the dropdown behavior in the repair ticket form where menus stay open after selection.
+- Fix the POS checkout issue where sales with existing clients don't register.
 
 ## Context
-- Users reported that in `/tickets`, when creating a new ticket, the dropdowns for device type, brand, model, and tasks do not close after an option is selected.
-- This UI issue makes the form difficult to use.
+- In `/pos`, "Quick sell (no client info)" works correctly.
+- Selecting an existing client results in the sale not registering and the invoice not being generated.
+- This is a critical blocker for the sales workflow when client tracking is needed.
 
 ## Next Steps
-- [ ] Analyze `src/pages/SimpleTickets.tsx` to identify the dropdown component implementation.
-- [ ] Fix the dropdowns (likely using Headless UI `Combobox` or `Listbox`) to ensure they close on selection.
-- [ ] Verify the fix.
+- [x] Read `src/pages/Pos.tsx` to identify checkout logic.
+- [x] Debug the difference between quick sell and client sell.
+- [x] Fix the logic in `handleCheckout` or the relevant Zustand store method.
+- [x] Verify functionality.
 
 ## Completed Tasks
 - [x] Correctly handled `caniuse-lite` update with `--legacy-peer-deps`.
 - [x] Implemented route-based code splitting and manual chunking.
 - [x] Fixed Netlify deployment failure with `.npmrc`.
-- [x] Confirmed protection against CVE-2025-55182 (React 19.2.3 is safe).
+- [x] Confirmed protection against CVE-2025-55182.
+- [x] Fixed dropdown closing behavior in `SimpleTickets.tsx`.

@@ -194,6 +194,7 @@ export default function A4Format({ data }: A4FormatProps) {
             <li>This document serves as proof of {data.type === 'ticket' ? 'service' : 'purchase'}.</li>
           </ol>
         </div>
+        {/* QR code disabled for debugging
         <div className="text-center">
           <QRCodeSVG
             value={JSON.stringify({
@@ -209,6 +210,7 @@ export default function A4Format({ data }: A4FormatProps) {
           />
           <p className="text-xs text-gray-600 mt-1">Scan to verify {data.type}</p>
         </div>
+        */}
       </div>
       
       <div className="text-center text-sm text-gray-600 border-t border-gray-300 pt-4">
