@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useThemeStore, useProductsStore, useClientsStore, useTicketsStore, useOrdersStore, usePosStore } from '../lib/store';
+import { useThemeStore, useProductsStore, useClientsStore, useTicketsStore, useOrdersStore, useSalesStore, usePosStore } from '../lib/store';
 import { Search, ShoppingCart, Plus, Minus, Trash2, CreditCard, Banknote, Smartphone, FileText, Printer, X, ArrowRight } from 'lucide-react';
 import { format } from 'date-fns';
 import UnifiedDocument from '../components/documents/UnifiedDocument';
@@ -19,6 +19,7 @@ export default function Pos() {
   const { clients } = useClientsStore();
   const { tickets } = useTicketsStore();
   const { createOrder } = useOrdersStore();
+  const { createSale } = useSalesStore();
   const { showReceipt, currentInvoice, setShowReceipt, setCurrentInvoice, clearReceipt } = usePosStore();
   
   // Cart state
@@ -32,6 +33,7 @@ export default function Pos() {
   const [note, setNote] = useState('');
   const [quickSale, setQuickSale] = useState(false);
   const [receiptFormat, setReceiptFormat] = useState<'thermal' | 'a4'>('thermal');
+  const [currentView, setCurrentView] = useState<'pos' | 'sales'>('pos');
   
   // Filtered products based on search and category
   const filteredProducts = products.filter((product) => {
@@ -154,24 +156,44 @@ export default function Pos() {
       note: note || undefined,
     };
 
-    // For client sales, create the order first
-    if (selectedClient) {
-      const orderItems = cart.map(item => ({
+    // Ensure note is always a string (safeguard against undefined)
+    const safeNote = note ?? '';
+    const currentNote = safeNote || '';
+
+    // Save the sale locally
+    const saleData: any = {
+      invoiceNumber: newInvoiceId,
+      items: cart.map(item => ({
         productId: item.product.id,
         quantity: item.quantity,
         name: item.product.name,
-        price: item.product.price
-      }));
+        sku: item.product.sku,
+        price: item.product.price,
+      })),
+      subtotal,
+      tax: vatAmount,
+      total,
+      customer: client ? {
+        id: client.id,
+        name: client.name,
+        ...(client.email && { email: client.email }),
+        ...(client.phone && { phone: client.phone }),
+        ...(client.address && { address: client.address }),
+      } : undefined,
+      paymentMethod: PAYMENT_METHODS.find(m => m.id === paymentMethod)?.name || paymentMethod,
+      paymentStatus: 'Paid',
+      date: new Date().toISOString(),
+    };
 
-      const orderId = await createOrder(selectedClient, total, orderItems);
-      if (!orderId) {
-        // Order creation failed, don't proceed
-        console.error('Failed to create order for client sale');
-        return;
-      }
+    // Only include note if it has a value (strict check)
+    if (typeof currentNote === 'string' && currentNote.trim().length > 0) {
+      saleData.note = currentNote.trim();
     }
 
-    // Show the receipt AFTER order creation
+    const saleId = await createSale(saleData);
+    console.log('Sale saved to Firebase with ID:', saleId);
+
+    // Show the receipt
     console.log('Before setCurrentInvoice');
     setCurrentInvoice(invoiceData);
     console.log('Before setShowReceipt');
@@ -182,8 +204,8 @@ export default function Pos() {
     localStorage.setItem('pos_showReceipt', 'true');
     localStorage.setItem('pos_currentInvoice', JSON.stringify(invoiceData));
 
-    // Here you would typically save the sale to your database
-    console.log('Sale created:', {
+    console.log('Sale completed:', {
+      saleId,
       invoiceId: newInvoiceId,
       items: cart,
       client: selectedClient ? clients.find(c => c.id === selectedClient) : null,
@@ -199,6 +221,14 @@ export default function Pos() {
 
   console.log('Pos component rendering, showReceipt:', showReceipt, 'currentInvoice:', !!currentInvoice);
 
+  // Get sales data for the sales view
+  const { sales, fetchSales } = useSalesStore();
+
+  // Load sales on component mount
+  useEffect(() => {
+    fetchSales();
+  }, [fetchSales]);
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -206,21 +236,153 @@ export default function Pos() {
           Point of Sale
         </h1>
       </div>
-      
-      {showReceipt && currentInvoice && (
-        <UnifiedDocument 
-          data={convertReceiptToDocument(currentInvoice)}
-          onClose={() => {
-            clearReceipt();
-            localStorage.removeItem('pos_showReceipt');
-            localStorage.removeItem('pos_currentInvoice');
-            clearCart();
-          }}
-          initialFormat={receiptFormat}
-        />
-      )}
-      
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+      {/* Tabs */}
+      <div className="border-b border-gray-200">
+        <nav className="-mb-px flex space-x-8">
+          <button
+            onClick={() => setCurrentView('pos')}
+            className={`py-2 px-1 border-b-2 font-medium text-sm ${
+              currentView === 'pos'
+                ? 'border-indigo-500 text-indigo-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            POS System
+          </button>
+          <button
+            onClick={() => setCurrentView('sales')}
+            className={`py-2 px-1 border-b-2 font-medium text-sm ${
+              currentView === 'sales'
+                ? 'border-indigo-500 text-indigo-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            All Sales
+          </button>
+        </nav>
+      </div>
+
+      {currentView === 'sales' ? (
+        /* Sales List View */
+        <div className={`rounded-lg ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow p-6`}>
+          <div className="flex justify-between items-center mb-6">
+            <h2 className={`text-xl font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+              All Sales
+            </h2>
+            <button
+              onClick={() => fetchSales()}
+              className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700"
+            >
+              Refresh
+            </button>
+          </div>
+
+          {sales.length === 0 ? (
+            <div className="text-center py-8">
+              <p className={`text-lg ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                No sales found.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {sales.map((sale) => (
+                <div
+                  key={sale.id}
+                  className={`border rounded-lg p-4 ${isDarkMode ? 'border-gray-700 bg-gray-700' : 'border-gray-200 bg-gray-50'}`}
+                >
+                  <div className="flex justify-between items-start mb-2">
+                    <div>
+                      <h3 className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                        {sale.invoiceNumber}
+                      </h3>
+                      <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                        {format(new Date(sale.date), 'PPp')}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className={`font-bold text-lg ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                        €{sale.total.toFixed(2)}
+                      </p>
+                      <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                        {sale.paymentMethod}
+                      </p>
+                    </div>
+                  </div>
+
+                  {sale.customer && (
+                    <div className="mb-2">
+                      <p className={`text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                        <span className="font-medium">Customer:</span> {sale.customer.name}
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="mb-2">
+                    <p className={`text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                      <span className="font-medium">Items:</span> {sale.items.length} item(s)
+                    </p>
+                  </div>
+
+                  {sale.note && (
+                    <div className="mb-2">
+                      <p className={`text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                        <span className="font-medium">Note:</span> {sale.note}
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="flex justify-end gap-2 mt-4">
+                    <button
+                      onClick={() => {
+                        // Show receipt for this sale
+                        setCurrentInvoice({
+                          invoiceNumber: sale.invoiceNumber,
+                          date: sale.date,
+                          customer: sale.customer,
+                          items: sale.items.map(item => ({
+                            id: item.productId,
+                            name: item.name,
+                            sku: item.sku,
+                            quantity: item.quantity,
+                            price: item.price,
+                          })),
+                          subtotal: sale.subtotal,
+                          tax: sale.tax,
+                          total: sale.total,
+                          paymentMethod: sale.paymentMethod,
+                          paymentStatus: sale.paymentStatus,
+                          note: sale.note,
+                          type: 'receipt'
+                        });
+                        setShowReceipt(true);
+                      }}
+                      className="bg-indigo-600 text-white px-3 py-1 rounded text-sm hover:bg-indigo-700"
+                    >
+                      View Receipt
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      ) : (
+        <>
+          {showReceipt && currentInvoice && (
+            <UnifiedDocument
+              data={convertReceiptToDocument(currentInvoice)}
+              onClose={() => {
+                clearReceipt();
+                localStorage.removeItem('pos_showReceipt');
+                localStorage.removeItem('pos_currentInvoice');
+                clearCart();
+              }}
+              initialFormat={receiptFormat}
+            />
+          )}
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Product Catalog */}
         <div className="lg:col-span-2 space-y-6">
           <div className={`rounded-lg ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow p-6`}>
@@ -557,6 +719,8 @@ export default function Pos() {
           </div>
         </div>
       </div>
+        </>
+      )}
     </div>
   );
 }

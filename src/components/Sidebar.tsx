@@ -34,7 +34,7 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
         href: '/pos',
         icon: ShoppingCart,
         children: [
-          { name: 'Point of Sale', href: '/pos' },
+          { name: 'Sales', href: '/pos' },
           { name: 'Products', href: '/pos/products' },
           { name: 'Orders', href: '/pos/orders' }
         ],

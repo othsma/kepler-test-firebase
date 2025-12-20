@@ -998,6 +998,45 @@ interface Order {
   note?: string;
 }
 
+interface SaleItem {
+  productId: string;
+  quantity: number;
+  name: string;
+  description?: string;
+  price: number;
+  sku?: string;
+}
+
+interface Sale {
+  id: string;
+  invoiceNumber: string;
+  items: SaleItem[];
+  subtotal: number;
+  tax: number;
+  total: number;
+  customer?: {
+    id: string;
+    name: string;
+    email?: string;
+    phone?: string;
+    address?: string;
+  };
+  paymentMethod: string;
+  paymentStatus: string;
+  date: string;
+  note?: string;
+  createdAt: string;
+}
+
+interface SalesState {
+  sales: Sale[];
+  loading: boolean;
+  error: string | null;
+  fetchSales: () => Promise<void>;
+  createSale: (saleData: Omit<Sale, 'id' | 'createdAt'>) => Promise<string>;
+  deleteSale: (id: string) => Promise<void>;
+}
+
 interface OrdersState {
   orders: Order[];
   cart: OrderItem[];
@@ -1177,6 +1216,81 @@ const usePosStore = create<PosState>((set) => ({
   clearReceipt: () => set({ showReceipt: false, currentInvoice: null }),
 }));
 
+const useSalesStore = create<SalesState>((set, get) => ({
+  sales: [],
+  loading: false,
+  error: null,
+
+  fetchSales: async () => {
+    set({ loading: true, error: null });
+    try {
+      const salesCollection = collection(db, 'sales');
+      const salesSnapshot = await getDocs(salesCollection);
+      const salesList = salesSnapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          ...data,
+          createdAt: data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : data.createdAt
+        } as Sale;
+      });
+
+      set({ sales: salesList, loading: false });
+    } catch (error) {
+      console.error('Error fetching sales:', error);
+      set({ error: 'Failed to fetch sales', loading: false });
+    }
+  },
+
+  createSale: async (saleData: Omit<Sale, 'id' | 'createdAt'>) => {
+    set({ loading: true, error: null });
+    try {
+      const saleDoc = {
+        ...saleData,
+        createdAt: new Date()
+      };
+
+      console.log('Creating sale with data:', saleDoc);
+      const docRef = await addDoc(collection(db, 'sales'), saleDoc);
+      console.log('Sale created with ID:', docRef.id);
+
+      // Create sale object for local state
+      const newSale = {
+        id: docRef.id,
+        ...saleData,
+        createdAt: new Date().toISOString()
+      };
+
+      // Update local state
+      set(state => ({
+        sales: [...state.sales, newSale],
+        loading: false
+      }));
+
+      return docRef.id;
+    } catch (error) {
+      console.error('Error creating sale:', error);
+      set({ error: 'Failed to create sale', loading: false });
+      return '';
+    }
+  },
+
+  deleteSale: async (id: string) => {
+    set({ loading: true, error: null });
+    try {
+      await deleteDoc(doc(db, 'sales', id));
+
+      set(state => ({
+        sales: state.sales.filter(sale => sale.id !== id),
+        loading: false
+      }));
+    } catch (error) {
+      console.error('Error deleting sale:', error);
+      set({ error: 'Failed to delete sale', loading: false });
+    }
+  }
+}));
+
 // Export all stores
 export {
   useThemeStore,
@@ -1186,6 +1300,7 @@ export {
   useTicketsStore,
   useProductsStore,
   useOrdersStore,
+  useSalesStore,
   usePosStore
 };
 
