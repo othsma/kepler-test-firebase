@@ -217,18 +217,19 @@ export default function Orders() {
     setOrderItems(newItems);
   };
 
-  const calculateOrderTotal = () => {
+  // VAT-inclusive pricing: entered amounts already include VAT
+  const calculateGrandTotal = () => {
     return orderItems.reduce((total, item) => {
       return total + (item.price * item.quantity);
     }, 0);
   };
 
   const calculateTax = () => {
-    return calculateOrderTotal() * 0.2; // 20% tax
+    return calculateGrandTotal() * (0.2 / 1.2); // Extract VAT from inclusive total
   };
 
-  const calculateGrandTotal = () => {
-    return calculateOrderTotal() + calculateTax();
+  const calculateOrderTotal = () => {
+    return calculateGrandTotal() - calculateTax(); // Net amount (excluding VAT)
   };
 
   const calculateRemainingAmount = () => {
@@ -605,7 +606,7 @@ export default function Orders() {
                           </div>
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-right text-gray-900 dark:text-white">
-                          ${item.price.toFixed(2)}
+                          €{item.price.toFixed(2)}
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-right text-gray-900 dark:text-white">
                           ${(item.price * item.quantity).toFixed(2)}

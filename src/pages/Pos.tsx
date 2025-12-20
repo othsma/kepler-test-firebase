@@ -69,11 +69,11 @@ export default function Pos() {
     return matchesSearch && matchesClient;
   });
   
-  // Calculate cart totals
-  const subtotal = cart.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
+  // Calculate cart totals (VAT-inclusive pricing)
+  const total = cart.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
   const VAT_RATE = 0.20; // 20% VAT
-  const vatAmount = subtotal * VAT_RATE;
-  const total = subtotal + vatAmount;
+  const vatAmount = total * (VAT_RATE / (1 + VAT_RATE)); // Extract VAT from inclusive total
+  const subtotal = total - vatAmount; // Net amount (excluding VAT)
   
   // Add product to cart
   const addToCart = (product: any) => {
