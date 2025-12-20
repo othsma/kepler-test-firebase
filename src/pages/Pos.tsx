@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { useThemeStore, useProductsStore, useClientsStore, useTicketsStore, useOrdersStore, useSalesStore, usePosStore } from '../lib/store';
-import { Search, ShoppingCart, Plus, Minus, Trash2, CreditCard, Banknote, Smartphone, FileText, Printer, X, ArrowRight, ArrowUpDown, ArrowUp, ArrowDown, Calendar } from 'lucide-react';
+import { useState, useEffect, useMemo } from 'react';
+import { useThemeStore, useProductsStore, useClientsStore, useTicketsStore, useSalesStore, usePosStore } from '../lib/store';
+import { Search, ShoppingCart, Plus, Minus, Trash2, CreditCard, Banknote, Smartphone, FileText, Printer, ArrowRight, ArrowUp, ArrowDown, Calendar } from 'lucide-react';
 import { format } from 'date-fns';
 import UnifiedDocument from '../components/documents/UnifiedDocument';
 import { convertReceiptToDocument } from '../components/documents/DocumentConverter';
@@ -18,7 +18,6 @@ export default function Pos() {
   const { products, categories, searchQuery, selectedCategory, setSearchQuery, setSelectedCategory } = useProductsStore();
   const { clients } = useClientsStore();
   const { tickets } = useTicketsStore();
-  const { createOrder } = useOrdersStore();
   const { createSale } = useSalesStore();
   const { showReceipt, currentInvoice, setShowReceipt, setCurrentInvoice, clearReceipt } = usePosStore();
   
@@ -29,7 +28,6 @@ export default function Pos() {
   const [clientSearch, setClientSearch] = useState('');
   const [ticketSearch, setTicketSearch] = useState('');
   const [paymentMethod, setPaymentMethod] = useState(PAYMENT_METHODS[0].id);
-  const [invoiceId, setInvoiceId] = useState('');
   const [note, setNote] = useState('');
   const [quickSale, setQuickSale] = useState(false);
   const [receiptFormat, setReceiptFormat] = useState<'thermal' | 'a4'>('thermal');
@@ -133,7 +131,6 @@ export default function Pos() {
 
     // In a real app, you would save this to a database
     const newInvoiceId = generateInvoiceId();
-    setInvoiceId(newInvoiceId);
 
     const client = selectedClient ? clients.find(c => c.id === selectedClient) : undefined;
 

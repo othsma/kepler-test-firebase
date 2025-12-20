@@ -1,17 +1,16 @@
 import { create } from 'zustand';
-import { 
-  collection, 
-  addDoc, 
-  updateDoc, 
-  doc, 
-  deleteDoc, 
-  getDocs, 
-  query, 
+import {
+  collection,
+  addDoc,
+  updateDoc,
+  doc,
+  deleteDoc,
+  getDocs,
+  query,
   where,
-  serverTimestamp,
-  Timestamp
+  serverTimestamp
 } from 'firebase/firestore';
-import { db, auth, initializeSuperAdmin, ROLES } from './firebase';
+import { db, initializeSuperAdmin, ROLES } from './firebase';
 import { User } from 'firebase/auth';
 
 interface ThemeState {
@@ -93,7 +92,7 @@ interface ClientsState {
   deleteClient: (id: string) => Promise<void>;
 }
 
-const useClientsStore = create<ClientsState>((set, get) => ({
+const useClientsStore = create<ClientsState>((set) => ({
   clients: [],
   loading: false,
   error: null,
@@ -1218,7 +1217,7 @@ const usePosStore = create<PosState>((set) => ({
   clearReceipt: () => set({ showReceipt: false, currentInvoice: null }),
 }));
 
-const useSalesStore = create<SalesState>((set, get) => ({
+const useSalesStore = create<SalesState>((set) => ({
   sales: [],
   loading: false,
   error: null,

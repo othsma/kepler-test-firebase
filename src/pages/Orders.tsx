@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useThemeStore, useOrdersStore, useProductsStore, useClientsStore } from '../lib/store';
-import { Search, Filter, Calendar, User, Package, DollarSign, ChevronDown, ChevronUp, Eye, Plus, Minus, Trash2, Edit, Printer, FileText } from 'lucide-react';
+import { Search, ChevronDown, ChevronUp, Plus, Minus, Trash2, Edit, Printer, FileText } from 'lucide-react';
 import { format } from 'date-fns';
 import UnifiedDocument from '../components/documents/UnifiedDocument';
 import { convertReceiptToDocument } from '../components/documents/DocumentConverter';
@@ -33,7 +33,7 @@ export default function Orders() {
   const [amountPaid, setAmountPaid] = useState(0);
   const [orderDate, setOrderDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [deliveryDate, setDeliveryDate] = useState(format(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), 'yyyy-MM-dd'));
-  const [orderStatus, setOrderStatus] = useState('pending');
+  const [orderStatus, setOrderStatus] = useState<'pending' | 'processing' | 'ready_for_pickup' | 'completed' | 'cancelled'>('pending');
   const [orderNote, setOrderNote] = useState('');
 
   const filteredOrders = orders.filter((order) => {
@@ -385,7 +385,7 @@ export default function Orders() {
                 </label>
                 <select
                   value={orderStatus}
-                  onChange={(e) => setOrderStatus(e.target.value)}
+                  onChange={(e) => setOrderStatus(e.target.value as 'pending' | 'processing' | 'ready_for_pickup' | 'completed' | 'cancelled')}
                   className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                   required
                 >
@@ -781,9 +781,9 @@ export default function Orders() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900 dark:text-white">
                         ${order.total.toFixed(2)}
-                        {order.amountPaid > 0 && order.amountPaid < order.total && (
+                        {(order.amountPaid || 0) > 0 && (order.amountPaid || 0) < order.total && (
                           <div className="text-xs text-gray-500 dark:text-gray-400">
-                            Paid: ${order.amountPaid.toFixed(2)}
+                            Paid: ${(order.amountPaid || 0).toFixed(2)}
                           </div>
                         )}
                       </td>

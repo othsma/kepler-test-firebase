@@ -1,6 +1,3 @@
-import React from 'react';
-import { useThemeStore } from '../../../lib/store';
-import { QRCodeSVG } from 'qrcode.react';
 import { format } from 'date-fns';
 import { DocumentData } from '../DocumentTypes';
 

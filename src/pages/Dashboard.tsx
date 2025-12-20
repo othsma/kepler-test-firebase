@@ -132,7 +132,7 @@ export default function Dashboard() {
               {userRole === ROLES.SUPER_ADMIN && (
                 <Bar dataKey="sales" fill="#4F46E5" name="Sales (€)" />
               )}
-              <Bar dataKey="repairs" fill="#10B981" name="Repairs ($)" />
+              <Bar dataKey="repairs" fill="#10B981" name="Repairs (€)" />
             </BarChart>
           </ResponsiveContainer>
         </div>

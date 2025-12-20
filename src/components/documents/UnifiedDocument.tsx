@@ -13,7 +13,7 @@
  * ```
  */
 
-import React, { useState, useRef } from 'react';
+import { useState, useRef } from 'react';
 import { useThemeStore } from '../../lib/store';
 import { Printer, Mail, Download, X, FileText, Receipt } from 'lucide-react';
 import { DocumentData, DocumentFormat } from './DocumentTypes';

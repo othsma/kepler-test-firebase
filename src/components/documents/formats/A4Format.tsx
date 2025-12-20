@@ -1,5 +1,4 @@
 import { format } from 'date-fns';
-import { QRCodeSVG } from 'qrcode.react';
 import { DocumentData } from '../DocumentTypes';
 
 interface A4FormatProps {

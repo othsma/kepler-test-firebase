@@ -1,4 +1,3 @@
-import React from 'react';
 import { useThemeStore } from '../lib/store';
 import { format } from 'date-fns';
 import { TrendingUp, TrendingDown } from 'lucide-react';
@@ -51,7 +50,7 @@ export default function DailySalesWidget({ date = new Date() }: DailySalesWidget
           </h3>
           <div className="flex items-center mt-2">
             <p className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-              ${todaySales.toLocaleString()}
+              €{todaySales.toLocaleString()}
             </p>
             <div className={`ml-2 flex items-center ${isPositive ? 'text-green-500' : 'text-red-500'}`}>
               {isPositive ? (
@@ -78,7 +77,7 @@ export default function DailySalesWidget({ date = new Date() }: DailySalesWidget
             Average Ticket
           </h3>
           <p className={`text-2xl font-bold mt-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-            ${averageTicket.toFixed(2)}
+            €{averageTicket.toFixed(2)}
           </p>
         </div>
       </div>
@@ -95,7 +94,7 @@ export default function DailySalesWidget({ date = new Date() }: DailySalesWidget
                   {payment.method}
                 </span>
                 <span className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                  ${payment.amount.toLocaleString()}
+                  €{payment.amount.toLocaleString()}
                 </span>
               </div>
             ))}
@@ -118,7 +117,7 @@ export default function DailySalesWidget({ date = new Date() }: DailySalesWidget
                   </span>
                 </div>
                 <span className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                  ${product.amount.toLocaleString()}
+                  €{product.amount.toLocaleString()}
                 </span>
               </div>
             ))}

@@ -4,7 +4,22 @@ import { LayoutDashboard, Users, PenTool as Tool, ShoppingCart, Wrench, Settings
 import { useThemeStore, useAuthStore } from '../lib/store';
 import { ROLES } from '../lib/firebase';
 
-export default function Sidebar({ isCollapsed, toggleSidebar }) {
+interface SidebarProps {
+  isCollapsed: boolean;
+  toggleSidebar: () => void;
+}
+
+interface NavigationItem {
+  name: string;
+  href: string;
+  icon: React.ComponentType<{ className?: string }>;
+  children?: Array<{
+    name: string;
+    href: string;
+  }>;
+}
+
+export default function Sidebar({ isCollapsed, toggleSidebar }: SidebarProps) {
   const isDarkMode = useThemeStore((state) => state.isDarkMode);
   const { userRole } = useAuthStore();
   const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({
@@ -19,9 +34,9 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
   };
 
   // Define navigation items based on user role
-  const getNavigationItems = () => {
+  const getNavigationItems = (): NavigationItem[] => {
     // Base navigation items for all users
-    const baseNavigation = [
+    const baseNavigation: NavigationItem[] = [
       { name: 'Dashboard', href: '/', icon: LayoutDashboard },
       { name: 'Clients', href: '/clients', icon: Users },
       { name: 'Tickets', href: '/tickets', icon: Tool },
