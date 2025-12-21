@@ -1,11 +1,14 @@
 import { format } from 'date-fns';
 import { DocumentData } from '../DocumentTypes';
+import { FORMAT_CONFIGS, COMPANY_CONFIG, VAT_CONFIG, TERMS_CONFIG, DOCUMENT_TYPE_NAMES } from '../DocumentConfig';
+import omegalogo from '../../../omegalogo.png';
 
 interface ThermalFormatProps {
   data: DocumentData;
 }
 
 export default function ThermalFormat({ data }: ThermalFormatProps) {
+  const formatConfig = FORMAT_CONFIGS.thermal;
   // Calculate remaining amount if partially paid
   const remainingAmount = data.amountPaid !== undefined 
     ? data.total - data.amountPaid 
@@ -21,22 +24,23 @@ export default function ThermalFormat({ data }: ThermalFormatProps) {
   };
 
   return (
-    <div className="p-4 bg-white text-black" style={{ width: '80mm', margin: '0 auto' }}>
+    <div className={formatConfig.styles.container} style={{ width: formatConfig.width, margin: '0 auto' }}>
       {/* Company Header */}
-      <div className="text-center mb-4">
-        <div className="flex items-center justify-center mb-2">
-          <img
-            src="https://github.com/othsma/kepler-test-firebase/blob/main/src/omegalogo.png?raw=true"
-            alt="O'MEGA SERVICES Logo"
-            className="h-8 w-auto mr-2"
-          />
+      {formatConfig.showLogo && (
+        <div className={formatConfig.styles.header}>
+          <div className="flex items-center justify-center mb-2">
+            <img
+              src={omegalogo}
+              alt={`${COMPANY_CONFIG.name} Logo`}
+              className="h-8 w-auto mr-2"
+            />
+          </div>
+          <h1 className="font-bold text-lg">{COMPANY_CONFIG.name}</h1>
+          <p className="text-xs">{COMPANY_CONFIG.address}</p>
+          <p className="text-xs">Tel: {COMPANY_CONFIG.phone}</p>
+          <p className="text-xs">TVA: {COMPANY_CONFIG.taxId}</p>
         </div>
-        <h1 className="font-bold text-lg">O'MEGA SERVICES</h1>
-        <p className="text-xs">400 Rue nationale</p>
-        <p className="text-xs">69400 Villefranche S/S</p>
-        <p className="text-xs">Tel: 0986608980</p>
-        <p className="text-xs">TVA: FR123456789</p>
-      </div>
+      )}
 
       {/* Receipt Header */}
       <div className="border-y border-dashed py-2 my-2 text-center">

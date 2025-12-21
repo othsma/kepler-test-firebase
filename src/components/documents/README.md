@@ -2,26 +2,35 @@
 
 This directory contains the unified document system for the O'MEGA SERVICES application. It replaces multiple overlapping receipt and invoice components with a single, consistent system.
 
+## Architecture Overview
+
+The system uses a **configuration-driven architecture** with clear separation of concerns:
+
+- **Data Layer**: `DocumentTypes.ts` + `DocumentConverter.ts` - Type-safe data models and conversion
+- **Configuration Layer**: `DocumentConfig.ts` - Format specifications and styling
+- **Presentation Layer**: `UnifiedDocument.tsx` + format renderers - UI components
+- **Action Layer**: `actions/` - Document operations (print, email, download)
+
 ## Directory Structure
 
 ```
 documents/
 ├── README.md                # This file
 ├── DocumentTypes.ts         # Shared type definitions
-├── DocumentConverter.ts     # Utilities for converting from old formats
-├── UnifiedDocument.tsx      # Main container component
-├── formats/                 # Format-specific components
-│   ├── ThermalFormat.tsx    # Thermal receipt format
-│   ├── A4Format.tsx         # A4 paper format
-│   └── PDFFormat.tsx        # PDF format
-├── types/                   # Document type-specific components
-│   ├── ReceiptType.tsx      # Receipt-specific content
-│   ├── InvoiceType.tsx      # Invoice-specific content
-│   └── TicketType.tsx       # Repair ticket-specific content
-└── actions/                 # Action components
-    ├── PrintAction.tsx      # Print functionality
-    ├── EmailAction.tsx      # Email functionality
-    └── DownloadAction.tsx   # Download functionality
+├── DocumentConverter.ts     # Data conversion utilities
+├── DocumentConfig.ts        # Format configurations and styling
+├── UnifiedDocument.tsx      # Main container with composition
+├── formats/                 # Format-specific renderers
+│   ├── ThermalFormat.tsx    # Thermal receipt renderer
+│   ├── A4Format.tsx         # A4 invoice renderer
+│   └── PDFFormat.tsx        # PDF renderer
+├── actions/                 # Action components
+│   ├── PrintAction.tsx      # Print functionality
+│   ├── EmailAction.tsx      # Email functionality
+│   ├── DownloadAction.tsx   # Download functionality
+│   └── FormatToggle.tsx     # Format switching
+└── hooks/                   # Custom hooks
+    └── useDocumentActions.ts # Document action logic
 ```
 
 ## Usage
@@ -38,10 +47,34 @@ import { convertReceiptToDocument } from '../components/documents/DocumentConver
   <UnifiedDocument
     data={convertReceiptToDocument(receiptData)}
     onClose={() => setShowDocument(false)}
-    initialFormat="thermal" // or "a4" or "pdf"
+    initialFormat="thermal" // or "a4"
   />
 )}
 ```
+
+## Document Actions
+
+The system provides comprehensive document actions:
+
+- **Format Toggle**: Switch between Thermal and A4 formats
+- **PDF Download**: Generate pixel-perfect PDF files matching the A4 preview (using html2canvas + jsPDF)
+- **Image Download**: Download current view as PNG image (using html2canvas)
+- **Email**: Send document via email (mailto link)
+- **Print**: Browser print functionality
+
+All actions are debounced to prevent multiple simultaneous operations and provide user feedback during processing.
+
+### PDF Generation
+
+The PDF download feature captures the exact A4 format document as displayed in the modal:
+
+- **Pixel-Perfect Capture**: Uses html2canvas to capture the rendered A4 format
+- **High Resolution**: 2x scale for crisp PDF output
+- **A4 Dimensions**: Properly sized PDF with correct aspect ratio
+- **Image Support**: Properly loads and includes logos and images
+- **Fallback Support**: Falls back to @react-pdf/renderer if canvas capture fails
+- **Dynamic Loading**: jsPDF loaded on-demand to minimize bundle size
+- **Local Assets**: Uses local logo files to avoid CORS issues
 
 ## Data Structure
 

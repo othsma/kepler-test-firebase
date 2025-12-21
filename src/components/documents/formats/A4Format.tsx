@@ -1,11 +1,14 @@
 import { format } from 'date-fns';
 import { DocumentData } from '../DocumentTypes';
+import { FORMAT_CONFIGS, COMPANY_CONFIG, VAT_CONFIG, TERMS_CONFIG, DOCUMENT_TYPE_NAMES } from '../DocumentConfig';
+import omegalogo from '../../../omegalogo.png';
 
 interface A4FormatProps {
   data: DocumentData;
 }
 
 export default function A4Format({ data }: A4FormatProps) {
+  const formatConfig = FORMAT_CONFIGS.a4;
   // Calculate remaining amount if partially paid
   const remainingAmount = data.amountPaid !== undefined 
     ? data.total - data.amountPaid 
@@ -21,28 +24,30 @@ export default function A4Format({ data }: A4FormatProps) {
   };
 
   return (
-    <div className="p-8 bg-white text-black" style={{ width: '210mm', maxWidth: '100%' }}>
-      <div className="flex justify-between mb-8">
-        <div className="flex items-center">
-          <div className="mr-4">
-            <div className="flex items-center">
-              <div className="mr-4">
-                <img
-                  src="https://github.com/othsma/kepler-test-firebase/blob/main/src/omegalogo.png?raw=true"
-                  alt="O'MEGA SERVICES Logo"
-                  className="h-12 w-auto"
-                />
-              </div>
+    <div
+      className={formatConfig.styles.container}
+      style={{ width: formatConfig.width, maxWidth: '100%' }}
+      data-format="a4"
+    >
+      <div className={`${formatConfig.styles.header} flex justify-between`}>
+        {formatConfig.showLogo && (
+          <div className="flex items-center">
+            <div className="mr-4">
+              <img
+                src={omegalogo}
+                alt={`${COMPANY_CONFIG.name} Logo`}
+                className="h-12 w-auto"
+              />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold mb-1 text-gray-900">{COMPANY_CONFIG.name}</h1>
+              <p className="text-sm text-gray-600">{COMPANY_CONFIG.address}</p>
+              <p className="text-sm text-gray-600">Tel: {COMPANY_CONFIG.phone}</p>
+              <p className="text-sm text-gray-600">Email: {COMPANY_CONFIG.email}</p>
+              <p className="text-sm text-gray-600">TVA: {COMPANY_CONFIG.taxId}</p>
             </div>
           </div>
-          <div>
-            <h1 className="text-2xl font-bold mb-1 text-gray-900">O'MEGA SERVICES</h1>
-            <p className="text-sm text-gray-600">400 Rue nationale, 69400 Villefranche S/S</p>
-            <p className="text-sm text-gray-600">Tel: 0986608980</p>
-            <p className="text-sm text-gray-600">Email: contact@omegaservices.fr</p>
-            <p className="text-sm text-gray-600">TVA: FR123456789</p>
-          </div>
-        </div>
+        )}
         <div className="text-right">
           <h2 className="text-xl font-bold mb-1 text-gray-900">{getTitle()}</h2>
           <p className="text-sm text-gray-600">#{data.number}</p>
@@ -171,50 +176,39 @@ export default function A4Format({ data }: A4FormatProps) {
         </div>
       )}
       
-      <div className="flex justify-between items-end mb-4">
-        <div>
-          <h3 className="font-bold mb-2 text-gray-900">Terms and Conditions:</h3>
-          <ol className="list-decimal list-inside text-sm text-gray-600 pl-4">
-            {data.type === 'ticket' ? (
-              <>
-                <li>All repairs come with a 90-day warranty.</li>
-                <li>Payment is due upon completion of service.</li>
-                <li>Devices not claimed within 90 days will be subject to disposal or recycling.</li>
-                <li>We are not responsible for data loss during repairs.</li>
-              </>
-            ) : (
-              <>
-                <li>Payment is due within 30 days of invoice date.</li>
-                <li>Late payments are subject to a 2% monthly interest charge.</li>
-                <li>All products come with a standard 1-year warranty.</li>
-                <li>Returns accepted within 14 days with original packaging.</li>
-              </>
-            )}
-            <li>This document serves as proof of {data.type === 'ticket' ? 'service' : 'purchase'}.</li>
-          </ol>
+      {formatConfig.showTerms && (
+        <div className="flex justify-between items-end mb-4">
+          <div>
+            <h3 className="font-bold mb-2 text-gray-900">Terms and Conditions:</h3>
+            <ol className="list-decimal list-inside text-sm text-gray-600 pl-4">
+              {TERMS_CONFIG[data.type].map((term, index) => (
+                <li key={index}>{term}</li>
+              ))}
+            </ol>
+          </div>
+          {/* QR code disabled for debugging
+          <div className="text-center">
+            <QRCodeSVG
+              value={JSON.stringify({
+                id: data.id,
+                number: data.number,
+                total: data.total,
+                date: data.date,
+                type: data.type,
+                business: "O'MEGA SERVICES",
+                taxId: "FR123456789"
+              })}
+              size={100}
+            />
+            <p className="text-xs text-gray-600 mt-1">Scan to verify {data.type}</p>
+          </div>
+          */}
         </div>
-        {/* QR code disabled for debugging
-        <div className="text-center">
-          <QRCodeSVG
-            value={JSON.stringify({
-              id: data.id,
-              number: data.number,
-              total: data.total,
-              date: data.date,
-              type: data.type,
-              business: "O'MEGA SERVICES",
-              taxId: "FR123456789"
-            })}
-            size={100}
-          />
-          <p className="text-xs text-gray-600 mt-1">Scan to verify {data.type}</p>
-        </div>
-        */}
-      </div>
+      )}
       
-      <div className="text-center text-sm text-gray-600 border-t border-gray-300 pt-4">
+      <div className={formatConfig.styles.footer}>
         <p>Your satisfaction is our success. Thank you for choosing us!</p>
-        <p>For any questions regarding this {data.type}, please contact us at contact@omegaservices.fr</p>
+        <p>For any questions regarding this {DOCUMENT_TYPE_NAMES[data.type].toLowerCase()}, please contact us at {COMPANY_CONFIG.email}</p>
       </div>
     </div>
   );
