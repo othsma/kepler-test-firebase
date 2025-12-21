@@ -466,11 +466,11 @@ export default function SimpleTickets() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'pending':
-        return <span className="px-2 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800">Pending</span>;
+        return <span className="px-2 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800">En attente</span>;
       case 'in-progress':
-        return <span className="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">In Progress</span>;
+        return <span className="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">En cours</span>;
       case 'completed':
-        return <span className="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">Completed</span>;
+        return <span className="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">Terminé</span>;
       default:
         return null;
     }
@@ -480,11 +480,11 @@ export default function SimpleTickets() {
   const getPaymentStatusBadge = (status: string) => {
     switch (status) {
       case 'not_paid':
-        return <span className="px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-800">Not Paid</span>;
+        return <span className="px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-800">Non payé</span>;
       case 'partially_paid':
-        return <span className="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">Partially Paid</span>;
+        return <span className="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">Partiellement payé</span>;
       case 'fully_paid':
-        return <span className="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">Fully Paid</span>;
+        return <span className="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">Entièrement payé</span>;
       default:
         return null;
     }
@@ -501,7 +501,7 @@ export default function SimpleTickets() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h1 className={`text-2xl font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-          {userRole === ROLES.TECHNICIAN ? 'My Assigned Tickets' : 'Repair Tickets'}
+          {userRole === ROLES.TECHNICIAN ? 'Mes tickets assignés' : 'Tickets de réparation'}
         </h1>
         {/* Form is always visible in Create Ticket tab */}
       </div>
@@ -517,7 +517,7 @@ export default function SimpleTickets() {
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
             }`}
           >
-            Create Ticket
+            Créer un ticket
           </button>
           <button
             onClick={() => setCurrentView('all')}
@@ -527,14 +527,14 @@ export default function SimpleTickets() {
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
             }`}
           >
-            All Tickets
+            Tous les tickets
           </button>
         </nav>
       </div>
 
       {loading && (
         <div className={`rounded-lg ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow p-6 text-center`}>
-          <p className={isDarkMode ? 'text-white' : 'text-gray-900'}>Loading tickets...</p>
+          <p className={isDarkMode ? 'text-white' : 'text-gray-900'}>Chargement des tickets...</p>
         </div>
       )}
 
@@ -552,7 +552,7 @@ export default function SimpleTickets() {
           {userRole === ROLES.SUPER_ADMIN && (
         <div className={`rounded-lg ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow p-6`}>
           <h2 className={`text-lg font-semibold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-            {editingTicket ? 'Edit Ticket' : 'Create New Ticket'}
+            {editingTicket ? 'Modifier le ticket' : 'Créer un nouveau ticket'}
           </h2>
           
           {/* Client Selection (only for new tickets) */}
@@ -572,7 +572,7 @@ export default function SimpleTickets() {
                       setShowClientDropdown(true);
                     }}
                     onFocus={() => setShowClientDropdown(true)}
-                    placeholder="Search for a client..."
+                    placeholder="Rechercher un client..."
                     className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                   />
                   <button
@@ -580,7 +580,7 @@ export default function SimpleTickets() {
                     onClick={() => setIsAddingClient(true)}
                     className="mt-1 px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
                   >
-                    New Client
+                    Nouveau client
                   </button>
                 </div>
                 {showClientDropdown && !selectedClientId && !isAddingClient && filteredClients.length > 0 && (
@@ -617,7 +617,7 @@ export default function SimpleTickets() {
               {/* Device Type */}
               <div>
                 <label className={`block text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                  Device Type
+                  Type d'appareil
                 </label>
                 <div className="relative">
                   <input
@@ -630,7 +630,7 @@ export default function SimpleTickets() {
                     }}
                     onFocus={() => setShowDeviceDropdown(true)}
                     className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                    placeholder="Search or add new device type"
+                    placeholder="Rechercher ou ajouter un nouveau type d'appareil"
                     required
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') {
@@ -676,7 +676,7 @@ export default function SimpleTickets() {
               {/* Brand */}
               <div>
                 <label className={`block text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                  Brand
+                  Marque
                 </label>
                 <div className="relative">
                   <input
@@ -692,7 +692,7 @@ export default function SimpleTickets() {
                     }}
                     onFocus={() => setShowBrandDropdown(true)}
                     className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                    placeholder="Search or add new brand"
+                    placeholder="Rechercher ou ajouter une nouvelle marque"
                     required
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') {
@@ -747,7 +747,7 @@ export default function SimpleTickets() {
               {/* Model */}
               <div>
                 <label className={`block text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                  Model
+                  Modèle
                 </label>
                 <div className="relative">
                   <input
@@ -760,7 +760,7 @@ export default function SimpleTickets() {
                     }}
                     onFocus={() => setShowModelDropdown(true)}
                     className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                    placeholder="Search or add new model"
+                    placeholder="Rechercher ou ajouter un nouveau modèle"
                     required
                     disabled={!brand}
                     onKeyDown={(e) => {
@@ -808,14 +808,14 @@ export default function SimpleTickets() {
               {userRole === ROLES.SUPER_ADMIN && (
                 <div>
                   <label className={`block text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                    Assign to Technician
+                    Assigner à un technicien
                   </label>
                   <select
                     value={technicianId}
                     onChange={(e) => setTechnicianId(e.target.value)}
                     className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                   >
-                    <option value="">Unassigned</option>
+                    <option value="">Non assigné</option>
                     {technicians.map((tech) => (
                       <option key={tech.id} value={tech.id}>
                         {tech.fullName}
@@ -829,10 +829,10 @@ export default function SimpleTickets() {
               <div>
                 <div className="flex justify-between items-center">
                   <label className={`block text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                    Tasks
+                    Tâches
                   </label>
                   <div className={`text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                    Total Cost: €{totalCost.toFixed(2)}
+                    Coût total: €{totalCost.toFixed(2)}
                   </div>
                 </div>
                 
@@ -846,7 +846,7 @@ export default function SimpleTickets() {
                       setShowTaskDropdown(true);
                     }}
                     onFocus={() => setShowTaskDropdown(true)}
-                    placeholder="Search or add new task"
+                    placeholder="Rechercher ou ajouter une nouvelle tâche"
                     className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') {
@@ -927,7 +927,7 @@ export default function SimpleTickets() {
                 {/* Popular tasks */}
                 <div className="mt-4">
                   <h4 className={`text-sm font-medium mb-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                    Popular Tasks
+                    Tâches populaires
                   </h4>
                   <div className="grid grid-cols-2 gap-2">
                     {Array.from(
@@ -970,7 +970,7 @@ export default function SimpleTickets() {
                 {tasksWithPrice.length > 0 && (
                   <div className="mt-4">
                     <h4 className={`text-sm font-medium mb-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                      Selected Tasks
+                      Tâches sélectionnées
                     </h4>
                     <div className="space-y-2 border rounded-md p-3">
                       {tasksWithPrice.map((task) => (
@@ -978,11 +978,11 @@ export default function SimpleTickets() {
                           <div className="flex items-center">
                             <button
                               type="button"
-                              
+
                               onClick={() => handleRemoveTask(task.name)}
                               className="mr-2 text-red-500 hover:text-red-700"
                             >
-                              Remove
+                              Supprimer
                             </button>
                             <span className={isDarkMode ? 'text-gray-300' : 'text-gray-700'}>
                               {task.name}
@@ -1007,7 +1007,7 @@ export default function SimpleTickets() {
               {/* Passcode */}
               <div>
                 <label className={`block text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                  Passcode (Optional)
+                  Code de déverrouillage (optionnel)
                 </label>
                 <input
                   type="text"
@@ -1020,7 +1020,7 @@ export default function SimpleTickets() {
               {/* Issue Description */}
               <div>
                 <label className={`block text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                  Issue Description (Optional)
+                  Description du problème (optionnel)
                 </label>
                 <textarea
                   value={issue}
@@ -1033,16 +1033,16 @@ export default function SimpleTickets() {
               {editingTicket && (
                 <div>
                   <label className={`block text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                    Status
+                    Statut
                   </label>
                   <select
                     value={status}
                     onChange={(e) => setStatus(e.target.value as 'pending' | 'in-progress' | 'completed')}
                     className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                   >
-                    <option value="pending">Pending</option>
-                    <option value="in-progress">In Progress</option>
-                    <option value="completed">Completed</option>
+                    <option value="pending">En attente</option>
+                    <option value="in-progress">En cours</option>
+                    <option value="completed">Terminé</option>
                   </select>
                 </div>
               )}
@@ -1050,16 +1050,16 @@ export default function SimpleTickets() {
               {/* Payment Status */}
               <div>
                 <label className={`block text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                  Payment Status
+                  Statut du paiement
                 </label>
                 <select
                   value={paymentStatus}
                   onChange={(e) => setPaymentStatus(e.target.value as 'not_paid' | 'partially_paid' | 'fully_paid')}
                   className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                 >
-                  <option value="not_paid">Not Paid</option>
-                  <option value="partially_paid">Partially Paid</option>
-                  <option value="fully_paid">Fully Paid</option>
+                  <option value="not_paid">Non payé</option>
+                  <option value="partially_paid">Partiellement payé</option>
+                  <option value="fully_paid">Entièrement payé</option>
                 </select>
               </div>
 
@@ -1067,7 +1067,7 @@ export default function SimpleTickets() {
               {paymentStatus === 'partially_paid' && (
                 <div>
                   <label className={`block text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                    Amount Paid (€)
+                    Montant payé (€)
                   </label>
                   <input
                     type="number"
@@ -1109,14 +1109,14 @@ export default function SimpleTickets() {
                   className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50"
                   disabled={loading}
                 >
-                  Cancel
+                  Annuler
                 </button>
                 <button
                   type="submit"
                   className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50"
                   disabled={loading}
                 >
-                  {loading ? (editingTicket ? 'Updating...' : 'Creating...') : (editingTicket ? 'Update Ticket' : 'Create Ticket')}
+                  {loading ? (editingTicket ? 'Mise à jour...' : 'Création...') : (editingTicket ? 'Mettre à jour le ticket' : 'Créer le ticket')}
                 </button>
               </div>
             </form>
@@ -1140,10 +1140,10 @@ export default function SimpleTickets() {
               onChange={(e) => setSearchField(e.target.value as any)}
               className="w-full sm:w-40 rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
             >
-              <option value="all">Search All</option>
-              <option value="ticket">Ticket Number</option>
-              <option value="client">Client Info</option>
-              <option value="tasks">Tasks</option>
+              <option value="all">Tout rechercher</option>
+              <option value="ticket">Numéro de ticket</option>
+              <option value="client">Informations client</option>
+              <option value="tasks">Tâches</option>
             </select>
 
             {/* Search Input */}
@@ -1151,7 +1151,7 @@ export default function SimpleTickets() {
               <Search className="h-5 w-5 text-gray-400" />
               <input
                 type="text"
-                placeholder={`Search ${searchField === 'all' ? 'tickets' : searchField}...`}
+                placeholder={`Rechercher des ${searchField === 'all' ? 'tickets' : searchField}...`}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="flex-1 bg-transparent border-0 focus:ring-0 text-gray-900 dark:text-white placeholder-gray-400"
@@ -1166,20 +1166,20 @@ export default function SimpleTickets() {
               onChange={(e) => setFilterStatus(e.target.value as any)}
               className="rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
             >
-              <option value="all">All Status</option>
-              <option value="pending">Pending</option>
-              <option value="in-progress">In Progress</option>
-              <option value="completed">Completed</option>
+              <option value="all">Tous les statuts</option>
+              <option value="pending">En attente</option>
+              <option value="in-progress">En cours</option>
+              <option value="completed">Terminé</option>
             </select>
 
             <button
               onClick={() => setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc')}
               className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
-              title="Sort by date"
+              title="Trier par date"
             >
               <Calendar className="h-4 w-4" />
               <ArrowUpDown className="h-4 w-4" />
-              <span className="hidden sm:inline">{sortDirection === 'asc' ? 'Oldest First' : 'Newest First'}</span>
+              <span className="hidden sm:inline">{sortDirection === 'asc' ? 'Plus ancien d\'abord' : 'Plus récent d\'abord'}</span>
             </button>
           </div>
         </div>
@@ -1196,24 +1196,24 @@ export default function SimpleTickets() {
                   Client
                 </th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                  Device
+                  Appareil
                 </th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                  Tasks
+                  Tâches
                 </th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                  Cost
+                  Coût
                 </th>
                 {userRole === ROLES.SUPER_ADMIN && (
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                    Technician
+                    Technicien
                   </th>
                 )}
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                  Status
+                  Statut
                 </th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider min-w-[120px] w-[180px] sm:w-[160px] md:w-[180px]">
-                  Payment
+                  Paiement
                 </th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider min-w-[120px]">
                   Date
@@ -1270,9 +1270,9 @@ export default function SimpleTickets() {
                             }
                             className="text-sm rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                           >
-                            <option value="pending">Pending</option>
-                            <option value="in-progress">In Progress</option>
-                            <option value="completed">Completed</option>
+                            <option value="pending">En attente</option>
+                            <option value="in-progress">En cours</option>
+                            <option value="completed">Terminé</option>
                           </select>
                         ) : (
                           getStatusBadge(ticket.status)
@@ -1291,9 +1291,9 @@ export default function SimpleTickets() {
                             }}
                             className="text-sm rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                           >
-                            <option value="not_paid">Not Paid</option>
-                            <option value="partially_paid">Partially Paid</option>
-                            <option value="fully_paid">Fully Paid</option>
+                            <option value="not_paid">Non payé</option>
+                            <option value="partially_paid">Partiellement payé</option>
+                            <option value="fully_paid">Entièrement payé</option>
                           </select>
                         ) : (
                           getPaymentStatusBadge(ticket.paymentStatus || 'not_paid')
