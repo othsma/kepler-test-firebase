@@ -345,7 +345,7 @@ export default function Pos() {
                   <Search className="h-5 w-5 text-gray-400" />
                   <input
                     type="text"
-                    placeholder="Search by invoice, customer, product, payment method..."
+                    placeholder="Rechercher par facture, client, produit, mode de paiement..."
                     value={salesSearchQuery}
                     onChange={(e) => setSalesSearchQuery(e.target.value)}
                     className={`flex-1 bg-transparent border-0 focus:ring-0 ${isDarkMode ? 'text-white placeholder-gray-400' : 'text-gray-900 placeholder-gray-500'}`}
@@ -359,14 +359,14 @@ export default function Pos() {
                   className={`flex items-center gap-2 px-3 py-2 rounded-md border ${isDarkMode ? 'border-gray-600 text-gray-300 hover:bg-gray-700' : 'border-gray-300 text-gray-700 hover:bg-gray-50'}`}
                 >
                   {sortOrder === 'desc' ? <ArrowDown className="h-4 w-4" /> : <ArrowUp className="h-4 w-4" />}
-                  Date {sortOrder === 'desc' ? 'Newest' : 'Oldest'}
+                  Date {sortOrder === 'desc' ? 'Plus récent' : 'Plus ancien'}
                 </button>
 
                 <button
                   onClick={clearFilters}
                   className="px-3 py-2 text-sm text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200"
                 >
-                  Clear Filters
+                  Effacer les filtres
                 </button>
               </div>
             </div>
@@ -376,7 +376,7 @@ export default function Pos() {
               <div className="flex items-center gap-2">
                 <Calendar className="h-4 w-4 text-gray-400" />
                 <label className={`text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                  From:
+                  De:
                 </label>
                 <input
                   type="date"
@@ -389,7 +389,7 @@ export default function Pos() {
               <div className="flex items-center gap-2">
                 <Calendar className="h-4 w-4 text-gray-400" />
                 <label className={`text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                  To:
+                  À:
                 </label>
                 <input
                   type="date"
@@ -404,7 +404,7 @@ export default function Pos() {
           {filteredAndSortedSales.length === 0 ? (
             <div className="text-center py-8">
               <p className={`text-lg ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                {sales.length === 0 ? 'No sales found.' : 'No sales match your filters.'}
+                {sales.length === 0 ? 'Aucune vente trouvée.' : 'Aucune vente ne correspond à vos filtres.'}
               </p>
             </div>
           ) : (
@@ -413,19 +413,19 @@ export default function Pos() {
                 <thead className={isDarkMode ? 'bg-gray-700' : 'bg-gray-50'}>
                   <tr>
                     <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${isDarkMode ? 'text-gray-300' : 'text-gray-500'}`}>
-                      Invoice
+                      Facture
                     </th>
                     <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${isDarkMode ? 'text-gray-300' : 'text-gray-500'}`}>
                       Date
                     </th>
                     <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${isDarkMode ? 'text-gray-300' : 'text-gray-500'}`}>
-                      Customer
+                      Client
                     </th>
                     <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${isDarkMode ? 'text-gray-300' : 'text-gray-500'}`}>
-                      Items
+                      Articles
                     </th>
                     <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${isDarkMode ? 'text-gray-300' : 'text-gray-500'}`}>
-                      Payment
+                      Paiement
                     </th>
                     <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${isDarkMode ? 'text-gray-300' : 'text-gray-500'}`}>
                       Total
@@ -447,11 +447,11 @@ export default function Pos() {
                         <span className="text-xs">{format(new Date(sale.date), 'HH:mm')}</span>
                       </td>
                       <td className={`px-6 py-4 whitespace-nowrap text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-500'}`}>
-                        {sale.customer?.name || 'Walk-in Customer'}
+                        {sale.customer?.name || 'Client sans rendez-vous'}
                       </td>
                       <td className={`px-6 py-4 text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-500'}`}>
                         <div className="max-w-xs truncate">
-                          {sale.items.length} item(s)
+                          {sale.items.length} article(s)
                           {sale.items.length > 0 && (
                             <div className="text-xs mt-1">
                               {sale.items.slice(0, 2).map((item, idx) => (
@@ -497,7 +497,7 @@ export default function Pos() {
                           }}
                           className="bg-indigo-600 text-white px-3 py-1 rounded text-sm hover:bg-indigo-700 transition-colors"
                         >
-                          View Receipt
+                          Facture
                         </button>
                       </td>
                     </tr>
