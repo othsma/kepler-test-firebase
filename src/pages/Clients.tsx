@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useThemeStore, useClientsStore, useTicketsStore, useOrdersStore, useSalesStore } from '../lib/store';
 import { Search, Plus, Edit2, Trash2, History, Calendar } from 'lucide-react';
 import { format } from 'date-fns';
@@ -56,7 +56,7 @@ export default function Clients() {
   };
 
   const handleDeleteClient = async (id: string) => {
-    if (window.confirm('Are you sure you want to delete this client?')) {
+    if (window.confirm('Êtes-vous sûr de vouloir supprimer ce client ?')) {
       await deleteClient(id);
     }
   };
@@ -72,7 +72,7 @@ export default function Clients() {
           className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 flex items-center gap-2"
         >
           <Plus className="h-4 w-4" />
-          Add Client
+          Ajouter un client
         </button>
       </div>
 
@@ -80,7 +80,7 @@ export default function Clients() {
         <Search className="h-5 w-5 text-gray-400" />
         <input
           type="text"
-          placeholder="Search clients..."
+          placeholder="Rechercher des clients..."
           value={localSearchQuery}
           onChange={(e) => setLocalSearchQuery(e.target.value)}
           className="flex-1 bg-transparent border-0 focus:ring-0 text-gray-900 dark:text-white placeholder-gray-400"
@@ -89,7 +89,7 @@ export default function Clients() {
 
       {loading && (
         <div className={`rounded-lg ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow p-6 text-center`}>
-          <p className={isDarkMode ? 'text-white' : 'text-gray-900'}>Loading clients...</p>
+          <p className={isDarkMode ? 'text-white' : 'text-gray-900'}>Chargement des clients...</p>
         </div>
       )}
 
@@ -103,12 +103,12 @@ export default function Clients() {
       {(isAddingClient || editingClient) && (
         <div className={`rounded-lg ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow p-6`}>
           <h2 className={`text-lg font-semibold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-            {editingClient ? 'Edit Client' : 'Add New Client'}
+            {editingClient ? 'Modifier le client' : 'Ajouter un nouveau client'}
           </h2>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className={`block text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                Name
+                Nom
               </label>
               <input
                 type="text"
@@ -143,7 +143,7 @@ export default function Clients() {
             </div>
             <div>
               <label className={`block text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                Address
+                Adresse
               </label>
               <textarea
                 value={formData.address}
@@ -161,13 +161,13 @@ export default function Clients() {
                 }}
                 className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50"
               >
-                Cancel
+                Annuler
               </button>
               <button
                 type="submit"
                 className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700"
               >
-                {editingClient ? 'Update' : 'Add'}
+                {editingClient ? 'Mettre à jour' : 'Ajouter'}
               </button>
             </div>
           </form>
@@ -206,7 +206,7 @@ export default function Clients() {
                   <div className="flex items-center gap-2 mt-2">
                     <Calendar className="h-4 w-4 text-gray-400" />
                     <span className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                      Member since: {format(new Date(client.createdAt), 'MMM d, yyyy')}
+                      Membre depuis: {format(new Date(client.createdAt), 'MMM d, yyyy')}
                     </span>
                   </div>
                 </div>
@@ -250,7 +250,7 @@ export default function Clients() {
                 <div className="mt-6 border-t pt-6">
                   <div className="flex justify-between items-center mb-4">
                     <h4 className={`font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                      Client History
+                      Historique du client
                     </h4>
                   </div>
 
@@ -259,7 +259,7 @@ export default function Clients() {
                       <h5 className={`text-sm font-medium mb-2 ${
                         isDarkMode ? 'text-gray-300' : 'text-gray-700'
                       }`}>
-                        Repair Tickets
+                        Tickets de réparation
                       </h5>
                       <div className="space-y-2">
                         {clientTickets.length > 0 ? (
@@ -283,20 +283,20 @@ export default function Clients() {
                               <p className={`text-sm ${
                                 isDarkMode ? 'text-gray-400' : 'text-gray-500'
                               }`}>
-                                Tasks: {ticket.tasks.join(', ')}
+                                Tâches: {ticket.tasks.join(', ')}
                               </p>
                               {ticket.issue && (
                                 <p className={`text-sm ${
                                   isDarkMode ? 'text-gray-400' : 'text-gray-500'
                                 }`}>
-                                  Issue: {ticket.issue}
+                                  Problème: {ticket.issue}
                                 </p>
                               )}
                               <div className="flex justify-between items-center mt-2">
                                 <span className={`text-sm ${
                                   isDarkMode ? 'text-gray-400' : 'text-gray-500'
                                 }`}>
-                                  Status: {ticket.status}
+                                  Statut: {ticket.status}
                                 </span>
                                 <span className={`text-sm ${
                                   isDarkMode ? 'text-gray-400' : 'text-gray-500'
@@ -308,7 +308,7 @@ export default function Clients() {
                           ))
                         ) : (
                           <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                            No repair tickets yet
+                            Aucun ticket de réparation pour le moment
                           </p>
                         )}
                       </div>
@@ -318,7 +318,7 @@ export default function Clients() {
                       <h5 className={`text-sm font-medium mb-2 ${
                         isDarkMode ? 'text-gray-300' : 'text-gray-700'
                       }`}>
-                        Purchase History
+                        Historique d'achat
                       </h5>
                       <div className="space-y-2">
                         {clientOrders.length > 0 || clientSales.length > 0 ? (
@@ -333,7 +333,7 @@ export default function Clients() {
                               >
                                 <div className="flex justify-between">
                                   <span className={isDarkMode ? 'text-white' : 'text-gray-900'}>
-                                    Order #{order.id}
+                                    Commande #{order.id}
                                   </span>
                                   <span className={`text-sm ${
                                     isDarkMode ? 'text-gray-300' : 'text-gray-600'
@@ -345,7 +345,7 @@ export default function Clients() {
                                   <span className={`text-sm ${
                                     isDarkMode ? 'text-gray-400' : 'text-gray-500'
                                   }`}>
-                                    Type: Order • Status: {order.status}
+                                    Type: Commande • Statut: {order.status}
                                   </span>
                                   <span className={`text-sm ${
                                     isDarkMode ? 'text-gray-400' : 'text-gray-500'
@@ -366,7 +366,7 @@ export default function Clients() {
                               >
                                 <div className="flex justify-between">
                                   <span className={isDarkMode ? 'text-white' : 'text-gray-900'}>
-                                    Invoice {sale.invoiceNumber}
+                                    Facture {sale.invoiceNumber}
                                   </span>
                                   <span className={`text-sm ${
                                     isDarkMode ? 'text-gray-300' : 'text-gray-600'
@@ -378,7 +378,7 @@ export default function Clients() {
                                   <p className={`text-sm ${
                                     isDarkMode ? 'text-gray-400' : 'text-gray-500'
                                   }`}>
-                                    {sale.items.length} item(s): {sale.items.slice(0, 2).map(item => item.name).join(', ')}
+                                    {sale.items.length} article(s): {sale.items.slice(0, 2).map(item => item.name).join(', ')}
                                     {sale.items.length > 2 ? '...' : ''}
                                   </p>
                                 </div>
@@ -386,7 +386,7 @@ export default function Clients() {
                                   <span className={`text-sm ${
                                     isDarkMode ? 'text-gray-400' : 'text-gray-500'
                                   }`}>
-                                    Type: POS Sale • Payment: {sale.paymentMethod}
+                                    Type: Vente PDV • Paiement: {sale.paymentMethod}
                                   </span>
                                   <span className={`text-sm ${
                                     isDarkMode ? 'text-gray-400' : 'text-gray-500'
@@ -399,7 +399,7 @@ export default function Clients() {
                           </>
                         ) : (
                           <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                            No purchase history yet
+                            Aucun historique d'achat pour le moment
                           </p>
                         )}
                       </div>
