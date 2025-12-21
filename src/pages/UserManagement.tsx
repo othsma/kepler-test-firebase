@@ -18,7 +18,7 @@ export default function UserManagement() {
   useEffect(() => {
     const fetchUsers = async () => {
       if (userRole !== ROLES.SUPER_ADMIN) {
-        setError('You do not have permission to access this page');
+        setError('Vous n\'avez pas la permission d\'accéder à cette page');
         setLoading(false);
         return;
       }
@@ -34,7 +34,7 @@ export default function UserManagement() {
         setUsers(usersList);
       } catch (error) {
         console.error('Error fetching users:', error);
-        setError('Failed to fetch users');
+        setError('Échec du chargement des utilisateurs');
       } finally {
         setLoading(false);
       }
@@ -51,7 +51,7 @@ export default function UserManagement() {
       // Check if trying to change super admin role
       const userDoc = await getDoc(doc(db, 'users', userId));
       if (userDoc.exists() && userDoc.data().email === 'othsma@gmail.com') {
-        setError('Cannot change the role of the super admin');
+        setError('Impossible de changer le rôle du super administrateur');
         return;
       }
       
@@ -64,12 +64,12 @@ export default function UserManagement() {
             user.id === userId ? { ...user, role: newRole } : user
           )
         );
-        setSuccess('User role updated successfully');
+        setSuccess('Rôle de l\'utilisateur mis à jour avec succès');
       } else {
-        setError(result.error || 'Failed to update user role');
+        setError(result.error || 'Échec de la mise à jour du rôle utilisateur');
       }
     } catch (error: any) {
-      setError(error.message || 'An unexpected error occurred');
+      setError(error.message || 'Une erreur inattendue s\'est produite');
     }
   };
 
@@ -84,10 +84,10 @@ export default function UserManagement() {
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
           <h2 className={`text-xl font-semibold mb-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-            Access Denied
+            Accès refusé
           </h2>
           <p className={isDarkMode ? 'text-gray-300' : 'text-gray-600'}>
-            You do not have permission to access this page.
+            Vous n'avez pas la permission d'accéder à cette page.
           </p>
         </div>
       </div>
@@ -97,7 +97,7 @@ export default function UserManagement() {
   return (
     <div className="space-y-6">
       <h1 className={`text-2xl font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-        User Management
+        Gestion des utilisateurs
       </h1>
       
       {error && (
@@ -122,7 +122,7 @@ export default function UserManagement() {
             </div>
             <input
               type="text"
-              placeholder="Search users..."
+              placeholder="Rechercher des utilisateurs..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
@@ -133,7 +133,7 @@ export default function UserManagement() {
         {loading ? (
           <div className="text-center py-8">
             <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500 mx-auto"></div>
-            <p className={`mt-4 ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>Loading users...</p>
+            <p className={`mt-4 ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>Chargement des utilisateurs...</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -141,16 +141,16 @@ export default function UserManagement() {
               <thead className={isDarkMode ? 'bg-gray-700' : 'bg-gray-50'}>
                 <tr>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                    Name
+                    Nom
                   </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                     Email
                   </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                    Phone
+                    Téléphone
                   </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                    Role
+                    Rôle
                   </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                     Actions
@@ -171,7 +171,7 @@ export default function UserManagement() {
                               {user.fullName}
                             </div>
                             <div className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                              User ID: {user.id.substring(0, 8)}...
+                              ID utilisateur: {user.id.substring(0, 8)}...
                             </div>
                           </div>
                         </div>
@@ -197,14 +197,14 @@ export default function UserManagement() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         {user.email === 'othsma@gmail.com' ? (
-                          <span className="text-sm text-gray-500">Super Admin (locked)</span>
+                          <span className="text-sm text-gray-500">Super Admin (verrouillé)</span>
                         ) : (
                           <select
                             value={user.role}
                             onChange={(e) => handleRoleChange(user.id, e.target.value)}
                             className="block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                           >
-                            <option value={ROLES.TECHNICIAN}>Technician</option>
+                            <option value={ROLES.TECHNICIAN}>Technicien</option>
                             <option value={ROLES.SUPER_ADMIN}>Super Admin</option>
                           </select>
                         )}
@@ -214,7 +214,7 @@ export default function UserManagement() {
                 ) : (
                   <tr>
                     <td colSpan={5} className="px-6 py-4 text-center text-sm text-gray-500 dark:text-gray-400">
-                      No users found
+                      Aucun utilisateur trouvé
                     </td>
                   </tr>
                 )}

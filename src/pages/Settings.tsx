@@ -84,12 +84,12 @@ export default function Settings() {
   return (
     <div className="space-y-6">
       <h1 className={`text-2xl font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-        Settings
+        Paramètres
       </h1>
 
       <div className={`rounded-lg ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow p-6`}>
         <h2 className={`text-lg font-semibold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-          Device Types
+          Types d'appareils
         </h2>
         <div className="space-y-4">
           <div className="flex gap-2">
@@ -97,7 +97,7 @@ export default function Settings() {
               type="text"
               value={newDeviceType}
               onChange={(e) => setNewDeviceType(e.target.value)}
-              placeholder="Add new device type"
+              placeholder="Ajouter un nouveau type d'appareil"
               className="flex-1 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
             />
             <button
@@ -147,7 +147,7 @@ export default function Settings() {
 
       <div className={`rounded-lg ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow p-6`}>
         <h2 className={`text-lg font-semibold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-          Brands
+          Marques
         </h2>
         <div className="space-y-4">
           <div className="flex gap-2">
@@ -155,7 +155,7 @@ export default function Settings() {
               type="text"
               value={newBrand}
               onChange={(e) => setNewBrand(e.target.value)}
-              placeholder="Add new brand"
+              placeholder="Ajouter une nouvelle marque"
               className="flex-1 rounde d-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
             />
             <button
@@ -205,7 +205,7 @@ export default function Settings() {
 
       <div className={`rounded-lg ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow p-6`}>
         <h2 className={`text-lg font-semibold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-          Models
+          Modèles
         </h2>
         <div className="space-y-4">
           <div className="flex gap-2">
@@ -214,7 +214,7 @@ export default function Settings() {
               onChange={(e) => setNewModel({ ...newModel, brandId: e.target.value })}
               className="rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
             >
-              <option value="">Select brand</option>
+              <option value="">Sélectionner une marque</option>
               {settings.brands.map((brand) => (
                 <option key={brand} value={brand}>
                   {brand}
@@ -225,7 +225,7 @@ export default function Settings() {
               type="text"
               value={newModel.name}
               onChange={(e) => setNewModel({ ...newModel, name: e.target.value })}
-              placeholder="Add new model"
+              placeholder="Ajouter un nouveau modèle"
               className="flex-1 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
             />
             <button
@@ -278,7 +278,7 @@ export default function Settings() {
 
       <div className={`rounded-lg ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow p-6`}>
         <h2 className={`text-lg font-semibold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-          Tasks
+          Tâches
         </h2>
         <div className="space-y-4">
           <div className="flex gap-2">
@@ -286,7 +286,7 @@ export default function Settings() {
               type="text"
               value={newTask}
               onChange={(e) => setNewTask(e.target.value)}
-              placeholder="Add new task"
+              placeholder="Ajouter une nouvelle tâche"
               className="flex-1 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
             />
             <button

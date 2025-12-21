@@ -143,7 +143,7 @@ export default function Profile() {
   return (
     <div className="space-y-6">
       <h1 className={`text-2xl font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-        Account Settings
+        Paramètres du compte
       </h1>
       
       <div className={`rounded-lg ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow`}>
@@ -157,7 +157,7 @@ export default function Profile() {
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
               }`}
             >
-              Profile
+              Profil
             </button>
             <button
               onClick={() => setActiveTab('email')}
@@ -177,7 +177,7 @@ export default function Profile() {
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
               }`}
             >
-              Password
+              Mot de passe
             </button>
           </nav>
         </div>
@@ -201,7 +201,7 @@ export default function Profile() {
             <form onSubmit={handleProfileSubmit} className="space-y-4">
               <div>
                 <label className={`block text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                  Full Name
+                  Nom complet
                 </label>
                 <div className="mt-1 relative rounded-md shadow-sm">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
