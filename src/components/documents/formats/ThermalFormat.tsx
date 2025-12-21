@@ -24,7 +24,11 @@ export default function ThermalFormat({ data }: ThermalFormatProps) {
   };
 
   return (
-    <div className={formatConfig.styles.container} style={{ width: formatConfig.width, margin: '0 auto' }}>
+    <div
+      className={formatConfig.styles.container}
+      style={{ width: formatConfig.width, margin: '0 auto' }}
+      data-format="thermal"
+    >
       {/* Company Header */}
       {formatConfig.showLogo && (
         <div className={formatConfig.styles.header}>

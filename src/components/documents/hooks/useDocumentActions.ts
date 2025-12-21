@@ -54,11 +54,43 @@ export const useDocumentActions = ({ data, documentRef, onFormatChange }: UseDoc
     isProcessingRef.current = true;
 
     try {
-      const canvas = await html2canvas(documentRef.current, {
+      // Find the specific format element to capture
+      const modalElement = documentRef.current;
+      const formatElement = modalElement?.querySelector('[data-format="a4"]') ||
+                           modalElement?.querySelector('[data-format="thermal"]') ||
+                           modalElement;
+
+      if (!formatElement) {
+        throw new Error('No format element found');
+      }
+
+      // Use the format element for PNG capture
+      const targetElement = formatElement as HTMLElement;
+
+      // Wait for images to load
+      const images = targetElement.querySelectorAll('img');
+      const imagePromises = Array.from(images).map((img: HTMLImageElement) => {
+        return new Promise<void>((resolve) => {
+          if (img.complete && img.naturalHeight > 0) {
+            resolve();
+          } else {
+            img.onload = () => resolve();
+            img.onerror = () => resolve();
+            setTimeout(() => resolve(), 2000);
+          }
+        });
+      });
+
+      await Promise.all(imagePromises);
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      const canvas = await html2canvas(targetElement, {
         scale: 2,
         backgroundColor: '#ffffff',
         useCORS: true,
         allowTaint: false,
+        width: targetElement.offsetWidth,
+        height: targetElement.offsetHeight
       });
 
       const imgData = canvas.toDataURL('image/png');
@@ -186,21 +218,40 @@ export const useDocumentActions = ({ data, documentRef, onFormatChange }: UseDoc
 
 
 
-      // Create PDF with A4 dimensions
-      const pdf = new jsPDF({
-        orientation: 'portrait',
-        unit: 'mm',
-        format: 'a4'
-      });
+      // Determine PDF format based on content type
+      const isThermal = targetElement.hasAttribute('data-format') &&
+                       targetElement.getAttribute('data-format') === 'thermal';
 
-      // Calculate dimensions to fit A4
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = pdf.internal.pageSize.getHeight();
+      console.log('PDF Generation - Element format:', targetElement.getAttribute('data-format'));
+      console.log('PDF Generation - Is thermal:', isThermal);
+
+      let pdf, pdfWidth, pdfHeight;
+
+      if (isThermal) {
+        // Thermal receipt: 80mm width (standard thermal printer)
+        pdf = new jsPDF({
+          orientation: 'portrait',
+          unit: 'mm',
+          format: [80, 200] // 80mm width, auto height
+        });
+        pdfWidth = 80;
+        pdfHeight = 200; // Allow up to 200mm height for thermal receipts
+      } else {
+        // A4 format for regular documents
+        pdf = new jsPDF({
+          orientation: 'portrait',
+          unit: 'mm',
+          format: 'a4'
+        });
+        pdfWidth = pdf.internal.pageSize.getWidth();
+        pdfHeight = pdf.internal.pageSize.getHeight();
+      }
+
+      // Calculate dimensions to fit the PDF format
       const imgWidth = pdfWidth;
       const imgHeight = (canvas.height * pdfWidth) / canvas.width;
 
-      // If content is taller than one page, we might need multiple pages
-      // For now, we'll scale to fit on one page
+      // Scale to fit page height if needed
       const scaledHeight = Math.min(imgHeight, pdfHeight);
 
       // Convert canvas to image

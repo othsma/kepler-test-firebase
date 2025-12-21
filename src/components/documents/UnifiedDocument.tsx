@@ -93,7 +93,8 @@ function UnifiedDocument({
       <div
         className={`relative ${isDarkMode ? 'bg-gray-800' : 'bg-white'} rounded-lg shadow-xl overflow-y-auto`}
         style={{
-          width: formatConfig.width,
+          width: '280mm', // Fixed width that accommodates both A4 (210mm) and provides space for thermal (80mm) centering
+          maxWidth: '90vw', // Responsive max width
           maxHeight: '90vh',
           minHeight: '600px'
         }}
@@ -118,10 +119,12 @@ function UnifiedDocument({
 
         {/* Document Content */}
         <div
-          className={`overflow-auto ${formatConfig.styles.container}`}
+          className={`overflow-auto ${format === 'thermal' ? 'flex justify-center p-8' : 'p-4'}`}
           ref={documentRef}
         >
-          {renderDocumentContent()}
+          <div className={format === 'thermal' ? '' : formatConfig.styles.container}>
+            {renderDocumentContent()}
+          </div>
         </div>
 
         {/* Footer with Actions */}
