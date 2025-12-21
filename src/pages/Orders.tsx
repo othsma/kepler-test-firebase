@@ -60,15 +60,15 @@ export default function Orders() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'pending':
-        return <span className="px-2 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800">Pending</span>;
+        return <span className="px-2 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800">En attente</span>;
       case 'processing':
-        return <span className="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">Processing</span>;
+        return <span className="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">En cours</span>;
       case 'ready_for_pickup':
-        return <span className="px-2 py-1 text-xs font-medium rounded-full bg-purple-100 text-purple-800">Ready for Pickup</span>;
+        return <span className="px-2 py-1 text-xs font-medium rounded-full bg-purple-100 text-purple-800">Prêt à récupérer</span>;
       case 'completed':
-        return <span className="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">Completed</span>;
+        return <span className="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">Terminé</span>;
       case 'cancelled':
-        return <span className="px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-800">Cancelled</span>;
+        return <span className="px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-800">Annulé</span>;
       default:
         return null;
     }
@@ -76,11 +76,11 @@ export default function Orders() {
 
   const getPaymentStatusBadge = (status: string, paid: number, total: number) => {
     if (status === 'paid' || paid >= total) {
-      return <span className="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">Paid</span>;
+      return <span className="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">Payé</span>;
     } else if (status === 'partially_paid' || (paid > 0 && paid < total)) {
-      return <span className="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">Partially Paid</span>;
+      return <span className="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">Partiellement payé</span>;
     } else {
-      return <span className="px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-800">Not Paid</span>;
+      return <span className="px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-800">Non payé</span>;
     }
   };
 
@@ -170,7 +170,7 @@ export default function Orders() {
   };
 
   const handleDeleteOrder = (order: any) => {
-    if (window.confirm(`Are you sure you want to delete order #${order.id}?`)) {
+    if (window.confirm(`Êtes-vous sûr de vouloir supprimer la commande #${order.id}?`)) {
       deleteOrder(order.id);
     }
   };
@@ -288,7 +288,7 @@ export default function Orders() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h1 className={`text-2xl font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-          Orders Management
+          Gestion des commandes
         </h1>
       </div>
 
@@ -296,7 +296,7 @@ export default function Orders() {
       <div className={`rounded-lg ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow`}>
         <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
           <h2 className={`text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-            {isEditingOrder ? 'Edit Order' : 'New Order'}
+            {isEditingOrder ? 'Modifier la commande' : 'Nouvelle commande'}
           </h2>
           <button
             onClick={() => setShowCreateForm(!showCreateForm)}
@@ -309,13 +309,13 @@ export default function Orders() {
         {showCreateForm && (
           <div className="p-6">
             <h3 className={`text-md font-medium mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-              Order Details
+              Détails de la commande
             </h3>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
               <div>
                 <label className={`block text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'} mb-1`}>
-                  Customer *
+                  Client *
                 </label>
                 <div className="relative">
                   <input
@@ -325,7 +325,7 @@ export default function Orders() {
                       setClientSearch(e.target.value);
                       setSelectedClient('');
                     }}
-                    placeholder="Search for a customer..."
+                    placeholder="Rechercher un client..."
                     className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                     required
                   />
@@ -351,7 +351,7 @@ export default function Orders() {
               
               <div>
                 <label className={`block text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'} mb-1`}>
-                  Order Date *
+                  Date de commande *
                 </label>
                 <div className="flex items-center">
                   <input
@@ -363,10 +363,10 @@ export default function Orders() {
                   />
                 </div>
               </div>
-              
+
               <div>
                 <label className={`block text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'} mb-1`}>
-                  Delivery Date *
+                  Date de livraison *
                 </label>
                 <div className="flex items-center">
                   <input
@@ -378,10 +378,10 @@ export default function Orders() {
                   />
                 </div>
               </div>
-              
+
               <div>
                 <label className={`block text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'} mb-1`}>
-                  Order Status *
+                  Statut de la commande *
                 </label>
                 <select
                   value={orderStatus}
@@ -389,17 +389,17 @@ export default function Orders() {
                   className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                   required
                 >
-                  <option value="pending">Pending</option>
-                  <option value="processing">Processing</option>
-                  <option value="ready_for_pickup">Ready for Pickup</option>
-                  <option value="completed">Completed</option>
-                  <option value="cancelled">Cancelled</option>
+                  <option value="pending">En attente</option>
+                  <option value="processing">En cours</option>
+                  <option value="ready_for_pickup">Prêt à récupérer</option>
+                  <option value="completed">Terminé</option>
+                  <option value="cancelled">Annulé</option>
                 </select>
               </div>
               
               <div>
                 <label className={`block text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'} mb-1`}>
-                  Payment Status *
+                  Statut du paiement *
                 </label>
                 <select
                   value={paymentStatus}
@@ -407,15 +407,15 @@ export default function Orders() {
                   className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                   required
                 >
-                  <option value="not_paid">Not Paid</option>
-                  <option value="partially_paid">Partially Paid</option>
-                  <option value="paid">Paid</option>
+                  <option value="not_paid">Non payé</option>
+                  <option value="partially_paid">Partiellement payé</option>
+                  <option value="paid">Payé</option>
                 </select>
               </div>
-              
+
               <div>
                 <label className={`block text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'} mb-1`}>
-                  Payment Method *
+                  Mode de paiement *
                 </label>
                 <select
                   value={paymentMethod}
@@ -423,16 +423,16 @@ export default function Orders() {
                   className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                   required
                 >
-                  <option value="cash">Cash</option>
-                  <option value="card">Credit Card</option>
-                  <option value="transfer">Bank Transfer</option>
-                  <option value="digital">Digital Payment</option>
+                  <option value="cash">Espèces</option>
+                  <option value="card">Carte bancaire</option>
+                  <option value="transfer">Virement</option>
+                  <option value="digital">Paiement numérique</option>
                 </select>
               </div>
-              
+
               <div>
                 <label className={`block text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'} mb-1`}>
-                  Amount Paid
+                  Montant payé
                 </label>
                 <div className="relative">
                   <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">€</span>
@@ -449,7 +449,7 @@ export default function Orders() {
               
               <div className="md:col-span-2">
                 <label className={`block text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'} mb-1`}>
-                  Note (Optional)
+                  Note (optionnel)
                 </label>
                 <textarea
                   value={orderNote}
@@ -459,16 +459,16 @@ export default function Orders() {
                 />
               </div>
             </div>
-            
+
             <h3 className={`text-md font-medium mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-              Order Items
+              Articles de la commande
             </h3>
-            
+
             <div className="mb-4">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="relative">
                   <label className={`block text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'} mb-1`}>
-                    Product *
+                    Produit *
                   </label>
                   <input
                     type="text"
@@ -477,7 +477,7 @@ export default function Orders() {
                       setProductSearch(e.target.value);
                       setSelectedProduct('');
                     }}
-                    placeholder="Search for a product..."
+                    placeholder="Rechercher un produit..."
                     className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                   />
                   {productSearch && !selectedProduct && filteredProducts.length > 0 && (
@@ -495,7 +495,7 @@ export default function Orders() {
                     </div>
                   )}
                 </div>
-                
+
                 <div>
                   <label className={`block text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'} mb-1`}>
                     Description
@@ -504,15 +504,15 @@ export default function Orders() {
                     type="text"
                     value={productDescription}
                     onChange={(e) => setProductDescription(e.target.value)}
-                    placeholder="Product description..."
+                    placeholder="Description du produit..."
                     className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                   />
                 </div>
-                
+
                 <div className="grid grid-cols-2 gap-2">
                   <div>
                     <label className={`block text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'} mb-1`}>
-                      Quantity *
+                      Quantité *
                     </label>
                     <input
                       type="number"
@@ -522,13 +522,13 @@ export default function Orders() {
                       className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                     />
                   </div>
-                  
+
                   <div>
                     <label className={`block text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'} mb-1`}>
-                      Price *
+                      Prix *
                     </label>
                     <div className="relative">
-                      <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">$</span>
+                      <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">€</span>
                       <input
                         type="number"
                         min="0"
@@ -541,7 +541,7 @@ export default function Orders() {
                   </div>
                 </div>
               </div>
-              
+
               <div className="mt-4 flex justify-end">
                 <button
                   onClick={addItemToOrder}
@@ -549,7 +549,7 @@ export default function Orders() {
                   disabled={!productSearch || productPrice <= 0}
                 >
                   <Plus className="h-4 w-4" />
-                  Add Item
+                  Ajouter un article
                 </button>
               </div>
             </div>
@@ -559,19 +559,19 @@ export default function Orders() {
                 <thead className={isDarkMode ? 'bg-gray-700' : 'bg-gray-50'}>
                   <tr>
                     <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                      Item
+                      Article
                     </th>
                     <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                       Description
                     </th>
                     <th scope="col" className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                      Quantity
+                      Quantité
                     </th>
                     <th scope="col" className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                      Unit Price
+                      Prix unitaire
                     </th>
                     <th scope="col" className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                      Line Total
+                      Total ligne
                     </th>
                     <th scope="col" className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                       Actions
@@ -609,7 +609,7 @@ export default function Orders() {
                           €{item.price.toFixed(2)}
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-right text-gray-900 dark:text-white">
-                          ${(item.price * item.quantity).toFixed(2)}
+                          €{(item.price * item.quantity).toFixed(2)}
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap text-center">
                           <button
@@ -624,7 +624,7 @@ export default function Orders() {
                   ) : (
                     <tr>
                       <td colSpan={6} className="px-4 py-3 text-center text-sm text-gray-500 dark:text-gray-400">
-                        No items added to this order yet. Use the form above to add items.
+                        Aucun article ajouté à cette commande pour le moment. Utilisez le formulaire ci-dessus pour ajouter des articles.
                       </td>
                     </tr>
                   )}
@@ -635,35 +635,35 @@ export default function Orders() {
             <div className="mt-6 flex justify-end">
               <div className="w-64">
                 <div className="flex justify-between py-2">
-                  <span className={isDarkMode ? 'text-gray-300' : 'text-gray-600'}>Subtotal:</span>
+                  <span className={isDarkMode ? 'text-gray-300' : 'text-gray-600'}>Total HT:</span>
                   <span className={isDarkMode ? 'text-white' : 'text-gray-900'}>
-                    ${calculateOrderTotal().toFixed(2)}
+                    €{calculateOrderTotal().toFixed(2)}
                   </span>
                 </div>
                 <div className="flex justify-between py-2">
-                  <span className={isDarkMode ? 'text-gray-300' : 'text-gray-600'}>Tax (20%):</span>
+                  <span className={isDarkMode ? 'text-gray-300' : 'text-gray-600'}>TVA (20%):</span>
                   <span className={isDarkMode ? 'text-white' : 'text-gray-900'}>
-                    ${calculateTax().toFixed(2)}
+                    €{calculateTax().toFixed(2)}
                   </span>
                 </div>
                 <div className="flex justify-between py-2 font-bold">
-                  <span className={isDarkMode ? 'text-white' : 'text-gray-900'}>Grand Total:</span>
+                  <span className={isDarkMode ? 'text-white' : 'text-gray-900'}>Total TTC:</span>
                   <span className={isDarkMode ? 'text-white' : 'text-gray-900'}>
-                    ${calculateGrandTotal().toFixed(2)}
+                    €{calculateGrandTotal().toFixed(2)}
                   </span>
                 </div>
                 {amountPaid > 0 && (
                   <>
                     <div className="flex justify-between py-2">
-                      <span className={isDarkMode ? 'text-gray-300' : 'text-gray-600'}>Amount Paid:</span>
+                      <span className={isDarkMode ? 'text-gray-300' : 'text-gray-600'}>Montant payé:</span>
                       <span className={isDarkMode ? 'text-white' : 'text-gray-900'}>
-                        ${amountPaid.toFixed(2)}
+                        €{amountPaid.toFixed(2)}
                       </span>
                     </div>
                     <div className="flex justify-between py-2 font-bold">
-                      <span className={isDarkMode ? 'text-white' : 'text-gray-900'}>Remaining:</span>
+                      <span className={isDarkMode ? 'text-white' : 'text-gray-900'}>Restant:</span>
                       <span className={isDarkMode ? 'text-white' : 'text-gray-900'}>
-                        ${calculateRemainingAmount().toFixed(2)}
+                        €{calculateRemainingAmount().toFixed(2)}
                       </span>
                     </div>
                   </>
@@ -676,14 +676,14 @@ export default function Orders() {
                 onClick={resetOrderForm}
                 className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50"
               >
-                Cancel
+                Annuler
               </button>
               <button
                 onClick={handleCreateOrder}
                 disabled={!selectedClient || orderItems.length === 0}
                 className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50"
               >
-                {isEditingOrder ? 'Update Order' : 'Save Order'}
+                {isEditingOrder ? 'Mettre à jour la commande' : 'Enregistrer la commande'}
               </button>
             </div>
           </div>
@@ -694,32 +694,32 @@ export default function Orders() {
       <div className={`rounded-lg ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow p-6`}>
         <div className="flex justify-between items-center mb-6">
           <h2 className={`text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-            All Orders
+            Toutes les commandes
           </h2>
-          
+
           <div className="flex items-center gap-4">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
               <input
                 type="text"
-                placeholder="Search orders..."
+                placeholder="Rechercher des commandes..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-10 pr-4 py-2 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
               />
             </div>
-            
+
             <select
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value)}
               className="rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
             >
-              <option value="all">All Statuses</option>
-              <option value="pending">Pending</option>
-              <option value="processing">Processing</option>
-              <option value="ready_for_pickup">Ready for Pickup</option>
-              <option value="completed">Completed</option>
-              <option value="cancelled">Cancelled</option>
+              <option value="all">Tous les statuts</option>
+              <option value="pending">En attente</option>
+              <option value="processing">En cours</option>
+              <option value="ready_for_pickup">Prêt à récupérer</option>
+              <option value="completed">Terminé</option>
+              <option value="cancelled">Annulé</option>
             </select>
           </div>
         </div>
@@ -729,19 +729,19 @@ export default function Orders() {
             <thead className={isDarkMode ? 'bg-gray-700' : 'bg-gray-50'}>
               <tr>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                  Order #
+                  N° commande
                 </th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                  Customer
+                  Client
                 </th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                   Date
                 </th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                  Status
+                  Statut
                 </th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                  Payment
+                  Paiement
                 </th>
                 <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                   Total
@@ -761,7 +761,7 @@ export default function Orders() {
                         #{order.id.substring(0, 8)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
-                        {client?.name || 'Unknown Client'}
+                        {client?.name || 'Client inconnu'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
                         {format(new Date(order.createdAt), 'MM/dd/yyyy')}
@@ -776,14 +776,14 @@ export default function Orders() {
                           order.total
                         )}
                         <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                          {order.paymentMethod || 'Cash'}
+                          {order.paymentMethod || 'Espèces'}
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900 dark:text-white">
-                        ${order.total.toFixed(2)}
+                        €{order.total.toFixed(2)}
                         {(order.amountPaid || 0) > 0 && (order.amountPaid || 0) < order.total && (
                           <div className="text-xs text-gray-500 dark:text-gray-400">
-                            Paid: ${(order.amountPaid || 0).toFixed(2)}
+                            Payé: €{(order.amountPaid || 0).toFixed(2)}
                           </div>
                         )}
                       </td>
@@ -825,7 +825,7 @@ export default function Orders() {
               ) : (
                 <tr>
                   <td colSpan={7} className="px-6 py-4 text-center text-sm text-gray-500 dark:text-gray-400">
-                    No orders found
+                    Aucune commande trouvée
                   </td>
                 </tr>
               )}
