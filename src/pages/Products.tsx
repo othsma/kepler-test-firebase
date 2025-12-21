@@ -48,14 +48,14 @@ export default function Products() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h1 className={`text-2xl font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-          Products
+          Produits
         </h1>
         <button
           onClick={() => setIsAddingProduct(true)}
           className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 flex items-center gap-2"
         >
           <Plus className="h-4 w-4" />
-          Add Product
+          Ajouter un produit
         </button>
       </div>
 
@@ -64,7 +64,7 @@ export default function Products() {
           <Search className="h-5 w-5 text-gray-400" />
           <input
             type="text"
-            placeholder="Search products..."
+            placeholder="Rechercher des produits..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="flex-1 bg-transparent border-0 focus:ring-0 text-gray-900 dark:text-white placeholder-gray-400"
@@ -75,7 +75,7 @@ export default function Products() {
           onChange={(e) => setSelectedCategory(e.target.value)}
           className="rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
         >
-          <option value="all">All Categories</option>
+          <option value="all">Toutes les catégories</option>
           {categories.map((category) => (
             <option key={category} value={category}>
               {category}
@@ -87,12 +87,12 @@ export default function Products() {
       {(isAddingProduct || editingProduct) && (
         <div className={`rounded-lg ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow p-6`}>
           <h2 className={`text-lg font-semibold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-            {editingProduct ? 'Edit Product' : 'Add New Product'}
+            {editingProduct ? 'Modifier le produit' : 'Ajouter un nouveau produit'}
           </h2>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className={`block text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                Name
+                Nom
               </label>
               <input
                 type="text"
@@ -104,14 +104,14 @@ export default function Products() {
             </div>
             <div>
               <label className={`block text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                Category (Optional)
+                Catégorie (optionnel)
               </label>
               <select
                 value={formData.category}
                 onChange={(e) => setFormData({ ...formData, category: e.target.value })}
                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
               >
-                <option value="">No Category</option>
+                <option value="">Aucune catégorie</option>
                 {categories.map((category) => (
                   <option key={category} value={category}>
                     {category}
@@ -121,7 +121,7 @@ export default function Products() {
             </div>
             <div>
               <label className={`block text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                Price
+                Prix
               </label>
               <input
                 type="number"
@@ -168,7 +168,7 @@ export default function Products() {
             </div>
             <div>
               <label className={`block text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                Image URL
+                URL de l'image
               </label>
               <input
                 type="url"
@@ -196,13 +196,13 @@ export default function Products() {
                 }}
                 className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50"
               >
-                Cancel
+                Annuler
               </button>
               <button
                 type="submit"
                 className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700"
               >
-                {editingProduct ? 'Update' : 'Add'}
+                {editingProduct ? 'Mettre à jour' : 'Ajouter'}
               </button>
             </div>
           </form>
@@ -227,7 +227,7 @@ export default function Products() {
                     {product.name}
                   </h3>
                   <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                    {product.category || 'No Category'}
+                    {product.category || 'Aucune catégorie'}
                   </p>
                 </div>
                 <div className="flex gap-2">
