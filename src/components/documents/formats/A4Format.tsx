@@ -16,10 +16,10 @@ export default function A4Format({ data }: A4FormatProps) {
 
   const getTitle = () => {
     switch (data.type) {
-      case 'quote': return 'QUOTE';
-      case 'invoice': return 'INVOICE';
-      case 'ticket': return 'REPAIR TICKET';
-      default: return 'RECEIPT';
+      case 'quote': return 'DEVIS';
+      case 'invoice': return 'FACTURE';
+      case 'ticket': return 'TICKET DE RÉPARATION';
+      default: return 'FACTURE';
     }
   };
 
@@ -53,10 +53,7 @@ export default function A4Format({ data }: A4FormatProps) {
           <h2 className="text-xl font-bold mb-1 text-gray-900">{getTitle()}</h2>
           <p className="text-sm text-gray-600">#{data.number}</p>
           <p className="text-sm text-gray-600">Date: {format(new Date(data.date), 'dd/MM/yyyy')}</p>
-          <p className="text-sm text-gray-600">Time: {format(new Date(data.date), 'HH:mm')}</p>
-          {data.status && (
-            <p className="text-sm text-gray-600">Status: {data.status}</p>
-          )}
+          <p className="text-sm text-gray-600">Heure: {format(new Date(data.date), 'HH:mm')}</p>
         </div>
       </div>
 
@@ -64,7 +61,7 @@ export default function A4Format({ data }: A4FormatProps) {
       <div className="flex-grow py-4">
         <div className="mb-6">
           <h3 className="font-bold mb-2 text-gray-900">
-            {data.type === 'ticket' ? 'Client Information:' : 'Bill To:'}
+            {data.type === 'ticket' ? 'Informations client:' : 'Facturer à:'}
           </h3>
           {data.customer ? (
             <>
@@ -77,14 +74,14 @@ export default function A4Format({ data }: A4FormatProps) {
               )}
             </>
           ) : (
-            <p className="text-gray-800">Walk-in Customer</p>
+            <p className="text-gray-800">Client walk-in </p>
           )}
         </div>
 
         {/* Device information for tickets */}
         {data.type === 'ticket' && data.deviceType && (
           <div className="mb-6">
-            <h3 className="font-bold mb-2 text-gray-900">Device Information:</h3>
+            <h3 className="font-bold mb-2 text-gray-900">Caractéristiques de l'appareil:</h3>
             <table className="w-full mb-4">
               <tbody>
                 <tr className="border-b border-gray-200">
@@ -93,20 +90,14 @@ export default function A4Format({ data }: A4FormatProps) {
                 </tr>
                 {data.brand && (
                   <tr className="border-b border-gray-200">
-                    <td className="py-2 font-medium text-gray-800">Brand:</td>
+                    <td className="py-2 font-medium text-gray-800">Marque:</td>
                     <td className="py-2 text-gray-800">{data.brand}</td>
                   </tr>
                 )}
                 {data.model && (
                   <tr className="border-b border-gray-200">
-                    <td className="py-2 font-medium text-gray-800">Model:</td>
+                    <td className="py-2 font-medium text-gray-800">Modèle:</td>
                     <td className="py-2 text-gray-800">{data.model}</td>
-                  </tr>
-                )}
-                {data.passcode && (
-                  <tr className="border-b border-gray-200">
-                    <td className="py-2 font-medium text-gray-800">Passcode:</td>
-                    <td className="py-2 text-gray-800">{data.passcode}</td>
                   </tr>
                 )}
               </tbody>
@@ -118,11 +109,11 @@ export default function A4Format({ data }: A4FormatProps) {
           <thead>
             <tr className="border-b border-gray-300">
               <th className="text-left py-2 text-gray-900">
-                {data.type === 'ticket' ? 'Service' : 'Item'}
+                {data.type === 'ticket' ? 'Service' : 'Produit'}
               </th>
-              <th className="text-center py-2 text-gray-900">Quantity</th>
-              <th className="text-right py-2 text-gray-900">Unit Price</th>
-              <th className="text-right py-2 text-gray-900">Amount</th>
+              <th className="text-center py-2 text-gray-900">Qté</th>
+              <th className="text-right py-2 text-gray-900">P.U.</th>
+              <th className="text-right py-2 text-gray-900">Prix</th>
             </tr>
           </thead>
           <tbody>
@@ -141,15 +132,15 @@ export default function A4Format({ data }: A4FormatProps) {
           </tbody>
           <tfoot>
             <tr>
-              <td colSpan={3} className="text-right py-2 font-medium text-gray-800">Subtotal</td>
+              <td colSpan={3} className="text-right py-2 font-medium text-gray-800">Prix HT</td>
               <td className="text-right py-2 text-gray-800">€{data.subtotal.toFixed(2)}</td>
             </tr>
             <tr>
-              <td colSpan={3} className="text-right py-2 font-medium text-gray-800">VAT (20%)</td>
+              <td colSpan={3} className="text-right py-2 font-medium text-gray-800">TVA (20%)</td>
               <td className="text-right py-2 text-gray-800">€{data.tax.toFixed(2)}</td>
             </tr>
             <tr className="border-t border-gray-300">
-              <td colSpan={3} className="text-right py-2 font-bold text-gray-900">Total</td>
+              <td colSpan={3} className="text-right py-2 font-bold text-gray-900">Total TTC</td>
               <td className="text-right py-2 font-bold text-gray-900">€{data.total.toFixed(2)}</td>
             </tr>
           </tfoot>
@@ -158,14 +149,14 @@ export default function A4Format({ data }: A4FormatProps) {
         {/* Payment information */}
         {(data.paymentMethod || data.paymentStatus || data.amountPaid !== undefined) && (
           <div className="mb-6">
-            <h3 className="font-bold mb-2 text-gray-900">Payment Information:</h3>
+            <h3 className="font-bold mb-2 text-gray-900">Informations de paiement:</h3>
             {data.paymentMethod && <p className="text-gray-800">Method: {data.paymentMethod}</p>}
-            {data.paymentStatus && <p className="text-gray-800">Status: {data.paymentStatus}</p>}
+            {data.paymentStatus && <p className="text-gray-800">Statut: {data.paymentStatus}</p>}
 
             {data.amountPaid !== undefined && data.amountPaid > 0 && data.amountPaid < data.total && (
               <>
-                <p className="text-gray-800">Amount Paid: €{data.amountPaid.toFixed(2)}</p>
-                <p className="text-gray-800 font-bold">Remaining Balance: €{remainingAmount.toFixed(2)}</p>
+                <p className="text-gray-800">Montant payé: €{data.amountPaid.toFixed(2)}</p>
+                <p className="text-gray-800 font-bold">Solde restant: €{remainingAmount.toFixed(2)}</p>
               </>
             )}
           </div>
@@ -213,8 +204,8 @@ export default function A4Format({ data }: A4FormatProps) {
         )}
 
         <div className={formatConfig.styles.footer}>
-          <p>Your satisfaction is our success. Thank you for choosing us!</p>
-          <p>For any questions regarding this {DOCUMENT_TYPE_NAMES[data.type].toLowerCase()}, please contact us at {COMPANY_CONFIG.email}</p>
+          <p>Votre satisfaction est notre priorité. Merci pour votre confiance!</p>
+          <p>Pour toute question concernant ce {DOCUMENT_TYPE_NAMES[data.type].toLowerCase()}, veuillez nous contacter à l’adresse {COMPANY_CONFIG.email}</p>
         </div>
       </div>
     </div>

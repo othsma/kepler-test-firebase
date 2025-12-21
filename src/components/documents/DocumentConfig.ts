@@ -109,9 +109,9 @@ export const getActionConfigs = (data: DocumentData): Record<string, ActionConfi
 
 // Document type display names
 export const DOCUMENT_TYPE_NAMES: Record<DocumentData['type'], string> = {
-  receipt: 'Reçu',
+  receipt: 'Receipt',
   invoice: 'Invoice',
-  ticket: 'Ticket de réparation',
+  ticket: 'Repair Ticket',
   quote: 'Quote'
 };
 
@@ -120,7 +120,7 @@ export const STATUS_CONFIGS = {
   pending: { label: 'Pending', color: 'yellow' },
   in_progress: { label: 'In Progress', color: 'blue' },
   completed: { label: 'Completed', color: 'green' },
-  paid: { label: 'Paid', color: 'green' },
+  paid: { label: 'Payé', color: 'green' },
   partially_paid: { label: 'Partially Paid', color: 'blue' },
   not_paid: { label: 'Not Paid', color: 'red' }
 } as const;
@@ -156,7 +156,7 @@ export const TERMS_CONFIG: Record<DocumentData['type'], string[]> = {
     'Les réparations sont garanties 3 mois pièces et main-d’œuvre.',
     'Les produits vendus bénéficient d’une garantie standard de 1 an.',
     'Toute réclamation doit être formulée par écrit dans un délai de 7 jours suivant la facture.',
-    'Les retours produits sont acceptés sous 14 jours avec emballage d’origine.'
+    'Les retours produits sont acceptés sous 14 jours avec emballage d’origine.',
   ],
   receipt: [
     'Ce reçu fait office de preuve d’achat.',
