@@ -36,6 +36,7 @@ export default function Settings() {
   });
   const [modelSearch, setModelSearch] = useState('');
   const [expandedBrands, setExpandedBrands] = useState<Set<string>>(new Set());
+  const [errorMessage, setErrorMessage] = useState('');
 
   // Save active tab to localStorage whenever it changes
   useEffect(() => {
@@ -46,29 +47,64 @@ export default function Settings() {
     }
   }, [activeTab]);
 
+  // Clear error message when switching tabs or when inputs change
+  useEffect(() => {
+    setErrorMessage('');
+  }, [activeTab, newDeviceType, newBrand, newModel, newTask]);
+
   const handleSubmit = (type: string) => {
+    setErrorMessage('');
+
     switch (type) {
       case 'deviceType':
         if (newDeviceType.trim()) {
-          addDeviceType(newDeviceType.trim());
+          const trimmedType = newDeviceType.trim();
+          // Check for duplicates (case-insensitive)
+          if (settings.deviceTypes.some(type => type.toLowerCase() === trimmedType.toLowerCase())) {
+            setErrorMessage(`Le type d'appareil "${trimmedType}" existe déjà.`);
+            return;
+          }
+          addDeviceType(trimmedType);
           setNewDeviceType('');
         }
         break;
       case 'brand':
         if (newBrand.trim()) {
-          addBrand(newBrand.trim());
+          const trimmedBrand = newBrand.trim();
+          // Check for duplicates (case-insensitive)
+          if (settings.brands.some(brand => brand.toLowerCase() === trimmedBrand.toLowerCase())) {
+            setErrorMessage(`La marque "${trimmedBrand}" existe déjà.`);
+            return;
+          }
+          addBrand(trimmedBrand);
           setNewBrand('');
         }
         break;
       case 'model':
         if (newModel.name.trim() && newModel.brandId) {
-          addModel(newModel);
+          const trimmedModelName = newModel.name.trim();
+          // Check for duplicates within the same brand (case-insensitive)
+          if (settings.models.some(model =>
+            model.brandId === newModel.brandId &&
+            model.name.toLowerCase() === trimmedModelName.toLowerCase()
+          )) {
+            const brandName = settings.brands.find(brand => brand === newModel.brandId) || newModel.brandId;
+            setErrorMessage(`Le modèle "${trimmedModelName}" existe déjà pour la marque "${brandName}".`);
+            return;
+          }
+          addModel({ name: trimmedModelName, brandId: newModel.brandId });
           setNewModel({ name: '', brandId: '' });
         }
         break;
       case 'task':
         if (newTask.trim()) {
-          addTask(newTask.trim());
+          const trimmedTask = newTask.trim();
+          // Check for duplicates (case-insensitive)
+          if (settings.tasks.some(task => task.toLowerCase() === trimmedTask.toLowerCase())) {
+            setErrorMessage(`La tâche "${trimmedTask}" existe déjà.`);
+            return;
+          }
+          addTask(trimmedTask);
           setNewTask('');
         }
         break;
@@ -151,6 +187,19 @@ export default function Settings() {
           })}
         </nav>
       </div>
+
+      {/* Error Message */}
+      {errorMessage && (
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4">
+          <span className="block sm:inline">{errorMessage}</span>
+          <button
+            onClick={() => setErrorMessage('')}
+            className="absolute top-0 bottom-0 right-0 px-4 py-3"
+          >
+            <span className="text-red-700 text-xl">×</span>
+          </button>
+        </div>
+      )}
 
       {/* Tab Content */}
       <div className={`rounded-lg ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow p-6`}>
