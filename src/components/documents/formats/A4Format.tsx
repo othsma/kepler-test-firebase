@@ -150,7 +150,7 @@ export default function A4Format({ data }: A4FormatProps) {
         {(data.paymentMethod || data.paymentStatus || data.amountPaid !== undefined) && (
           <div className="mb-6">
             <h3 className="font-bold mb-2 text-gray-900">Informations de paiement:</h3>
-            {data.paymentMethod && <p className="text-gray-800">Method: {data.paymentMethod}</p>}
+            {data.paymentMethod && <p className="text-gray-800">Méthode: {data.paymentMethod}</p>}
             {data.paymentStatus && <p className="text-gray-800">Statut: {data.paymentStatus}</p>}
 
             {data.amountPaid !== undefined && data.amountPaid > 0 && data.amountPaid < data.total && (
@@ -176,7 +176,7 @@ export default function A4Format({ data }: A4FormatProps) {
         {formatConfig.showTerms && (
           <div className="flex justify-between items-end mb-4">
             <div>
-              <h3 className="font-bold mb-2 text-gray-900">Terms and Conditions:</h3>
+              <h3 className="font-bold mb-2 text-gray-900">Conditions générales:</h3>
               <ol className="list-decimal list-inside text-sm text-gray-600 pl-4">
                 {TERMS_CONFIG[data.type].map((term, index) => (
                   <li key={index}>{term}</li>

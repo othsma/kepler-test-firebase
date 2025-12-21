@@ -1,5 +1,6 @@
 import { Page, Text, View, Document, StyleSheet } from '@react-pdf/renderer';
 import { DocumentData } from '../DocumentTypes';
+import { DOCUMENT_TYPE_NAMES, COMPANY_CONFIG } from '../DocumentConfig';
 
 const styles = StyleSheet.create({
   page: {
@@ -71,10 +72,10 @@ interface PDFFormatProps {
 export default function PDFFormat({ data }: PDFFormatProps) {
   const getTitle = () => {
     switch (data.type) {
-      case 'quote': return 'QUOTE';
-      case 'invoice': return 'INVOICE';
-      case 'ticket': return 'REPAIR TICKET';
-      default: return 'RECEIPT';
+      case 'quote': return 'DEVIS';
+      case 'invoice': return 'FACTURE';
+      case 'ticket': return 'TICKET DE RÉPARATION';
+      default: return 'REÇU';
     }
   };
 
@@ -98,7 +99,7 @@ export default function PDFFormat({ data }: PDFFormatProps) {
           </View>
           {data.status && (
             <View style={styles.flexRow}>
-              <Text>Status:</Text>
+              <Text>Statut:</Text>
               <Text>{data.status}</Text>
             </View>
           )}
@@ -106,7 +107,7 @@ export default function PDFFormat({ data }: PDFFormatProps) {
 
         <View style={styles.section}>
           <Text style={styles.bold}>
-            {data.type === 'ticket' ? 'Client Information:' : 'Bill To:'}
+            {data.type === 'ticket' ? 'Informations client:' : 'Facturer à:'}
           </Text>
           {data.customer ? (
             <>
@@ -117,33 +118,33 @@ export default function PDFFormat({ data }: PDFFormatProps) {
               {data.customer.taxId && <Text>Tax ID: {data.customer.taxId}</Text>}
             </>
           ) : (
-            <Text>Walk-in Customer</Text>
+            <Text>Client walk-in</Text>
           )}
         </View>
 
         {/* Device information for tickets */}
         {data.type === 'ticket' && data.deviceType && (
           <View style={styles.section}>
-            <Text style={styles.bold}>Device Information:</Text>
+            <Text style={styles.bold}>Caractéristiques de l'appareil:</Text>
             <View style={styles.flexRow}>
               <Text>Type:</Text>
               <Text>{data.deviceType}</Text>
             </View>
             {data.brand && (
               <View style={styles.flexRow}>
-                <Text>Brand:</Text>
+                <Text>Marque:</Text>
                 <Text>{data.brand}</Text>
               </View>
             )}
             {data.model && (
               <View style={styles.flexRow}>
-                <Text>Model:</Text>
+                <Text>Modèle:</Text>
                 <Text>{data.model}</Text>
               </View>
             )}
             {data.passcode && (
               <View style={styles.flexRow}>
-                <Text>Passcode:</Text>
+                <Text>Code:</Text>
                 <Text>{data.passcode}</Text>
               </View>
             )}
@@ -153,12 +154,12 @@ export default function PDFFormat({ data }: PDFFormatProps) {
         <View style={styles.section}>
           <View style={styles.tableHeader}>
             <Text style={styles.colDescription}>
-              {data.type === 'ticket' ? 'Service' : 'Item'}
+              {data.type === 'ticket' ? 'Service' : 'Produit'}
             </Text>
-            <Text style={styles.colQty}>Qty</Text>
-            <Text style={styles.colPrice}>Price</Text>
+            <Text style={styles.colQty}>Qté</Text>
+            <Text style={styles.colPrice}>Prix</Text>
           </View>
-          
+
           {data.items.map((item, index) => (
             <View key={index} style={styles.tableRow}>
               <Text style={styles.colDescription}>{item.name}</Text>
@@ -170,15 +171,15 @@ export default function PDFFormat({ data }: PDFFormatProps) {
 
         <View style={styles.totalSection}>
           <View style={styles.flexRow}>
-            <Text>Subtotal:</Text>
+            <Text>Prix HT:</Text>
             <Text>€{data.subtotal.toFixed(2)}</Text>
           </View>
           <View style={styles.flexRow}>
-            <Text>Tax (20%):</Text>
+            <Text>TVA (20%):</Text>
             <Text>€{data.tax.toFixed(2)}</Text>
           </View>
           <View style={styles.flexRow}>
-            <Text style={styles.bold}>Total:</Text>
+            <Text style={styles.bold}>Total TTC:</Text>
             <Text style={styles.bold}>€{data.total.toFixed(2)}</Text>
           </View>
         </View>
@@ -186,28 +187,28 @@ export default function PDFFormat({ data }: PDFFormatProps) {
         {/* Payment information */}
         {(data.paymentMethod || data.paymentStatus || data.amountPaid !== undefined) && (
           <View style={styles.section}>
-            <Text style={styles.bold}>Payment Information:</Text>
+            <Text style={styles.bold}>Informations de paiement:</Text>
             {data.paymentMethod && (
               <View style={styles.flexRow}>
-                <Text>Method:</Text>
+                <Text>Méthode:</Text>
                 <Text>{data.paymentMethod}</Text>
               </View>
             )}
             {data.paymentStatus && (
               <View style={styles.flexRow}>
-                <Text>Status:</Text>
+                <Text>Statut:</Text>
                 <Text>{data.paymentStatus}</Text>
               </View>
             )}
-            
+
             {data.amountPaid !== undefined && data.amountPaid > 0 && data.amountPaid < data.total && (
               <>
                 <View style={styles.flexRow}>
-                  <Text>Amount Paid:</Text>
+                  <Text>Montant payé:</Text>
                   <Text>€{data.amountPaid.toFixed(2)}</Text>
                 </View>
                 <View style={styles.flexRow}>
-                  <Text style={styles.bold}>Remaining Balance:</Text>
+                  <Text style={styles.bold}>Solde restant:</Text>
                   <Text style={styles.bold}>€{(data.total - data.amountPaid).toFixed(2)}</Text>
                 </View>
               </>
@@ -224,8 +225,8 @@ export default function PDFFormat({ data }: PDFFormatProps) {
         )}
 
         <View style={styles.footer}>
-          <Text>Your satisfaction is our success. Thank you for choosing us!</Text>
-          <Text>For any questions regarding this {data.type}, please contact us at contact@omegaservices.fr</Text>
+          <Text>Votre satisfaction est notre priorité. Merci pour votre confiance !</Text>
+          <Text>Pour toute question concernant ce {DOCUMENT_TYPE_NAMES[data.type].toLowerCase()}, veuillez nous contacter à l'adresse {COMPANY_CONFIG.email}</Text>
           <Text>O'MEGA SERVICES | 400 Rue nationale, 69400 Villefranche S/S | Tel: 0986608980</Text>
         </View>
       </Page>
