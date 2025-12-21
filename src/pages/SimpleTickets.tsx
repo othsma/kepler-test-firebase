@@ -568,10 +568,14 @@ export default function SimpleTickets() {
                     onChange={(e) => {
                       setClientSearch(e.target.value);
                       setSelectedClientId('');
-                      setShowClientDropdown(true);
+                      // Only show dropdown if there's input
+                      setShowClientDropdown(e.target.value.length > 0);
                     }}
-                    onFocus={() => setShowClientDropdown(true)}
-                    placeholder="Rechercher un client..."
+                    onBlur={() => {
+                      // Delay hiding dropdown to allow for clicks
+                      setTimeout(() => setShowClientDropdown(false), 200);
+                    }}
+                    placeholder="Commencez à taper pour rechercher un client..."
                     className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                   />
                   <button
@@ -582,7 +586,7 @@ export default function SimpleTickets() {
                     Nouveau client
                   </button>
                 </div>
-                {showClientDropdown && !selectedClientId && !isAddingClient && filteredClients.length > 0 && (
+                {showClientDropdown && clientSearch && !selectedClientId && !isAddingClient && filteredClients.length > 0 && (
                   <div className="absolute z-10 w-full mt-1 bg-white rounded-md shadow-lg border border-gray-200 ring-1 ring-black ring-opacity-5">
                     {filteredClients.map((client) => (
                       <div
@@ -625,11 +629,15 @@ export default function SimpleTickets() {
                     onChange={(e) => {
                       setHasStartedFillingForm(true);
                       setDeviceType(e.target.value);
-                      setShowDeviceDropdown(true);
+                      // Only show dropdown if there's input
+                      setShowDeviceDropdown(e.target.value.length > 0);
                     }}
-                    onFocus={() => setShowDeviceDropdown(true)}
+                    onBlur={() => {
+                      // Delay hiding dropdown to allow for clicks
+                      setTimeout(() => setShowDeviceDropdown(false), 200);
+                    }}
                     className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                    placeholder="Rechercher ou ajouter un nouveau type d'appareil"
+                    placeholder="Commencez à taper pour rechercher un type d'appareil"
                     required
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') {
@@ -638,7 +646,7 @@ export default function SimpleTickets() {
                       }
                     }}
                   />
-                  {showDeviceDropdown && (
+                  {showDeviceDropdown && deviceType && (
                     <div className="absolute z-10 w-full mt-1 bg-white rounded-md shadow-lg border border-gray-200 ring-1 ring-black ring-opacity-5">
                       {useTicketsStore.getState().settings.deviceTypes
                         .filter(type => type.toLowerCase().includes(deviceType.toLowerCase()))
@@ -684,14 +692,18 @@ export default function SimpleTickets() {
                     onChange={(e) => {
                       setHasStartedFillingForm(true);
                       setBrand(e.target.value);
-                      setShowBrandDropdown(true);
+                      // Only show dropdown if there's input
+                      setShowBrandDropdown(e.target.value.length > 0);
                       if (!e.target.value) {
                         setModel(''); // Clear model when brand is cleared
                       }
                     }}
-                    onFocus={() => setShowBrandDropdown(true)}
+                    onBlur={() => {
+                      // Delay hiding dropdown to allow for clicks
+                      setTimeout(() => setShowBrandDropdown(false), 200);
+                    }}
                     className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                    placeholder="Rechercher ou ajouter une nouvelle marque"
+                    placeholder="Commencez à taper pour rechercher une marque"
                     required
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') {
@@ -700,7 +712,7 @@ export default function SimpleTickets() {
                       }
                     }}
                   />
-                  {showBrandDropdown && (
+                  {showBrandDropdown && brand && (
                     <div className="absolute z-10 w-full mt-1 bg-white rounded-md shadow-lg border border-gray-200 ring-1 ring-black ring-opacity-5">
                       {useTicketsStore.getState().settings.brands
                         .filter(b => b.toLowerCase().includes(brand.toLowerCase()))
@@ -755,11 +767,15 @@ export default function SimpleTickets() {
                     onChange={(e) => {
                       setHasStartedFillingForm(true);
                       setModel(e.target.value);
-                      setShowModelDropdown(true);
+                      // Only show dropdown if there's input
+                      setShowModelDropdown(e.target.value.length > 0);
                     }}
-                    onFocus={() => setShowModelDropdown(true)}
+                    onBlur={() => {
+                      // Delay hiding dropdown to allow for clicks
+                      setTimeout(() => setShowModelDropdown(false), 200);
+                    }}
                     className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                    placeholder="Rechercher ou ajouter un nouveau modèle"
+                    placeholder="Commencez à taper pour rechercher un modèle"
                     required
                     disabled={!brand}
                     onKeyDown={(e) => {
@@ -842,10 +858,14 @@ export default function SimpleTickets() {
                     value={newTaskName}
                     onChange={(e) => {
                       setNewTaskName(e.target.value);
-                      setShowTaskDropdown(true);
+                      // Only show dropdown if there's input
+                      setShowTaskDropdown(e.target.value.length > 0);
                     }}
-                    onFocus={() => setShowTaskDropdown(true)}
-                    placeholder="Rechercher ou ajouter une nouvelle tâche"
+                    onBlur={() => {
+                      // Delay hiding dropdown to allow for clicks
+                      setTimeout(() => setShowTaskDropdown(false), 200);
+                    }}
+                    placeholder="Commencez à taper pour rechercher une tâche"
                     className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') {
@@ -854,7 +874,7 @@ export default function SimpleTickets() {
                       }
                     }}
                   />
-                  {showTaskDropdown && (
+                  {showTaskDropdown && newTaskName && (
                     <div className="absolute z-10 w-full mt-1 bg-white rounded-md shadow-lg border border-gray-200 ring-1 ring-black ring-opacity-5">
                       {useTicketsStore.getState().settings.tasks
                         .filter(task => task.toLowerCase().includes(newTaskName.toLowerCase()))
