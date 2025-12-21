@@ -22,7 +22,7 @@ export default function DailySalesWidget({ date = new Date() }: DailySalesWidget
     { method: 'Espèces', amount: Math.floor(Math.random() * 1000) + 100 },
     { method: 'Carte bancaire', amount: Math.floor(Math.random() * 1000) + 100 },
     { method: 'Virement', amount: Math.floor(Math.random() * 500) + 50 },
-    { method: 'Paiement numérique', amount: Math.floor(Math.random() * 500) + 50 },
+    { method: 'Chèque', amount: Math.floor(Math.random() * 500) + 50 },
   ];
   
   const topProducts = [

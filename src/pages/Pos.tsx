@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useThemeStore, useProductsStore, useClientsStore, useTicketsStore, useSalesStore, usePosStore } from '../lib/store';
-import { Search, ShoppingCart, Plus, Minus, Trash2, CreditCard, Banknote, Smartphone, FileText, Printer, ArrowRight, ArrowUp, ArrowDown, Calendar } from 'lucide-react';
+import { Search, ShoppingCart, Plus, Minus, Trash2, CreditCard, Banknote, Receipt, FileText, Printer, ArrowRight, ArrowUp, ArrowDown, Calendar } from 'lucide-react';
 import { format } from 'date-fns';
 import UnifiedDocument from '../components/documents/UnifiedDocument';
 import { convertReceiptToDocument } from '../components/documents/DocumentConverter';
@@ -10,7 +10,7 @@ const PAYMENT_METHODS = [
   { id: 'cash', name: 'Espèces', icon: Banknote },
   { id: 'card', name: 'Carte bancaire', icon: CreditCard },
   { id: 'transfer', name: 'Virement', icon: FileText },
-  { id: 'digital', name: 'Paiement numérique', icon: Smartphone },
+  { id: 'digital', name: 'Chèque', icon: Receipt },
 ];
 
 export default function Pos() {
@@ -418,7 +418,7 @@ export default function Pos() {
                       Articles
                     </th>
                     <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${isDarkMode ? 'text-gray-300' : 'text-gray-500'}`}>
-                      Paiement
+                      Statut
                     </th>
                     <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${isDarkMode ? 'text-gray-300' : 'text-gray-500'}`}>
                       Total
@@ -458,7 +458,7 @@ export default function Pos() {
                         </div>
                       </td>
                       <td className={`px-6 py-4 whitespace-nowrap text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-500'}`}>
-                        {sale.paymentMethod}
+                        {sale.paymentStatus === 'Paid' ? 'Payé' : sale.paymentStatus || 'Non payé'}
                       </td>
                       <td className={`px-6 py-4 whitespace-nowrap text-sm font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                         €{sale.total.toFixed(2)}

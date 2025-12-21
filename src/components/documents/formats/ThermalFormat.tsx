@@ -15,9 +15,26 @@ const getPaymentStatusText = (status: string) => {
     case 'partially_paid':
       return 'Partiellement payé';
     case 'fully_paid':
+    case 'Paid':
       return ' Payé ';
     default:
       return status;
+  }
+};
+
+// Translate payment method to French
+const getPaymentMethodText = (method: string) => {
+  switch (method) {
+    case 'cash':
+      return 'Espèces';
+    case 'card':
+      return 'Carte bancaire';
+    case 'transfer':
+      return 'Virement';
+    case 'digital':
+      return 'Chèque';
+    default:
+      return method;
   }
 };
 
@@ -118,7 +135,7 @@ export default function ThermalFormat({ data }: ThermalFormatProps) {
       {(data.paymentMethod || data.paymentStatus) && (
         <div className="my-2">
           <p className="font-bold text-xs mb-1">Paiement:</p>
-          {data.paymentMethod && <p className="text-xs">Type de paiement: {data.paymentMethod}</p>}
+          {data.paymentMethod && <p className="text-xs">Type de paiement: {getPaymentMethodText(data.paymentMethod)}</p>}
           {data.paymentStatus && <p className="text-xs">Statut: {getPaymentStatusText(data.paymentStatus)}</p>}
           {data.amountPaid !== undefined && data.amountPaid > 0 && (
             <>

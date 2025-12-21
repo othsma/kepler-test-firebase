@@ -426,7 +426,7 @@ export default function Orders() {
                   <option value="cash">Espèces</option>
                   <option value="card">Carte bancaire</option>
                   <option value="transfer">Virement</option>
-                  <option value="digital">Paiement numérique</option>
+                  <option value="digital">Chèque</option>
                 </select>
               </div>
 

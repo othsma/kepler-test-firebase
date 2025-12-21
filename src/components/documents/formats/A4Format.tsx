@@ -15,9 +15,26 @@ const getPaymentStatusText = (status: string) => {
     case 'partially_paid':
       return 'Partiellement payé';
     case 'fully_paid':
+    case 'Paid':
       return ' Payé ';
     default:
       return status;
+  }
+};
+
+// Translate payment method to French
+const getPaymentMethodText = (method: string) => {
+  switch (method) {
+    case 'cash':
+      return 'Espèces';
+    case 'card':
+      return 'Carte bancaire';
+    case 'transfer':
+      return 'Virement';
+    case 'digital':
+      return 'Chèque';
+    default:
+      return method;
   }
 };
 
@@ -164,7 +181,7 @@ export default function A4Format({ data }: A4FormatProps) {
         {(data.paymentMethod || data.paymentStatus || data.amountPaid !== undefined) && (
           <div className="mb-6">
             <h3 className="font-bold mb-2 text-gray-900">Informations de paiement:</h3>
-            {data.paymentMethod && <p className="text-gray-800">Méthode: {data.paymentMethod}</p>}
+            {data.paymentMethod && <p className="text-gray-800">Méthode: {getPaymentMethodText(data.paymentMethod)}</p>}
             {data.paymentStatus && <p className="text-gray-800">Statut: {getPaymentStatusText(data.paymentStatus)}</p>}
 
             {data.amountPaid !== undefined && data.amountPaid > 0 && data.amountPaid < data.total && (

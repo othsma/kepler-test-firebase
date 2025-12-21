@@ -77,9 +77,26 @@ const getPaymentStatusText = (status: string) => {
     case 'partially_paid':
       return 'Partiellement payé';
     case 'fully_paid':
+    case 'Paid':
       return ' Payé ';
     default:
       return status;
+  }
+};
+
+// Translate payment method to French
+const getPaymentMethodText = (method: string) => {
+  switch (method) {
+    case 'cash':
+      return 'Espèces';
+    case 'card':
+      return 'Carte bancaire';
+    case 'transfer':
+      return 'Virement';
+    case 'digital':
+      return 'Chèque';
+    default:
+      return method;
   }
 };
 
@@ -205,7 +222,7 @@ export default function PDFFormat({ data }: PDFFormatProps) {
             {data.paymentMethod && (
               <View style={styles.flexRow}>
                 <Text>Méthode:</Text>
-                <Text>{data.paymentMethod}</Text>
+                <Text>{getPaymentMethodText(data.paymentMethod)}</Text>
               </View>
             )}
             {data.paymentStatus && (
