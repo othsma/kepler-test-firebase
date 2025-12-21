@@ -109,9 +109,9 @@ export const getActionConfigs = (data: DocumentData): Record<string, ActionConfi
 
 // Document type display names
 export const DOCUMENT_TYPE_NAMES: Record<DocumentData['type'], string> = {
-  receipt: 'Receipt',
+  receipt: 'Reçu',
   invoice: 'Invoice',
-  ticket: 'Repair Ticket',
+  ticket: 'Ticket de réparation',
   quote: 'Quote'
 };
 
@@ -134,7 +134,7 @@ export const VAT_CONFIG = {
 // Company information
 export const COMPANY_CONFIG = {
   name: "O'MEGA SERVICES",
-  address: '400 Rue nationale, 69400 Villefranche S/S',
+  address: '400 Rue nationale, 69400 Villefranche Sur/Saône',
   phone: '0986608980',
   email: 'contact@omegaservices.fr',
   taxId: 'FR123456789',
@@ -144,25 +144,30 @@ export const COMPANY_CONFIG = {
 // Terms and conditions by document type
 export const TERMS_CONFIG: Record<DocumentData['type'], string[]> = {
   ticket: [
-    'All repairs come with a 90-day warranty.',
-    'Payment is due upon completion of service.',
-    'Devices not claimed within 90 days will be subject to disposal or recycling.',
-    'We are not responsible for data loss during repairs.'
+    'Le client est responsable de la sauvegarde de ses données.',
+    'Diagnostic et devis possiblement payants.',
+    'Délais indicatifs, non contractuels.',
+    'Devis accepté avant intervention, frais de diagnostic 40 € TTC en cas de refus de réparation.',
+    'Appareil non récupéré sous 30 jours = abandonné.',
+    'Garantie 3 mois (hors casse, oxydation, mauvaise utilisation).'
   ],
   invoice: [
-    'Payment is due within 30 days of invoice date.',
-    'Late payments are subject to a 2% monthly interest charge.',
-    'All products come with a standard 1-year warranty.',
-    'Returns accepted within 14 days with original packaging.'
+    'Aucun matériel ne sera restitué avant règlement intégral de la facture.',
+    'Les réparations sont garanties 3 mois pièces et main-d’œuvre.',
+    'Les produits vendus bénéficient d’une garantie standard de 1 an.',
+    'Toute réclamation doit être formulée par écrit dans un délai de 7 jours suivant la facture.',
+    'Les retours produits sont acceptés sous 14 jours avec emballage d’origine.'
   ],
   receipt: [
-    'This receipt serves as proof of purchase.',
-    'All sales are final unless otherwise stated.',
-    'For exchanges or returns, please contact customer service.'
+    'Ce reçu fait office de preuve d’achat.',
+    'Les conditions générales de vente s’appliquent à toute transaction figurant sur ce reçu.',
+    'Conservez ce reçu pour toute demande de garantie ou de service après‑vente.'
   ],
   quote: [
-    'This quote is valid for 30 days.',
-    'Prices may change based on final specifications.',
-    'Final pricing confirmed upon order placement.'
+    'Ce devis est valable 30 jours à compter de sa date d’émission. ',
+    'Les prix indiqués peuvent évoluer en fonction des spécifications finales.',
+    'Toute modification demandée pourra entraîner une révision du devis.',
+    'L’exécution des travaux débutera après réception de l’acompte prévu.',
+    'Le tarif définitif sera confirmé lors de la validation de la commande. '
   ]
 };
