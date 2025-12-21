@@ -73,7 +73,7 @@ export default function Header() {
                 to="/profile"
                 className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
               >
-                Profile
+                Profil
               </Link>
             </Menu.Item>
             <Menu.Item>
@@ -82,7 +82,7 @@ export default function Header() {
                 className="flex w-full items-center px-4 py-2 text-sm text-red-600 hover:bg-gray-100"
               >
                 <LogOut className="mr-2 h-4 w-4" />
-                Logout
+                Déconnexion
               </button>
             </Menu.Item>
           </Menu.Items>

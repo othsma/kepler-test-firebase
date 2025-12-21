@@ -23,7 +23,7 @@ export default function Sidebar({ isCollapsed, toggleSidebar }: SidebarProps) {
   const isDarkMode = useThemeStore((state) => state.isDarkMode);
   const { userRole } = useAuthStore();
   const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({
-    'POS': true // Default expanded
+    'PDV': true // Default expanded
   });
 
   const toggleExpand = (name: string) => {
@@ -37,28 +37,28 @@ export default function Sidebar({ isCollapsed, toggleSidebar }: SidebarProps) {
   const getNavigationItems = (): NavigationItem[] => {
     // Base navigation items for all users
     const baseNavigation: NavigationItem[] = [
-      { name: 'Dashboard', href: '/', icon: LayoutDashboard },
+      { name: 'Tableau de bord', href: '/', icon: LayoutDashboard },
       { name: 'Clients', href: '/clients', icon: Users },
       { name: 'Tickets', href: '/tickets', icon: Tool },
     ];
 
     // Additional items only for super admin
     if (userRole === ROLES.SUPER_ADMIN) {
-      baseNavigation.push({ 
-        name: 'POS',
+      baseNavigation.push({
+        name: 'PDV',
         href: '/pos',
         icon: ShoppingCart,
         children: [
-          { name: 'Sales', href: '/pos' },
-          { name: 'Products', href: '/pos/products' },
-          { name: 'Orders', href: '/pos/orders' }
+          { name: 'Ventes', href: '/pos' },
+          { name: 'Produits', href: '/pos/products' },
+          { name: 'Commandes', href: '/pos/orders' }
         ],
       });
-      baseNavigation.push({ name: 'Settings', href: '/settings', icon: Settings });
-      baseNavigation.push({ 
-        name: 'User Management', 
-        href: '/user-management', 
-        icon: UserCog 
+      baseNavigation.push({ name: 'Paramètres', href: '/settings', icon: Settings });
+      baseNavigation.push({
+        name: 'Gestion des utilisateurs',
+        href: '/user-management',
+        icon: UserCog
       });
     }
 
