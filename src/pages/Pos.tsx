@@ -26,6 +26,7 @@ export default function Pos() {
   const [selectedClient, setSelectedClient] = useState<string | null>(null);
   const [selectedTicket, setSelectedTicket] = useState<string | null>(null);
   const [clientSearch, setClientSearch] = useState('');
+  const [clientDropdownOpen, setClientDropdownOpen] = useState(false);
   const [ticketSearch, setTicketSearch] = useState('');
   const [paymentMethod, setPaymentMethod] = useState(PAYMENT_METHODS[0].id);
   const [note, setNote] = useState('');
@@ -110,6 +111,7 @@ export default function Pos() {
     setSelectedClient(null);
     setSelectedTicket(null);
     setClientSearch('');
+    setClientDropdownOpen(false);
     setTicketSearch('');
     setPaymentMethod(PAYMENT_METHODS[0].id);
     setNote('');
@@ -133,6 +135,12 @@ export default function Pos() {
     const newInvoiceId = generateInvoiceId();
 
     const client = selectedClient ? clients.find(c => c.id === selectedClient) : undefined;
+
+    // Validate that if a client is selected, it exists
+    if (selectedClient && !client) {
+      alert('Erreur: Client sélectionné introuvable. Veuillez réessayer.');
+      return;
+    }
 
     const invoiceData = {
       invoiceNumber: newInvoiceId,
@@ -194,35 +202,20 @@ export default function Pos() {
     }
 
     const saleId = await createSale(saleData);
-    console.log('Sale saved to Firebase with ID:', saleId);
+
+    if (!saleId) {
+      alert('Erreur: Impossible de créer la vente. Veuillez réessayer.');
+      return;
+    }
 
     // Show the receipt
-    console.log('Before setCurrentInvoice');
     setCurrentInvoice(invoiceData);
-    console.log('Before setShowReceipt');
     setShowReceipt(true);
-    console.log('After setShowReceipt');
 
     // Save to localStorage immediately to prevent loss on remount
     localStorage.setItem('pos_showReceipt', 'true');
     localStorage.setItem('pos_currentInvoice', JSON.stringify(invoiceData));
-
-    console.log('Sale completed:', {
-      saleId,
-      invoiceId: newInvoiceId,
-      items: cart,
-      client: selectedClient ? clients.find(c => c.id === selectedClient) : null,
-      ticket: selectedTicket ? tickets.find(t => t.id === selectedTicket) : null,
-      subtotal,
-      vat: vatAmount,
-      total,
-      paymentMethod,
-      date: new Date().toISOString(),
-      note
-    });
   };
-
-  console.log('Pos component rendering, showReceipt:', showReceipt, 'currentInvoice:', !!currentInvoice);
 
   // Get sales data for the sales view
   const { sales, fetchSales } = useSalesStore();
@@ -698,27 +691,41 @@ export default function Pos() {
                   <div className="relative">
                     <input
                       type="text"
-                      value={clientSearch}
+                      value={selectedClient ? (clients.find(c => c.id === selectedClient)?.name || clientSearch) : clientSearch}
                       onChange={(e) => {
                         setClientSearch(e.target.value);
-                        setSelectedClient(null);
+                        setClientDropdownOpen(true);
+                        if (selectedClient) {
+                          setSelectedClient(null);
+                        }
+                      }}
+                      onFocus={() => {
+                        setClientDropdownOpen(true);
+                      }}
+                      onBlur={() => {
+                        // Delay hiding dropdown to allow for clicks
+                        setTimeout(() => setClientDropdownOpen(false), 200);
                       }}
                       placeholder="Rechercher un client..."
                       className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                     />
-                    {clientSearch && !selectedClient && filteredClients.length > 0 && (
+                    {clientDropdownOpen && filteredClients.length > 0 && (
                       <div className="absolute z-10 w-full mt-1 bg-white rounded-md shadow-lg max-h-60 overflow-y-auto">
                         {filteredClients.map((client) => (
                           <div
                             key={client.id}
-                            className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
+                            className={`px-4 py-2 hover:bg-gray-100 cursor-pointer ${selectedClient === client.id ? 'bg-indigo-50 border-l-4 border-indigo-500' : ''}`}
                             onClick={() => {
                               setSelectedClient(client.id);
-                              setClientSearch(client.name);
+                              setClientSearch('');
+                              setClientDropdownOpen(false);
                             }}
                           >
                             <div className="font-medium">{client.name}</div>
                             <div className="text-sm text-gray-500">{client.phone}</div>
+                            {selectedClient === client.id && (
+                              <div className="text-xs text-indigo-600 font-medium">Sélectionné</div>
+                            )}
                           </div>
                         ))}
                       </div>
