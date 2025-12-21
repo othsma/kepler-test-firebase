@@ -27,10 +27,10 @@ export default function Login() {
         setUser(result.user);
         navigate('/');
       } else {
-        setLoginError(result.error || 'Failed to login. Please check your credentials.');
+        setLoginError(result.error || 'Échec de la connexion. Veuillez vérifier vos identifiants.');
       }
     } catch (error: any) {
-      setLoginError(error.message || 'An unexpected error occurred');
+      setLoginError(error.message || 'Une erreur inattendue s\'est produite');
     } finally {
       setIsSubmitting(false);
     }
@@ -47,7 +47,7 @@ export default function Login() {
         </div>
         
         <h2 className={`text-2xl font-bold mb-6 text-center ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-          Sign in to your account
+          Connectez-vous à votre compte
         </h2>
         
         {loginError && (
@@ -82,7 +82,7 @@ export default function Login() {
           
           <div>
             <label htmlFor="password" className={`block text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-              Password
+              Mot de passe
             </label>
             <div className="mt-1 relative rounded-md shadow-sm">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -111,13 +111,13 @@ export default function Login() {
                 className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
               />
               <label htmlFor="remember-me" className={`ml-2 block text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                Remember me
+                Se souvenir de moi
               </label>
             </div>
             
             <div className="text-sm">
               <Link to="/forgot-password" className="font-medium text-indigo-600 hover:text-indigo-500">
-                Forgot your password?
+                Mot de passe oublié ?
               </Link>
             </div>
           </div>
@@ -128,7 +128,7 @@ export default function Login() {
               disabled={isSubmitting}
               className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
             >
-              {isSubmitting ? 'Signing in...' : 'Sign in'}
+              {isSubmitting ? 'Connexion en cours...' : 'Se connecter'}
             </button>
           </div>
         </form>
@@ -140,7 +140,7 @@ export default function Login() {
             </div>
             <div className="relative flex justify-center text-sm">
               <span className={`px-2 ${isDarkMode ? 'bg-gray-800 text-gray-400' : 'bg-white text-gray-500'}`}>
-                Don't have an account?
+                Vous n'avez pas de compte ?
               </span>
             </div>
           </div>
@@ -150,7 +150,7 @@ export default function Login() {
               to="/register"
               className="w-full flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
             >
-              Create an account
+              Créer un compte
             </Link>
           </div>
         </div>

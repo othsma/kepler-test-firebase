@@ -24,10 +24,10 @@ export default function ForgotPassword() {
       if (result.success) {
         setSuccess(true);
       } else {
-        setError(result.error || 'Failed to send password reset email. Please try again.');
+        setError(result.error || 'Échec de l\'envoi de l\'email de réinitialisation. Veuillez réessayer.');
       }
     } catch (error: any) {
-      setError(error.message || 'An unexpected error occurred');
+      setError(error.message || 'Une erreur inattendue s\'est produite');
     } finally {
       setIsSubmitting(false);
     }
@@ -44,7 +44,7 @@ export default function ForgotPassword() {
         </div>
         
         <h2 className={`text-2xl font-bold mb-6 text-center ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-          Reset your password
+          Réinitialisez votre mot de passe
         </h2>
         
         {error && (
@@ -57,12 +57,12 @@ export default function ForgotPassword() {
         {success && (
           <div className="mb-4 p-3 bg-green-100 border border-green-400 text-green-700 rounded flex items-center">
             <CheckCircle className="h-5 w-5 mr-2" />
-            <span>Password reset email sent. Please check your inbox.</span>
+            <span>Email de réinitialisation envoyé. Veuillez vérifier votre boîte de réception.</span>
           </div>
         )}
         
         <p className={`mb-6 ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-          Enter your email address and we'll send you a link to reset your password.
+          Entrez votre adresse email et nous vous enverrons un lien pour réinitialiser votre mot de passe.
         </p>
         
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -94,16 +94,16 @@ export default function ForgotPassword() {
               disabled={isSubmitting}
               className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
             >
-              {isSubmitting ? 'Sending...' : 'Send reset link'}
+              {isSubmitting ? 'Envoi en cours...' : 'Envoyer le lien de réinitialisation'}
             </button>
           </div>
         </form>
         
         <div className="mt-6 text-center">
           <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-            Remember your password?{' '}
+            Vous vous souvenez de votre mot de passe ?{' '}
             <Link to="/login" className="font-medium text-indigo-600 hover:text-indigo-500">
-              Sign in
+              Connectez-vous
             </Link>
           </p>
         </div>

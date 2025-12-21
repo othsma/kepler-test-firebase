@@ -40,12 +40,12 @@ export default function Register() {
     
     // Validate form
     if (!isPasswordValid) {
-      setRegisterError('Password does not meet requirements');
+      setRegisterError('Le mot de passe ne répond pas aux exigences');
       return;
     }
     
     if (!passwordsMatch) {
-      setRegisterError('Passwords do not match');
+      setRegisterError('Les mots de passe ne correspondent pas');
       return;
     }
     
@@ -63,10 +63,10 @@ export default function Register() {
         setUser(result.user);
         navigate('/');
       } else {
-        setRegisterError(result.error || 'Failed to register. Please try again.');
+        setRegisterError(result.error || 'Échec de l\'inscription. Veuillez réessayer.');
       }
     } catch (error: any) {
-      setRegisterError(error.message || 'An unexpected error occurred');
+      setRegisterError(error.message || 'Une erreur inattendue s\'est produite');
     } finally {
       setIsSubmitting(false);
     }
@@ -83,7 +83,7 @@ export default function Register() {
         </div>
         
         <h2 className={`text-2xl font-bold mb-6 text-center ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-          Create your account
+          Créez votre compte
         </h2>
         
         {registerError && (
@@ -96,7 +96,7 @@ export default function Register() {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label htmlFor="fullName" className={`block text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-              Full Name *
+              Nom complet *
             </label>
             <div className="mt-1 relative rounded-md shadow-sm">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -139,7 +139,7 @@ export default function Register() {
           
           <div>
             <label htmlFor="phone" className={`block text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-              Phone Number (Optional)
+              Numéro de téléphone (optionnel)
             </label>
             <div className="mt-1 relative rounded-md shadow-sm">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -159,7 +159,7 @@ export default function Register() {
           
           <div>
             <label htmlFor="password" className={`block text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-              Password *
+              Mot de passe *
             </label>
             <div className="mt-1 relative rounded-md shadow-sm">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -181,7 +181,7 @@ export default function Register() {
             
             {passwordFocus && (
               <div className="mt-2 p-2 bg-gray-50 rounded-md">
-                <p className="text-sm font-medium text-gray-700 mb-1">Password requirements:</p>
+                <p className="text-sm font-medium text-gray-700 mb-1">Exigences du mot de passe:</p>
                 <ul className="space-y-1">
                   <li className="flex items-center text-sm">
                     {passwordHasMinLength ? (
@@ -189,7 +189,7 @@ export default function Register() {
                     ) : (
                       <X className="h-4 w-4 text-red-500 mr-1" />
                     )}
-                    At least 8 characters
+                    Au moins 8 caractères
                   </li>
                   <li className="flex items-center text-sm">
                     {passwordHasNumber ? (
@@ -197,7 +197,7 @@ export default function Register() {
                     ) : (
                       <X className="h-4 w-4 text-red-500 mr-1" />
                     )}
-                    At least one number
+                    Au moins un chiffre
                   </li>
                   <li className="flex items-center text-sm">
                     {passwordHasSpecial ? (
@@ -205,7 +205,7 @@ export default function Register() {
                     ) : (
                       <X className="h-4 w-4 text-red-500 mr-1" />
                     )}
-                    At least one special character
+                    Au moins un caractère spécial
                   </li>
                 </ul>
               </div>
@@ -214,7 +214,7 @@ export default function Register() {
           
           <div>
             <label htmlFor="confirmPassword" className={`block text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-              Confirm Password *
+              Confirmer le mot de passe *
             </label>
             <div className="mt-1 relative rounded-md shadow-sm">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -232,7 +232,7 @@ export default function Register() {
               />
             </div>
             {formData.confirmPassword && !passwordsMatch && (
-              <p className="mt-1 text-sm text-red-600">Passwords do not match</p>
+              <p className="mt-1 text-sm text-red-600">Les mots de passe ne correspondent pas</p>
             )}
           </div>
           
@@ -242,16 +242,16 @@ export default function Register() {
               disabled={isSubmitting || !isPasswordValid || !passwordsMatch}
               className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
             >
-              {isSubmitting ? 'Creating account...' : 'Create account'}
+              {isSubmitting ? 'Création du compte...' : 'Créer un compte'}
             </button>
           </div>
         </form>
         
         <div className="mt-6 text-center">
           <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-            Already have an account?{' '}
+            Vous avez déjà un compte ?{' '}
             <Link to="/login" className="font-medium text-indigo-600 hover:text-indigo-500">
-              Sign in
+              Connectez-vous
             </Link>
           </p>
         </div>
