@@ -7,6 +7,20 @@ interface A4FormatProps {
   data: DocumentData;
 }
 
+// Translate payment status to French
+const getPaymentStatusText = (status: string) => {
+  switch (status) {
+    case 'not_paid':
+      return 'Non payé';
+    case 'partially_paid':
+      return 'Partiellement payé';
+    case 'fully_paid':
+      return ' Payé ';
+    default:
+      return status;
+  }
+};
+
 export default function A4Format({ data }: A4FormatProps) {
   const formatConfig = FORMAT_CONFIGS.a4;
   // Calculate remaining amount if partially paid
@@ -151,7 +165,7 @@ export default function A4Format({ data }: A4FormatProps) {
           <div className="mb-6">
             <h3 className="font-bold mb-2 text-gray-900">Informations de paiement:</h3>
             {data.paymentMethod && <p className="text-gray-800">Méthode: {data.paymentMethod}</p>}
-            {data.paymentStatus && <p className="text-gray-800">Statut: {data.paymentStatus}</p>}
+            {data.paymentStatus && <p className="text-gray-800">Statut: {getPaymentStatusText(data.paymentStatus)}</p>}
 
             {data.amountPaid !== undefined && data.amountPaid > 0 && data.amountPaid < data.total && (
               <>

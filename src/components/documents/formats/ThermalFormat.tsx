@@ -7,6 +7,20 @@ interface ThermalFormatProps {
   data: DocumentData;
 }
 
+// Translate payment status to French
+const getPaymentStatusText = (status: string) => {
+  switch (status) {
+    case 'not_paid':
+      return 'Non payé';
+    case 'partially_paid':
+      return 'Partiellement payé';
+    case 'fully_paid':
+      return ' Payé ';
+    default:
+      return status;
+  }
+};
+
 export default function ThermalFormat({ data }: ThermalFormatProps) {
   const formatConfig = FORMAT_CONFIGS.thermal;
   // Calculate remaining amount if partially paid
@@ -105,7 +119,7 @@ export default function ThermalFormat({ data }: ThermalFormatProps) {
         <div className="my-2">
           <p className="font-bold text-xs mb-1">Paiement:</p>
           {data.paymentMethod && <p className="text-xs">Type de paiement: {data.paymentMethod}</p>}
-          {data.paymentStatus && <p className="text-xs">Statut: {data.paymentStatus}</p>}
+          {data.paymentStatus && <p className="text-xs">Statut: {getPaymentStatusText(data.paymentStatus)}</p>}
           {data.amountPaid !== undefined && data.amountPaid > 0 && (
             <>
               <p className="text-xs">Montant payé: €{data.amountPaid.toFixed(2)}</p>

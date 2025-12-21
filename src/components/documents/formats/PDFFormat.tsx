@@ -69,6 +69,20 @@ interface PDFFormatProps {
   data: DocumentData;
 }
 
+// Translate payment status to French
+const getPaymentStatusText = (status: string) => {
+  switch (status) {
+    case 'not_paid':
+      return 'Non payé';
+    case 'partially_paid':
+      return 'Partiellement payé';
+    case 'fully_paid':
+      return ' Payé ';
+    default:
+      return status;
+  }
+};
+
 export default function PDFFormat({ data }: PDFFormatProps) {
   const getTitle = () => {
     switch (data.type) {
@@ -197,7 +211,7 @@ export default function PDFFormat({ data }: PDFFormatProps) {
             {data.paymentStatus && (
               <View style={styles.flexRow}>
                 <Text>Statut:</Text>
-                <Text>{data.paymentStatus}</Text>
+                <Text>{getPaymentStatusText(data.paymentStatus)}</Text>
               </View>
             )}
 
