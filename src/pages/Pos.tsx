@@ -7,10 +7,10 @@ import { convertReceiptToDocument } from '../components/documents/DocumentConver
 
 // Payment methods
 const PAYMENT_METHODS = [
-  { id: 'cash', name: 'Cash', icon: Banknote },
-  { id: 'card', name: 'Credit Card', icon: CreditCard },
-  { id: 'transfer', name: 'Bank Transfer', icon: FileText },
-  { id: 'digital', name: 'Digital Payment', icon: Smartphone },
+  { id: 'cash', name: 'Espèces', icon: Banknote },
+  { id: 'card', name: 'Carte bancaire', icon: CreditCard },
+  { id: 'transfer', name: 'Virement', icon: FileText },
+  { id: 'digital', name: 'Paiement numérique', icon: Smartphone },
 ];
 
 export default function Pos() {
@@ -277,7 +277,7 @@ export default function Pos() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h1 className={`text-2xl font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-          Point of Sale
+          Caisse
         </h1>
       </div>
 
@@ -306,7 +306,7 @@ export default function Pos() {
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
             }`}
           >
-            POS System
+            Système PDV
           </button>
           <button
             onClick={() => setCurrentView('sales')}
@@ -316,7 +316,7 @@ export default function Pos() {
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
             }`}
           >
-            All Sales
+            Toutes les ventes
           </button>
         </nav>
       </div>
@@ -326,13 +326,13 @@ export default function Pos() {
         <div className={`rounded-lg ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow p-6`}>
           <div className="flex justify-between items-center mb-6">
             <h2 className={`text-xl font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-              All Sales ({filteredAndSortedSales.length})
+              Toutes les ventes ({filteredAndSortedSales.length})
             </h2>
             <button
               onClick={() => fetchSales()}
               className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700"
             >
-              Refresh
+              Actualiser
             </button>
           </div>
 
@@ -518,7 +518,7 @@ export default function Pos() {
                 <Search className="h-5 w-5 text-gray-400" />
                 <input
                   type="text"
-                  placeholder="Search products..."
+                  placeholder="Rechercher des produits..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="flex-1 bg-transparent border-0 focus:ring-0 text-gray-900 dark:text-white placeholder-gray-400"
@@ -529,7 +529,7 @@ export default function Pos() {
                 onChange={(e) => setSelectedCategory(e.target.value)}
                 className="rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
               >
-                <option value="all">All Categories</option>
+                <option value="all">Toutes les catégories</option>
                 {categories.map((category) => (
                   <option key={category} value={category}>
                     {category}
@@ -576,11 +576,11 @@ export default function Pos() {
             </div>
             
             {filteredProducts.length === 0 && (
-              <div className="text-center py-8">
-                <p className={`text-lg ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                  No products found. Try a different search or category.
-                </p>
-              </div>
+            <div className="text-center py-8">
+              <p className={`text-lg ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                Aucun produit trouvé. Essayez une recherche ou une catégorie différente.
+              </p>
+            </div>
             )}
           </div>
         </div>
@@ -591,7 +591,7 @@ export default function Pos() {
             <div className="flex items-center justify-between mb-4">
               <h2 className={`text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                 <ShoppingCart className="h-5 w-5 inline mr-2" />
-                Cart
+                Panier
               </h2>
               <button
                 onClick={clearCart}
@@ -605,7 +605,7 @@ export default function Pos() {
             {cart.length === 0 ? (
               <div className="text-center py-8">
                 <p className={`text-lg ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                  Your cart is empty
+                  Votre panier est vide
                 </p>
               </div>
             ) : (
@@ -645,13 +645,13 @@ export default function Pos() {
             
             <div className="border-t pt-4 space-y-2">
               <div className="flex justify-between">
-                <span className={isDarkMode ? 'text-gray-300' : 'text-gray-600'}>Subtotal</span>
+                <span className={isDarkMode ? 'text-gray-300' : 'text-gray-600'}>Sous-total</span>
                 <span className={isDarkMode ? 'text-white' : 'text-gray-900'}>
                   €{subtotal.toFixed(2)}
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className={isDarkMode ? 'text-gray-300' : 'text-gray-600'}>VAT (20%)</span>
+                <span className={isDarkMode ? 'text-gray-300' : 'text-gray-600'}>TVA (20%)</span>
                 <span className={isDarkMode ? 'text-white' : 'text-gray-900'}>
                   €{vatAmount.toFixed(2)}
                 </span>
@@ -667,7 +667,7 @@ export default function Pos() {
           
           <div className={`rounded-lg ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow p-6`}>
             <h2 className={`text-lg font-semibold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-              Checkout
+              Paiement
             </h2>
             
             <div className="space-y-4">
@@ -686,7 +686,7 @@ export default function Pos() {
                   className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
                 />
                 <label htmlFor="quickSale" className={`ml-2 block text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                  Quick Sale (No Client Info)
+                  Vente rapide (sans info client)
                 </label>
               </div>
               
@@ -703,7 +703,7 @@ export default function Pos() {
                         setClientSearch(e.target.value);
                         setSelectedClient(null);
                       }}
-                      placeholder="Search for a client..."
+                      placeholder="Rechercher un client..."
                       className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                     />
                     {clientSearch && !selectedClient && filteredClients.length > 0 && (
@@ -730,7 +730,7 @@ export default function Pos() {
               {selectedClient && (
                 <div>
                   <label className={`block text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'} mb-1`}>
-                    Link to Repair Ticket (Optional)
+                    Lier à un ticket de réparation (optionnel)
                   </label>
                   <div className="relative">
                     <input
@@ -740,7 +740,7 @@ export default function Pos() {
                         setTicketSearch(e.target.value);
                         setSelectedTicket(null);
                       }}
-                      placeholder="Search for a ticket..."
+                      placeholder="Rechercher un ticket..."
                       className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                     />
                     {ticketSearch && !selectedTicket && filteredTickets.length > 0 && (
@@ -768,7 +768,7 @@ export default function Pos() {
               
               <div className="mb-4">
                 <label className={`block text-sm font-medium mb-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                  Receipt Format
+                  Format du reçu
                 </label>
                 <div className="grid grid-cols-2 gap-2">
                   <button
@@ -781,7 +781,7 @@ export default function Pos() {
                     }`}
                   >
                     <Printer className="h-5 w-5" />
-                    <span className="text-sm">Thermal Receipt</span>
+                    <span className="text-sm">Reçu thermique</span>
                   </button>
                   <button
                     type="button"
@@ -793,14 +793,14 @@ export default function Pos() {
                     }`}
                   >
                     <FileText className="h-5 w-5" />
-                    <span className="text-sm">A4 Invoice</span>
+                    <span className="text-sm">Facture A4</span>
                   </button>
                 </div>
               </div>
               
               <div>
                 <label className={`block text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'} mb-1`}>
-                  Payment Method
+                  Mode de paiement
                 </label>
                 <div className="grid grid-cols-2 gap-2">
                   {PAYMENT_METHODS.map((method) => (
@@ -830,7 +830,7 @@ export default function Pos() {
                   onChange={(e) => setNote(e.target.value)}
                   rows={2}
                   className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                  placeholder="Add a note to this sale..."
+                  placeholder="Ajouter une note à cette vente..."
                 />
               </div>
               
@@ -840,7 +840,7 @@ export default function Pos() {
                 className="w-full bg-indigo-600 text-white px-4 py-3 rounded-md hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 <ArrowRight className="h-5 w-5" />
-                Complete Sale
+                Finaliser la vente
               </button>
             </div>
           </div>
