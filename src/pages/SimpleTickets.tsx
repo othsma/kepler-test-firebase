@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useThemeStore, useTicketsStore, useClientsStore, useAuthStore, TaskWithPrice } from '../lib/store';
-import { Search, Plus, Calendar, User, Edit, Printer, FileText as FileIcon, Trash2, ArrowUpDown } from 'lucide-react';
+import { Search, Plus, Calendar, User, Edit, FileText as FileIcon, Trash2, ArrowUpDown } from 'lucide-react';
 import { format } from 'date-fns';
 import ClientForm from '../components/ClientForm';
 import UnifiedDocument from '../components/documents/UnifiedDocument';
@@ -53,7 +53,6 @@ export default function SimpleTickets() {
     }
     return '';
   });
-  const [showReceipt, setShowReceipt] = useState(false);
   const [showInvoice, setShowInvoice] = useState(false);
   const [newTicketNumber, setNewTicketNumber] = useState('');
   const [isAddingClient, setIsAddingClient] = useState(false);
@@ -350,7 +349,7 @@ export default function SimpleTickets() {
         const { addTicket } = useTicketsStore.getState();
         const newTicketNumber = await addTicket(ticketData);
         setNewTicketNumber(newTicketNumber);
-        setShowReceipt(true);
+        setShowInvoice(true);
       }
       
       // Only reset form if not editing
@@ -1321,20 +1320,7 @@ export default function SimpleTickets() {
                             </button>
                           )}
                           
-                          {/* Thermal Receipt button */}
-                          <button
-                            onClick={() => {
-                              setNewTicketNumber(ticket.ticketNumber);
-                              setSelectedClientId(ticket.clientId);
-                              setShowReceipt(true);
-                            }}
-                            className="text-green-600 hover:text-green-800"
-                            title="Print Receipt"
-                          >
-                            <Printer className="h-5 w-5" />
-                          </button>
-                          
-                          {/* Invoice button */}
+                          {/* Document button - handles both thermal and A4 formats */}
                           <button
                             onClick={() => {
                               setNewTicketNumber(ticket.ticketNumber);
@@ -1342,7 +1328,7 @@ export default function SimpleTickets() {
                               setShowInvoice(true);
                             }}
                             className="text-indigo-600 hover:text-indigo-800"
-                            title="Generate Invoice"
+                            title="Generate Document"
                           >
                             <FileIcon className="h-5 w-5" />
                           </button>
@@ -1376,23 +1362,7 @@ export default function SimpleTickets() {
       </>
       )}
 
-      {/* Receipt Modal */}
-      {showReceipt && newTicketNumber && (
-        <UnifiedDocument
-          data={convertTicketToDocument(
-            tickets.find(t => t.ticketNumber === newTicketNumber)!,
-            selectedClientId,
-            clients.find(c => c.id === selectedClientId)
-          )}
-          onClose={() => {
-            setShowReceipt(false);
-            setNewTicketNumber('');
-          }}
-          initialFormat="thermal"
-        />
-      )}
-
-      {/* Invoice Modal */}
+      {/* Document Modal - handles both thermal and A4 formats */}
       {showInvoice && newTicketNumber && (
         <UnifiedDocument
           data={convertTicketToDocument(
