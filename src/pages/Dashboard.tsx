@@ -1,8 +1,8 @@
-import React, { useMemo } from 'react';
+import { useMemo } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { Wrench, DollarSign, Clock, CheckCircle, ShoppingCart, Users } from 'lucide-react';
 import { useThemeStore, useTicketsStore, useClientsStore, useProductsStore, useAuthStore } from '../lib/store';
-import { format, subDays } from 'date-fns';
+import { format } from 'date-fns';
 import DailySalesWidget from '../components/DailySalesWidget';
 import { ROLES } from '../lib/firebase';
 
@@ -61,20 +61,20 @@ export default function Dashboard() {
   // Stats to display based on role
   const getStats = () => {
     const baseStats = [
-      { name: 'Pending Repairs', value: pendingTickets.toString(), icon: Clock, color: 'bg-yellow-500' },
-      { name: 'In Progress', value: inProgressTickets.toString(), icon: Wrench, color: 'bg-blue-500' },
-      { name: 'Completed Repairs', value: completedTickets.toString(), icon: CheckCircle, color: 'bg-green-500' },
-      { name: 'Total Earnings', value: `€${totalEarnings.toFixed(2)}`, icon: DollarSign, color: 'bg-indigo-500' },
+      { name: 'Réparations en attente', value: pendingTickets.toString(), icon: Clock, color: 'bg-yellow-500' },
+      { name: 'En cours', value: inProgressTickets.toString(), icon: Wrench, color: 'bg-blue-500' },
+      { name: 'Réparations terminées', value: completedTickets.toString(), icon: CheckCircle, color: 'bg-green-500' },
+      { name: 'Gains totaux', value: `€${totalEarnings.toFixed(2)}`, icon: DollarSign, color: 'bg-indigo-500' },
     ];
-    
+
     // Add super admin specific stats
     if (userRole === ROLES.SUPER_ADMIN) {
       return [
         ...baseStats,
-        { name: 'Low Stock Items', value: lowStockProducts.toString(), icon: ShoppingCart, color: 'bg-red-500' },
+        { name: 'Articles en stock faible', value: lowStockProducts.toString(), icon: ShoppingCart, color: 'bg-red-500' },
       ];
     }
-    
+
     return baseStats;
   };
   
@@ -120,7 +120,7 @@ export default function Dashboard() {
         <h2 className={`text-lg font-semibold mb-6 ${
           isDarkMode ? 'text-white' : 'text-gray-900'
         }`}>
-          Weekly Performance
+          Performance hebdomadaire
         </h2>
         <div className="h-80">
           <ResponsiveContainer width="100%" height="100%">
@@ -130,9 +130,9 @@ export default function Dashboard() {
               <YAxis />
               <Tooltip />
               {userRole === ROLES.SUPER_ADMIN && (
-                <Bar dataKey="sales" fill="#4F46E5" name="Sales (€)" />
+                <Bar dataKey="sales" fill="#4F46E5" name="Ventes (€)" />
               )}
-              <Bar dataKey="repairs" fill="#10B981" name="Repairs (€)" />
+              <Bar dataKey="repairs" fill="#10B981" name="Réparations (€)" />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -145,7 +145,7 @@ export default function Dashboard() {
           <h2 className={`text-lg font-semibold mb-4 ${
             isDarkMode ? 'text-white' : 'text-gray-900'
           }`}>
-            Recent Repair Tickets
+            Tickets de réparation récents
           </h2>
           <div className="space-y-4">
             {userTickets.slice(0, 5).map((ticket) => {
@@ -164,16 +164,16 @@ export default function Dashboard() {
                       {client?.name} - {ticket.deviceType} {ticket.brand}
                     </p>
                     <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                      Status: {ticket.status} | €{ticket.cost}
+                      Statut: {ticket.status} | €{ticket.cost}
                     </p>
                   </div>
                 </div>
               );
             })}
-            
+
             {userTickets.length === 0 && (
               <p className={`text-center py-4 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                No tickets assigned to you yet.
+                Aucun ticket ne vous a encore été assigné.
               </p>
             )}
           </div>
@@ -187,7 +187,7 @@ export default function Dashboard() {
             <h2 className={`text-lg font-semibold mb-4 ${
               isDarkMode ? 'text-white' : 'text-gray-900'
             }`}>
-              Recent Clients
+              Clients récents
             </h2>
             <div className="space-y-4">
               {clients.slice(0, 5).map((client) => (
@@ -205,10 +205,10 @@ export default function Dashboard() {
                   </div>
                 </div>
               ))}
-              
+
               {clients.length === 0 && (
                 <p className={`text-center py-4 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                  No clients in the system yet.
+                  Aucun client dans le système pour le moment.
                 </p>
               )}
             </div>
@@ -220,7 +220,7 @@ export default function Dashboard() {
             <h2 className={`text-lg font-semibold mb-4 ${
               isDarkMode ? 'text-white' : 'text-gray-900'
             }`}>
-              Ticket Status Distribution
+              Répartition des statuts des tickets
             </h2>
             <div className="flex justify-around items-center h-64">
               <div className="text-center">
@@ -231,10 +231,10 @@ export default function Dashboard() {
                   {pendingTickets}
                 </p>
                 <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                  Pending
+                  En attente
                 </p>
               </div>
-              
+
               <div className="text-center">
                 <div className="inline-flex items-center justify-center h-16 w-16 rounded-full bg-blue-100 mb-2">
                   <Wrench className="h-8 w-8 text-blue-600" />
@@ -243,10 +243,10 @@ export default function Dashboard() {
                   {inProgressTickets}
                 </p>
                 <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                  In Progress
+                  En cours
                 </p>
               </div>
-              
+
               <div className="text-center">
                 <div className="inline-flex items-center justify-center h-16 w-16 rounded-full bg-green-100 mb-2">
                   <CheckCircle className="h-8 w-8 text-green-600" />
@@ -255,7 +255,7 @@ export default function Dashboard() {
                   {completedTickets}
                 </p>
                 <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                  Completed
+                  Terminé
                 </p>
               </div>
             </div>

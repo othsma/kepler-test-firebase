@@ -19,10 +19,10 @@ export default function DailySalesWidget({ date = new Date() }: DailySalesWidget
   const averageTicket = todaySales / transactions;
   
   const paymentMethods = [
-    { method: 'Cash', amount: Math.floor(Math.random() * 1000) + 100 },
-    { method: 'Credit Card', amount: Math.floor(Math.random() * 1000) + 100 },
-    { method: 'Bank Transfer', amount: Math.floor(Math.random() * 500) + 50 },
-    { method: 'Digital Payment', amount: Math.floor(Math.random() * 500) + 50 },
+    { method: 'Espèces', amount: Math.floor(Math.random() * 1000) + 100 },
+    { method: 'Carte bancaire', amount: Math.floor(Math.random() * 1000) + 100 },
+    { method: 'Virement', amount: Math.floor(Math.random() * 500) + 50 },
+    { method: 'Paiement numérique', amount: Math.floor(Math.random() * 500) + 50 },
   ];
   
   const topProducts = [
@@ -36,7 +36,7 @@ export default function DailySalesWidget({ date = new Date() }: DailySalesWidget
     <div className={`rounded-lg ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow p-6`}>
       <div className="flex justify-between items-center mb-6">
         <h2 className={`text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-          Daily Sales Summary
+          Résumé des ventes quotidiennes
         </h2>
         <div className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
           {format(date, 'EEEE, MMMM d, yyyy')}
@@ -46,7 +46,7 @@ export default function DailySalesWidget({ date = new Date() }: DailySalesWidget
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
         <div>
           <h3 className={`text-sm font-medium ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-            Total Sales
+            Ventes totales
           </h3>
           <div className="flex items-center mt-2">
             <p className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
@@ -74,7 +74,7 @@ export default function DailySalesWidget({ date = new Date() }: DailySalesWidget
         
         <div>
           <h3 className={`text-sm font-medium ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-            Average Ticket
+            Panier moyen
           </h3>
           <p className={`text-2xl font-bold mt-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
             €{averageTicket.toFixed(2)}
@@ -85,7 +85,7 @@ export default function DailySalesWidget({ date = new Date() }: DailySalesWidget
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>
           <h3 className={`text-sm font-medium mb-3 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-            Payment Methods
+            Modes de paiement
           </h3>
           <div className="space-y-3">
             {paymentMethods.map((payment) => (
@@ -103,7 +103,7 @@ export default function DailySalesWidget({ date = new Date() }: DailySalesWidget
         
         <div>
           <h3 className={`text-sm font-medium mb-3 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-            Top Products
+            Produits populaires
           </h3>
           <div className="space-y-3">
             {topProducts.map((product) => (
