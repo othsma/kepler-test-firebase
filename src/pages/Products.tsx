@@ -256,7 +256,7 @@ export default function Products() {
     if (['asc', 'desc'].includes(dir || '')) setSortDirection(dir as any);
   }, [categories]); // Only run on mount and when categories change
 
-  // Keyboard shortcuts for pagination
+  // Enhanced keyboard shortcuts for products page
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       // Only handle shortcuts when not typing in inputs
@@ -267,41 +267,79 @@ export default function Products() {
       // Only handle shortcuts on the products page
       if (activeTab !== 'all') return;
 
-      switch (event.key) {
-        case 'ArrowLeft':
-          event.preventDefault();
-          if (!useLoadMore && currentPage > 1) {
-            setCurrentPage(prev => prev - 1);
-          }
-          break;
-        case 'ArrowRight':
-          event.preventDefault();
-          if (!useLoadMore && currentPage < totalPages) {
-            setCurrentPage(prev => prev + 1);
-          }
-          break;
-        case 'Home':
-          event.preventDefault();
-          if (!useLoadMore) {
-            setCurrentPage(1);
-          }
-          break;
-        case 'End':
-          event.preventDefault();
-          if (!useLoadMore) {
-            setCurrentPage(totalPages);
-          }
-          break;
-        default:
-          // Number keys for direct page navigation
-          const num = parseInt(event.key);
-          if (!isNaN(num) && num >= 1 && num <= 9 && !useLoadMore) {
+      // Ctrl/Cmd key combinations
+      if (event.ctrlKey || event.metaKey) {
+        switch (event.key.toLowerCase()) {
+          case 'f':
             event.preventDefault();
-            if (num <= totalPages) {
-              setCurrentPage(num);
+            // Focus search input
+            const searchInput = document.querySelector('input[placeholder*="Rechercher"]') as HTMLInputElement;
+            if (searchInput) searchInput.focus();
+            break;
+          case 'n':
+            event.preventDefault();
+            // Switch to create new product tab
+            setActiveTab('main');
+            break;
+          case 'arrowleft':
+            event.preventDefault();
+            if (!useLoadMore && currentPage > 1) {
+              setCurrentPage(prev => prev - 1);
             }
-          }
-          break;
+            break;
+          case 'arrowright':
+            event.preventDefault();
+            if (!useLoadMore && currentPage < totalPages) {
+              setCurrentPage(prev => prev + 1);
+            }
+            break;
+          default:
+            break;
+        }
+      } else {
+        // Regular key shortcuts
+        switch (event.key) {
+          case 'ArrowLeft':
+            event.preventDefault();
+            if (!useLoadMore && currentPage > 1) {
+              setCurrentPage(prev => prev - 1);
+            }
+            break;
+          case 'ArrowRight':
+            event.preventDefault();
+            if (!useLoadMore && currentPage < totalPages) {
+              setCurrentPage(prev => prev + 1);
+            }
+            break;
+          case 'Home':
+            event.preventDefault();
+            if (!useLoadMore) {
+              setCurrentPage(1);
+            }
+            break;
+          case 'End':
+            event.preventDefault();
+            if (!useLoadMore) {
+              setCurrentPage(totalPages);
+            }
+            break;
+          case 'Escape':
+            event.preventDefault();
+            // Close any open dropdowns
+            setShowCategoryDropdown(false);
+            setShowAdvancedFilters(false);
+            break;
+          default:
+            // Number keys for direct page navigation
+            const num = parseInt(event.key);
+            if (!isNaN(num) && num >= 1 && num <= 9 && !useLoadMore) {
+              event.preventDefault();
+              if (num <= totalPages) {
+                setCurrentPage(num);
+              }
+            }
+            break;
+        }
       }
     };
 
@@ -498,6 +536,68 @@ export default function Products() {
       {/* All Products Tab - Product Listing ONLY */}
       {activeTab === 'all' && (
         <>
+          {/* Inventory Summary Dashboard */}
+          <div className={`rounded-lg ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow p-6 mb-6`}>
+            <h3 className={`text-lg font-semibold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+              📊 État des stocks
+            </h3>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className={`p-4 rounded-lg ${isDarkMode ? 'bg-red-900/20 border-red-700' : 'bg-red-50 border-red-200'} border`}>
+                <div className={`text-2xl font-bold ${isDarkMode ? 'text-red-400' : 'text-red-600'}`}>
+                  {products.filter(p => p.stock <= 0).length}
+                </div>
+                <div className={`text-sm ${isDarkMode ? 'text-red-300' : 'text-red-600'}`}>
+                  Rupture de stock
+                </div>
+              </div>
+              <div className={`p-4 rounded-lg ${isDarkMode ? 'bg-orange-900/20 border-orange-700' : 'bg-orange-50 border-orange-200'} border`}>
+                <div className={`text-2xl font-bold ${isDarkMode ? 'text-orange-400' : 'text-orange-600'}`}>
+                  {products.filter(p => p.stock > 0 && p.stock <= 5).length}
+                </div>
+                <div className={`text-sm ${isDarkMode ? 'text-orange-300' : 'text-orange-600'}`}>
+                  Stock critique (≤5)
+                </div>
+              </div>
+              <div className={`p-4 rounded-lg ${isDarkMode ? 'bg-yellow-900/20 border-yellow-700' : 'bg-yellow-50 border-yellow-200'} border`}>
+                <div className={`text-2xl font-bold ${isDarkMode ? 'text-yellow-400' : 'text-yellow-600'}`}>
+                  {products.filter(p => p.stock > 5 && p.stock <= 10).length}
+                </div>
+                <div className={`text-sm ${isDarkMode ? 'text-yellow-300' : 'text-yellow-600'}`}>
+                  Stock faible (6-10)
+                </div>
+              </div>
+              <div className={`p-4 rounded-lg ${isDarkMode ? 'bg-green-900/20 border-green-700' : 'bg-green-50 border-green-200'} border`}>
+                  <div className={`text-2xl font-bold ${isDarkMode ? 'text-green-400' : 'text-green-600'}`}>
+                    {products.filter(p => p.stock > 10).length}
+                  </div>
+                  <div className={`text-sm ${isDarkMode ? 'text-green-300' : 'text-green-600'}`}>
+                    Stock normal (plus de 10)
+                  </div>
+              </div>
+            </div>
+
+            {/* Low Stock Alerts */}
+            {products.filter(p => p.stock <= 5).length > 0 && (
+              <div className="mt-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-lg">
+                <h4 className={`font-medium mb-2 ${isDarkMode ? 'text-red-400' : 'text-red-800'}`}>
+                  ⚠️ Alertes de stock faible
+                </h4>
+                <div className="flex flex-wrap gap-2">
+                  {products.filter(p => p.stock <= 5).map(product => (
+                    <span
+                      key={product.id}
+                      className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                        isDarkMode ? 'bg-red-900 text-red-200' : 'bg-red-100 text-red-800'
+                      }`}
+                    >
+                      {product.name}: {product.stock} restant{product.stock !== 1 ? 's' : ''}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
           {/* Search and filtering controls */}
           <div className={`rounded-lg ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow p-4`}>
             <div className="flex flex-col gap-4">
@@ -862,9 +962,16 @@ export default function Products() {
                             </div>
                             <div className="flex items-center gap-4 text-sm text-gray-500">
                               <span>€{product.price}</span>
-                              <span>Stock: {product.stock}</span>
-                              <span className={`text-xs ${product.stock <= 5 ? 'text-red-600 font-medium' : product.stock <= 10 ? 'text-yellow-600' : 'text-gray-500'}`}>
-                                {product.stock <= 5 ? '⚠️ Stock faible!' : product.stock <= 10 ? '⚠️ Stock limité' : ''}
+                              <span className={`font-medium ${
+                                product.stock <= 0 ? 'text-red-600' :
+                                product.stock <= 5 ? 'text-red-500' :
+                                product.stock <= 10 ? 'text-yellow-600' :
+                                'text-green-600'
+                              }`}>
+                                Stock: {product.stock}
+                                {product.stock <= 0 && ' 🛑 RUPTURE'}
+                                {product.stock > 0 && product.stock <= 5 && ' ⚠️ CRITIQUE'}
+                                {product.stock > 5 && product.stock <= 10 && ' ⚠️ FAIBLE'}
                               </span>
                             </div>
                           </div>
@@ -1107,8 +1214,17 @@ export default function Products() {
                                   <p className={`text-sm font-medium mb-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                                     Stock disponible
                                   </p>
-                                  <p className={`text-sm ${product.stock <= 5 ? 'text-red-600 font-medium' : product.stock <= 10 ? 'text-yellow-600' : isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                  <p className={`text-sm font-medium ${
+                                    product.stock <= 0 ? 'text-red-600' :
+                                    product.stock <= 5 ? 'text-red-500' :
+                                    product.stock <= 10 ? 'text-yellow-600' :
+                                    'text-green-600'
+                                  }`}>
                                     {product.stock} unités
+                                    {product.stock <= 0 && ' 🛑 RUPTURE DE STOCK'}
+                                    {product.stock > 0 && product.stock <= 5 && ' ⚠️ STOCK CRITIQUE'}
+                                    {product.stock > 5 && product.stock <= 10 && ' ⚠️ STOCK FAIBLE'}
+                                    {product.stock > 10 && ' ✅ STOCK NORMAL'}
                                   </p>
                                 </div>
                                 <div>
