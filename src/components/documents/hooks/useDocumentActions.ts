@@ -18,19 +18,215 @@ interface UseDocumentActionsProps {
 export const useDocumentActions = ({ data, documentRef, onFormatChange }: UseDocumentActionsProps) => {
   const isProcessingRef = useRef(false);
 
-  // Handle print action
-  const handlePrint = useCallback(() => {
+  // Handle print action - PHASE 2: WINDOW-BASED PRINTING
+  const handlePrint = useCallback(async () => {
     if (isProcessingRef.current) return;
     isProcessingRef.current = true;
 
+    console.log('🖨️ PHASE 2: Starting window-based print process');
+
     try {
+      // Find the document content element
+      const modalElement = documentRef.current;
+      if (!modalElement) {
+        console.log('🖨️ PHASE 2: No modal element found, printing entire page');
+        window.print();
+        isProcessingRef.current = false;
+        return;
+      }
+
+      const documentContent = modalElement.querySelector('[data-format]');
+      if (!documentContent) {
+        console.log('🖨️ PHASE 2: No document content element found, printing entire page');
+        window.print();
+        isProcessingRef.current = false;
+        return;
+      }
+
+      const format = documentContent.getAttribute('data-format');
+      console.log('🖨️ PHASE 2: Document format:', format);
+
+      // PHASE 2: Use html2canvas to capture the document (same as PDF generation)
+      console.log('🖨️ PHASE 2: Capturing document with html2canvas');
+
+      // Wait for images to load (same as PDF generation)
+      const images = documentContent.querySelectorAll('img');
+      const imagePromises = Array.from(images).map((img: HTMLImageElement) => {
+        return new Promise<void>((resolve) => {
+          if (img.complete && img.naturalHeight > 0) {
+            resolve();
+          } else {
+            img.onload = () => resolve();
+            img.onerror = () => resolve();
+            setTimeout(() => resolve(), 2000);
+          }
+        });
+      });
+      await Promise.all(imagePromises);
+      console.log('🖨️ PHASE 2: Images loaded');
+
+      // Temporarily modify styles to fix html2canvas issues (same as PDF)
+      const originalStyles = {
+        transform: (documentContent as HTMLElement).style.transform,
+        position: (documentContent as HTMLElement).style.position,
+        willChange: (documentContent as HTMLElement).style.willChange,
+        contain: (documentContent as HTMLElement).style.contain
+      };
+
+      (documentContent as HTMLElement).style.transform = 'none';
+      (documentContent as HTMLElement).style.position = 'static';
+      (documentContent as HTMLElement).style.willChange = 'auto';
+      (documentContent as HTMLElement).style.contain = 'none';
+
+      const modalParent = documentContent.closest('[class*="fixed"]') as HTMLElement;
+      const modalOriginalStyles = modalParent ? {
+        transform: modalParent.style.transform,
+        willChange: modalParent.style.willChange
+      } : {};
+
+      if (modalParent) {
+        modalParent.style.transform = 'none';
+        modalParent.style.willChange = 'auto';
+      }
+
+      // Capture the document with html2canvas
+      const canvas = await html2canvas(documentContent as HTMLElement, {
+        scale: 2,
+        backgroundColor: '#ffffff',
+        useCORS: true,
+        allowTaint: true,
+        width: (documentContent as HTMLElement).offsetWidth,
+        height: (documentContent as HTMLElement).offsetHeight
+      });
+      console.log('🖨️ PHASE 2: Canvas created:', canvas.width, 'x', canvas.height);
+
+      // Restore original styles
+      Object.assign((documentContent as HTMLElement).style, originalStyles);
+      if (modalParent && modalOriginalStyles) {
+        Object.assign(modalParent.style, modalOriginalStyles);
+      }
+
+      // Convert canvas to image
+      const imgData = canvas.toDataURL('image/png');
+      console.log('🖨️ PHASE 2: Image data created');
+
+      // Create a new window for printing
+      const printWindow = window.open('', '_blank');
+      if (!printWindow) {
+        console.error('🖨️ PHASE 2: Failed to open print window');
+        window.print(); // Fallback
+        isProcessingRef.current = false;
+        return;
+      }
+
+      // Set up the print window content
+      const isThermal = format === 'thermal';
+
+      // Calculate scaled dimensions to fit page
+      let imgWidth, imgHeight;
+      if (isThermal) {
+        // Thermal: 80mm width, scale height proportionally
+        imgWidth = '80mm';
+        imgHeight = 'auto';
+      } else {
+        // A4: Scale to fit within page dimensions
+        const a4WidthPx = 794; // A4 width in pixels at 96 DPI
+        const a4HeightPx = 1123; // A4 height in pixels at 96 DPI
+
+        // Scale canvas to fit A4 while maintaining aspect ratio
+        const scaleX = a4WidthPx / canvas.width;
+        const scaleY = a4HeightPx / canvas.height;
+        const scale = Math.min(scaleX, scaleY);
+
+        imgWidth = `${Math.round(canvas.width * scale)}px`;
+        imgHeight = `${Math.round(canvas.height * scale)}px`;
+
+        console.log('🖨️ PHASE 2: Scaled A4 dimensions:', imgWidth, 'x', imgHeight);
+      }
+
+      printWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <title>Document Print</title>
+            <style>
+              @media print {
+                @page {
+                  size: ${isThermal ? '80mm 200mm' : 'A4'};
+                  margin: ${isThermal ? '5mm' : '0'};
+                }
+                body {
+                  margin: 0;
+                  padding: 0;
+                }
+                img {
+                  page-break-inside: avoid;
+                  page-break-after: avoid;
+                  page-break-before: avoid;
+                }
+              }
+              body {
+                margin: 0;
+                padding: ${isThermal ? '10px' : '0'};
+                display: flex;
+                justify-content: center;
+                align-items: flex-start;
+                min-height: 100vh;
+                background: white;
+                font-family: Arial, sans-serif;
+              }
+              img {
+                display: block;
+                max-width: 100%;
+                height: auto;
+                box-shadow: none;
+              }
+              .thermal {
+                width: 80mm;
+                margin: 0 auto;
+              }
+              .a4 {
+                width: ${imgWidth};
+                height: ${imgHeight};
+                margin: 0 auto;
+                object-fit: contain;
+              }
+            </style>
+          </head>
+          <body>
+            <div class="${isThermal ? 'thermal' : 'a4'}">
+              <img src="${imgData}" alt="Document" style="width: 100%; height: auto;" />
+            </div>
+          </body>
+        </html>
+      `);
+
+      printWindow.document.close();
+      console.log('🖨️ PHASE 2: Print window content set');
+
+      // Wait for content to load, then print
+      printWindow.onload = () => {
+        console.log('🖨️ PHASE 2: Print window loaded, triggering print');
+        printWindow.print();
+
+        // Close the window after printing
+        setTimeout(() => {
+          printWindow.close();
+          console.log('🖨️ PHASE 2: Print window closed');
+        }, 1000);
+      };
+
+    } catch (error) {
+      console.error('🖨️ PHASE 2: Error in window-based print action:', error);
+      // Fallback to regular print
       window.print();
     } finally {
       setTimeout(() => {
         isProcessingRef.current = false;
+        console.log('🖨️ PHASE 2: Print process complete');
       }, 1000);
     }
-  }, []);
+  }, [documentRef]);
 
   // Handle email action - generates PDF and opens email client
   const handleEmail = useCallback(async () => {
