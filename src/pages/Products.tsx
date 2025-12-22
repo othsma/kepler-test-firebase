@@ -1,10 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useThemeStore, useProductsStore } from '../lib/store';
 import { Search, Plus, Edit2, Trash2, Package, ChevronDown, ChevronRight } from 'lucide-react';
 
 export default function Products() {
   const isDarkMode = useThemeStore((state) => state.isDarkMode);
-  const { products, categories, searchQuery, selectedCategory, setSearchQuery, setSelectedCategory, addProduct, updateProduct, deleteProduct } = useProductsStore();
+  const { products, categories, selectedCategory, setSearchQuery, setSelectedCategory, addProduct, updateProduct, deleteProduct } = useProductsStore();
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
   const [activeTab, setActiveTab] = useState<'main' | 'all'>('all');
   const [editingProduct, setEditingProduct] = useState<string | null>(null);
   const [expandedProducts, setExpandedProducts] = useState<Set<string>>(new Set());
@@ -20,14 +22,32 @@ export default function Products() {
   });
 
   // Sorting state
-  const [sortField, setSortField] = useState<'name' | 'price' | 'createdAt'>('name');
+  const [sortField, setSortField] = useState<'name' | 'createdAt'>('name');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
+  // Local search state - independent of store
+  const [localSearchQuery, setLocalSearchQuery] = useState('');
+
+  // Advanced filters state
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+  const [priceRange, setPriceRange] = useState({ min: '', max: '' });
+  const [stockRange, setStockRange] = useState({ min: '', max: '' });
+  const [dateRange, setDateRange] = useState({ from: '', to: '' });
+
   const filteredProducts = products.filter((product) => {
-    const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      product.description.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = selectedCategory === 'all' || product.category === selectedCategory;
-    return matchesSearch && matchesCategory;
+    const matchesSearch = product.name.toLowerCase().includes(localSearchQuery.toLowerCase()) ||
+      product.description.toLowerCase().includes(localSearchQuery.toLowerCase());
+    const matchesCategory = selectedCategories.length === 0 || selectedCategories.includes(product.category || '');
+
+    // Advanced filters
+    const matchesPrice = (!priceRange.min || product.price >= Number(priceRange.min)) &&
+      (!priceRange.max || product.price <= Number(priceRange.max));
+    const matchesStock = (!stockRange.min || product.stock >= Number(stockRange.min)) &&
+      (!stockRange.max || product.stock <= Number(stockRange.max));
+    const matchesDate = (!dateRange.from || new Date(product.createdAt) >= new Date(dateRange.from)) &&
+      (!dateRange.to || new Date(product.createdAt) <= new Date(dateRange.to));
+
+    return matchesSearch && matchesCategory && matchesPrice && matchesStock && matchesDate;
   });
 
   // Sorting functionality
@@ -36,10 +56,7 @@ export default function Products() {
     let bValue: any = b[sortField];
 
     // Handle different data types
-    if (sortField === 'price') {
-      aValue = Number(aValue);
-      bValue = Number(bValue);
-    } else if (sortField === 'createdAt') {
+    if (sortField === 'createdAt') {
       aValue = new Date(aValue).getTime();
       bValue = new Date(bValue).getTime();
     } else {
@@ -54,7 +71,7 @@ export default function Products() {
     }
   });
 
-  const handleSort = (field: 'name' | 'price' | 'createdAt') => {
+  const handleSort = (field: 'name' | 'createdAt') => {
     if (sortField === field) {
       setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
     } else {
@@ -96,6 +113,116 @@ export default function Products() {
       return newSet;
     });
   };
+
+  // URL state management - Debounced to prevent excessive updates
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+    // Update URL with current state
+    const url = new URL(window.location.href);
+    if (localSearchQuery) {
+      url.searchParams.set('search', localSearchQuery);
+    } else {
+      url.searchParams.delete('search');
+    }
+
+      if (selectedCategories.length > 0) {
+        url.searchParams.set('categories', selectedCategories.join(','));
+      } else {
+        url.searchParams.delete('categories');
+      }
+
+      if (priceRange.min) {
+        url.searchParams.set('priceMin', priceRange.min);
+      } else {
+        url.searchParams.delete('priceMin');
+      }
+
+      if (priceRange.max) {
+        url.searchParams.set('priceMax', priceRange.max);
+      } else {
+        url.searchParams.delete('priceMax');
+      }
+
+      if (stockRange.min) {
+        url.searchParams.set('stockMin', stockRange.min);
+      } else {
+        url.searchParams.delete('stockMin');
+      }
+
+      if (stockRange.max) {
+        url.searchParams.set('stockMax', stockRange.max);
+      } else {
+        url.searchParams.delete('stockMax');
+      }
+
+      if (dateRange.from) {
+        url.searchParams.set('dateFrom', dateRange.from);
+      } else {
+        url.searchParams.delete('dateFrom');
+      }
+
+      if (dateRange.to) {
+        url.searchParams.set('dateTo', dateRange.to);
+      } else {
+        url.searchParams.delete('dateTo');
+      }
+
+      if (sortField !== 'name') {
+        url.searchParams.set('sort', sortField);
+      } else {
+        url.searchParams.delete('sort');
+      }
+
+      if (sortDirection !== 'asc') {
+        url.searchParams.set('dir', sortDirection);
+      } else {
+        url.searchParams.delete('dir');
+      }
+
+      // Update URL without triggering navigation
+      window.history.replaceState({}, '', url.toString());
+    }, 300); // 300ms debounce
+
+    return () => clearTimeout(timeoutId);
+  }, [localSearchQuery, selectedCategories, priceRange, stockRange, dateRange, sortField, sortDirection]);
+
+  // Load state from URL on mount
+  useEffect(() => {
+    const url = new URL(window.location.href);
+
+    const search = url.searchParams.get('search');
+    if (search) setLocalSearchQuery(search);
+
+    const categoriesParam = url.searchParams.get('categories');
+    if (categoriesParam) {
+      const categoryList = categoriesParam.split(',').filter(cat => categories.includes(cat));
+      setSelectedCategories(categoryList);
+    }
+
+    const priceMin = url.searchParams.get('priceMin');
+    const priceMax = url.searchParams.get('priceMax');
+    if (priceMin || priceMax) {
+      setPriceRange({ min: priceMin || '', max: priceMax || '' });
+    }
+
+    const stockMin = url.searchParams.get('stockMin');
+    const stockMax = url.searchParams.get('stockMax');
+    if (stockMin || stockMax) {
+      setStockRange({ min: stockMin || '', max: stockMax || '' });
+    }
+
+    const dateFrom = url.searchParams.get('dateFrom');
+    const dateTo = url.searchParams.get('dateTo');
+    if (dateFrom || dateTo) {
+      setDateRange({ from: dateFrom || '', to: dateTo || '' });
+    }
+
+    const sort = url.searchParams.get('sort');
+    if (['name', 'createdAt'].includes(sort || '')) setSortField(sort as any);
+
+    const dir = url.searchParams.get('dir');
+    if (['asc', 'desc'].includes(dir || '')) setSortDirection(dir as any);
+  }, [categories]); // Only run on mount and when categories change
 
   return (
     <div className="space-y-6">
@@ -289,64 +416,269 @@ export default function Products() {
           {/* Search and filtering controls */}
           <div className={`rounded-lg ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow p-4`}>
             <div className="flex flex-col gap-4">
-              <div className="flex flex-col sm:flex-row gap-4">
-                <div className="flex-1 flex items-center gap-4 bg-white dark:bg-gray-700 p-4 rounded-lg shadow-inner">
-                  <Search className="h-5 w-5 text-gray-400" />
-                  <input
-                    type="text"
-                    placeholder="Rechercher des produits..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="flex-1 bg-transparent border-0 focus:ring-0 text-gray-900 dark:text-white placeholder-gray-400"
-                  />
-                </div>
-                <select
-                  value={selectedCategory}
-                  onChange={(e) => setSelectedCategory(e.target.value)}
-                  className="rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                >
-                  <option value="all">Toutes les catégories</option>
-                  {categories.map((category) => (
-                    <option key={category} value={category}>
-                      {category}
-                    </option>
-                  ))}
-                </select>
+              {/* Search bar */}
+              <div className="flex items-center gap-4 bg-white dark:bg-gray-700 p-4 rounded-lg shadow-inner">
+                <Search className="h-5 w-5 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Rechercher des produits..."
+                  value={localSearchQuery}
+                  onChange={(e) => setLocalSearchQuery(e.target.value)}
+                  className="flex-1 bg-transparent border-0 focus:ring-0 text-gray-900 dark:text-white placeholder-gray-400"
+                />
               </div>
 
-              {/* Sort buttons */}
-              <div className="flex gap-2 flex-wrap">
-                <button
-                  onClick={() => handleSort('name')}
-                  className={`px-3 py-2 text-sm rounded-md border ${
-                    sortField === 'name'
-                      ? 'bg-indigo-100 text-indigo-700 border-indigo-300'
-                      : 'border-gray-300 text-gray-700 hover:bg-gray-50'
-                  }`}
-                >
-                  Nom {sortField === 'name' && (sortDirection === 'asc' ? '↑' : '↓')}
-                </button>
-                <button
-                  onClick={() => handleSort('price')}
-                  className={`px-3 py-2 text-sm rounded-md border ${
-                    sortField === 'price'
-                      ? 'bg-indigo-100 text-indigo-700 border-indigo-300'
-                      : 'border-gray-300 text-gray-700 hover:bg-gray-50'
-                  }`}
-                >
-                  Prix {sortField === 'price' && (sortDirection === 'asc' ? '↑' : '↓')}
-                </button>
-                <button
-                  onClick={() => handleSort('createdAt')}
-                  className={`px-3 py-2 text-sm rounded-md border ${
-                    sortField === 'createdAt'
-                      ? 'bg-indigo-100 text-indigo-700 border-indigo-300'
-                      : 'border-gray-300 text-gray-700 hover:bg-gray-50'
-                  }`}
-                >
-                  Date {sortField === 'createdAt' && (sortDirection === 'asc' ? '↑' : '↓')}
-                </button>
+              {/* Filters and Sort buttons */}
+              <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
+                {/* Category filter */}
+                <div className="relative min-w-[200px]">
+                  <button
+                    type="button"
+                    onClick={() => setShowCategoryDropdown(!showCategoryDropdown)}
+                    className={`w-full flex items-center justify-between rounded-lg border shadow-sm px-3 py-2 text-left text-sm ${
+                      isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300 text-gray-900'
+                    } focus:border-indigo-500 focus:ring-indigo-500`}
+                  >
+                    <span className="block truncate">
+                      {selectedCategories.length === 0
+                        ? 'Toutes les catégories'
+                        : `${selectedCategories.length} cat.`
+                      }
+                    </span>
+                    <ChevronDown className="h-4 w-4 text-gray-400 ml-2" />
+                  </button>
+
+                  {showCategoryDropdown && (
+                    <>
+                      {/* Click outside overlay */}
+                      <div
+                        className="fixed inset-0 z-10"
+                        onClick={() => setShowCategoryDropdown(false)}
+                      />
+                      <div className={`absolute z-20 mt-1 w-full rounded-md shadow-lg border ${
+                        isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
+                      }`}>
+                        <div className="p-2 max-h-60 overflow-auto">
+                          {/* Select All / Clear All */}
+                          <div className="flex items-center justify-between px-2 py-1 border-b border-gray-200 dark:border-gray-600 mb-2">
+                            <span className={`text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                              Catégories
+                            </span>
+                            <div className="flex gap-2">
+                              <button
+                                type="button"
+                                onClick={() => setSelectedCategories(categories)}
+                                className="text-xs text-indigo-600 hover:text-indigo-800"
+                              >
+                                Tout
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setSelectedCategories([])}
+                                className="text-xs text-gray-500 hover:text-gray-700"
+                              >
+                                Effacer
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Category checkboxes */}
+                          {categories.map((category) => (
+                            <label
+                              key={category}
+                              className={`flex items-center px-2 py-2 rounded-md cursor-pointer ${
+                                isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-50'
+                              }`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={selectedCategories.includes(category)}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setSelectedCategories([...selectedCategories, category]);
+                                  } else {
+                                    setSelectedCategories(selectedCategories.filter(c => c !== category));
+                                  }
+                                }}
+                                className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                              />
+                              <span className={`ml-2 text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                {category}
+                              </span>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                {/* Sort buttons */}
+                <div className="flex gap-2 flex-wrap">
+                  <button
+                    onClick={() => handleSort('name')}
+                    className={`px-3 py-2 text-sm rounded-md border ${
+                      sortField === 'name'
+                        ? 'bg-indigo-100 text-indigo-700 border-indigo-300'
+                        : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+                    }`}
+                  >
+                    Nom {sortField === 'name' && (sortDirection === 'asc' ? '↑' : '↓')}
+                  </button>
+                  <button
+                    onClick={() => handleSort('createdAt')}
+                    className={`px-3 py-2 text-sm rounded-md border ${
+                      sortField === 'createdAt'
+                        ? 'bg-indigo-100 text-indigo-700 border-indigo-300'
+                        : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+                    }`}
+                  >
+                    Date {sortField === 'createdAt' && (sortDirection === 'asc' ? '↑' : '↓')}
+                  </button>
+                </div>
               </div>
+
+              {/* Selected categories chips */}
+              {selectedCategories.length > 0 && (
+                <div className="flex flex-wrap gap-1">
+                  {selectedCategories.map((category) => (
+                    <span
+                      key={category}
+                      className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                        isDarkMode ? 'bg-indigo-900 text-indigo-200' : 'bg-indigo-100 text-indigo-800'
+                      }`}
+                    >
+                      {category}
+                      <button
+                        type="button"
+                        onClick={() => setSelectedCategories(selectedCategories.filter(c => c !== category))}
+                        className={`ml-1 inline-flex items-center justify-center w-4 h-4 rounded-full ${
+                          isDarkMode ? 'hover:bg-indigo-800 text-indigo-400' : 'hover:bg-indigo-200 text-indigo-600'
+                        }`}
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              {/* Advanced Filters Toggle */}
+              <div className="flex items-center justify-between border-t pt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+                  className={`flex items-center gap-2 text-sm font-medium ${
+                    isDarkMode ? 'text-gray-300 hover:text-white' : 'text-gray-700 hover:text-gray-900'
+                  }`}
+                >
+                  <ChevronDown className={`h-4 w-4 transition-transform ${showAdvancedFilters ? 'rotate-180' : ''}`} />
+                  Filtres avancés
+                </button>
+
+                {/* Clear Filters Button */}
+                {(selectedCategories.length > 0 || priceRange.min || priceRange.max || stockRange.min || stockRange.max || dateRange.from || dateRange.to || localSearchQuery) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedCategories([]);
+                      setPriceRange({ min: '', max: '' });
+                      setStockRange({ min: '', max: '' });
+                      setDateRange({ from: '', to: '' });
+                      setLocalSearchQuery('');
+                    }}
+                    className="px-3 py-1 text-sm text-gray-500 hover:text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50"
+                  >
+                    Effacer tous les filtres
+                  </button>
+                )}
+              </div>
+
+              {/* Advanced Filters */}
+              {showAdvancedFilters && (
+                <div className={`border-t pt-4 ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`}>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {/* Price Range */}
+                    <div>
+                      <label className={`block text-sm font-medium mb-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                        Prix (€)
+                      </label>
+                      <div className="flex gap-2">
+                        <input
+                          type="number"
+                          placeholder="Min"
+                          value={priceRange.min}
+                          onChange={(e) => setPriceRange({ ...priceRange, min: e.target.value })}
+                          className={`flex-1 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm ${
+                            isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white'
+                          }`}
+                        />
+                        <input
+                          type="number"
+                          placeholder="Max"
+                          value={priceRange.max}
+                          onChange={(e) => setPriceRange({ ...priceRange, max: e.target.value })}
+                          className={`flex-1 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm ${
+                            isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white'
+                          }`}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Stock Range */}
+                    <div>
+                      <label className={`block text-sm font-medium mb-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                        Stock
+                      </label>
+                      <div className="flex gap-2">
+                        <input
+                          type="number"
+                          placeholder="Min"
+                          value={stockRange.min}
+                          onChange={(e) => setStockRange({ ...stockRange, min: e.target.value })}
+                          className={`flex-1 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm ${
+                            isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white'
+                          }`}
+                        />
+                        <input
+                          type="number"
+                          placeholder="Max"
+                          value={stockRange.max}
+                          onChange={(e) => setStockRange({ ...stockRange, max: e.target.value })}
+                          className={`flex-1 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm ${
+                            isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white'
+                          }`}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Date Range */}
+                    <div>
+                      <label className={`block text-sm font-medium mb-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                        Date de création
+                      </label>
+                      <div className="flex gap-2">
+                        <input
+                          type="date"
+                          value={dateRange.from}
+                          onChange={(e) => setDateRange({ ...dateRange, from: e.target.value })}
+                          className={`flex-1 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm ${
+                            isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white'
+                          }`}
+                        />
+                        <input
+                          type="date"
+                          value={dateRange.to}
+                          onChange={(e) => setDateRange({ ...dateRange, to: e.target.value })}
+                          className={`flex-1 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm ${
+                            isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white'
+                          }`}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
@@ -356,10 +688,10 @@ export default function Products() {
           <div className={`rounded-lg ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow p-8 text-center`}>
             <Package className="h-12 w-12 text-gray-400 mx-auto mb-4" />
             <p className={`text-lg ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-              {searchQuery ? 'Aucun produit trouvé' : 'Aucun produit enregistré'}
+              {localSearchQuery ? 'Aucun produit trouvé' : 'Aucun produit enregistré'}
             </p>
             <p className="text-sm text-gray-400 mt-2">
-              {searchQuery ? 'Essayez une recherche différente' : 'Commencez par créer votre premier produit'}
+              {localSearchQuery ? 'Essayez une recherche différente' : 'Commencez par créer votre premier produit'}
             </p>
           </div>
         ) : (
