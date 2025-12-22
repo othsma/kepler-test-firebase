@@ -1,7 +1,8 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useThemeStore, useProductsStore, useClientsStore, useTicketsStore, useSalesStore, usePosStore } from '../lib/store';
-import { Search, ShoppingCart, Plus, Minus, Trash2, CreditCard, Banknote, Receipt, FileText, Printer, ArrowRight, ArrowUp, ArrowDown, Calendar } from 'lucide-react';
+import { Search, ShoppingCart, Plus, Minus, Trash2, CreditCard, Banknote, Receipt, FileText, Printer, ArrowRight, ArrowUp, ArrowDown, Calendar, Zap } from 'lucide-react';
 import { format } from 'date-fns';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import UnifiedDocument from '../components/documents/UnifiedDocument';
 import { convertReceiptToDocument } from '../components/documents/DocumentConverter';
 
@@ -15,7 +16,7 @@ const PAYMENT_METHODS = [
 
 export default function Pos() {
   const isDarkMode = useThemeStore((state) => state.isDarkMode);
-  const { products, categories, searchQuery, selectedCategory, setSearchQuery, setSelectedCategory } = useProductsStore();
+  const { products, categories, searchQuery, selectedCategory, setSearchQuery, setSelectedCategory, updateStock } = useProductsStore();
   const { clients } = useClientsStore();
   const { tickets } = useTicketsStore();
   const { createSale } = useSalesStore();
@@ -42,12 +43,21 @@ export default function Pos() {
   
   // Filtered products based on search and category
   const filteredProducts = products.filter((product) => {
-    const matchesSearch = searchQuery 
+    const matchesSearch = searchQuery
       ? product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         product.description.toLowerCase().includes(searchQuery.toLowerCase())
       : true;
     const matchesCategory = selectedCategory === 'all' || product.category === selectedCategory;
     return matchesSearch && matchesCategory;
+  });
+
+  // Virtual scrolling setup for product catalog
+  const parentRef = useRef<HTMLDivElement>(null);
+  const rowVirtualizer = useVirtualizer({
+    count: filteredProducts.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 220, // Estimated height of each product card
+    overscan: 5, // Render 5 extra items outside visible area for smoother scrolling
   });
   
   // Filtered clients based on search
@@ -208,6 +218,17 @@ export default function Pos() {
       return;
     }
 
+    // Update inventory stock levels
+    try {
+      for (const item of cart) {
+        await updateStock(item.product.id, -item.quantity);
+      }
+    } catch (stockError) {
+      console.error('Error updating stock:', stockError);
+      // Don't fail the entire sale if stock update fails, but log it
+      alert('Vente créée avec succès, mais erreur lors de la mise à jour du stock. Veuillez vérifier manuellement.');
+    }
+
     // Show the receipt
     setCurrentInvoice(invoiceData);
     setShowReceipt(true);
@@ -266,12 +287,85 @@ export default function Pos() {
     setSortOrder('desc');
   };
 
+  // Keyboard shortcuts for POS operations
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // Only handle shortcuts when POS tab is active and not in input fields
+      if (currentView !== 'pos' || event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) {
+        return;
+      }
+
+      switch (event.key.toLowerCase()) {
+        case 'f1':
+          event.preventDefault();
+          setPaymentMethod('cash');
+          break;
+        case 'f2':
+          event.preventDefault();
+          setPaymentMethod('card');
+          break;
+        case 'f3':
+          event.preventDefault();
+          setPaymentMethod('transfer');
+          break;
+        case 'f4':
+          event.preventDefault();
+          setPaymentMethod('digital');
+          break;
+        case 'f5':
+          event.preventDefault();
+          setReceiptFormat('thermal');
+          break;
+        case 'f6':
+          event.preventDefault();
+          setReceiptFormat('a4');
+          break;
+        case 'f7':
+          event.preventDefault();
+          setQuickSale(!quickSale);
+          break;
+        case 'f9':
+          event.preventDefault();
+          if (cart.length > 0 && (quickSale || selectedClient)) {
+            createInvoice();
+          }
+          break;
+        case 'f10':
+          event.preventDefault();
+          clearCart();
+          break;
+        case 'escape':
+          event.preventDefault();
+          setCurrentView('sales');
+          break;
+        default:
+          break;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [currentView, cart.length, quickSale, selectedClient, paymentMethod, receiptFormat]);
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h1 className={`text-2xl font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
           Caisse
         </h1>
+        <div className="flex items-center gap-2">
+          <div className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'} hidden sm:block`}>
+            Raccourcis: F1-F4 (Paiement) | F5-F6 (Reçu) | F7 (Vente Rapide) | F9 (Finaliser) | F10 (Vider)
+          </div>
+          <button
+            onClick={() => setCurrentView(currentView === 'pos' ? 'sales' : 'pos')}
+            className={`px-3 py-2 rounded-md text-sm font-medium ${
+              isDarkMode ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
+          >
+            {currentView === 'pos' ? '📊 Ventes' : '🛒 PDV'}
+          </button>
+        </div>
       </div>
 
       {/* Receipt Modal - Always available regardless of current view */}
@@ -531,41 +625,100 @@ export default function Pos() {
               </select>
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {filteredProducts.map((product) => (
-                <div
-                  key={product.id}
-                  className={`border rounded-lg overflow-hidden ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`}
-                >
-                  <div className="h-32 bg-gray-100 flex items-center justify-center">
-                    <img
-                      src={product.imageUrl}
-                      alt={product.name}
-                      className="h-full object-contain"
-                    />
-                  </div>
-                  <div className="p-4">
-                    <h3 className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                      {product.name}
-                    </h3>
-                    <div className="flex justify-between items-center mt-2">
-                      <span className={`font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                        €{product.price.toFixed(2)}
-                      </span>
+            {/* Quick Add - Top Selling Products */}
+            {sales.length > 0 && (
+              <div className="mb-4">
+                <h3 className={`text-sm font-medium mb-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                  🔥 Produits populaires
+                </h3>
+                <div className="flex gap-2 overflow-x-auto pb-2">
+                  {(() => {
+                    // Calculate top-selling products from sales data
+                    const productSales = new Map();
+                    sales.forEach(sale => {
+                      sale.items.forEach(item => {
+                        const current = productSales.get(item.productId) || { count: 0, name: item.name, price: item.price };
+                        productSales.set(item.productId, {
+                          ...current,
+                          count: current.count + item.quantity
+                        });
+                      });
+                    });
+
+                    const topProducts = Array.from(productSales.entries())
+                      .sort(([,a], [,b]) => b.count - a.count)
+                      .slice(0, 8)
+                      .map(([productId, data]) => ({
+                        id: productId,
+                        ...data,
+                        product: products.find(p => p.id === productId)
+                      }))
+                      .filter(item => item.product); // Only include products that still exist
+
+                    return topProducts.map((item) => (
                       <button
-                        onClick={() => addToCart(product)}
-                        className="bg-indigo-600 text-white p-2 rounded-full hover:bg-indigo-700"
-                        disabled={product.stock <= 0}
+                        key={item.id}
+                        onClick={() => addToCart(item.product)}
+                        disabled={item.product.stock <= 0}
+                        className={`flex-shrink-0 px-3 py-2 rounded-lg border text-left transition-colors ${
+                          item.product.stock <= 0
+                            ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                            : isDarkMode
+                              ? 'bg-gray-700 border-gray-600 text-gray-300 hover:bg-gray-600'
+                              : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                        }`}
                       >
-                        <Plus className="h-4 w-4" />
+                        <div className="text-sm font-medium truncate max-w-24">
+                          {item.name}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          €{item.price.toFixed(2)}
+                        </div>
                       </button>
+                    ));
+                  })()}
+                </div>
+              </div>
+            )}
+
+            <div className="max-h-96 overflow-y-auto">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {filteredProducts.map((product) => (
+                  <div
+                    key={product.id}
+                    className={`border rounded-lg overflow-hidden ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`}
+                  >
+                    <div className="h-32 bg-gray-100 flex items-center justify-center">
+                      <img
+                        src={product.imageUrl}
+                        alt={product.name}
+                        className="h-full object-contain"
+                        loading="lazy"
+                      />
                     </div>
-                    <div className="text-sm text-gray-500 mt-1">
-                      Stock: {product.stock}
+                    <div className="p-4">
+                      <h3 className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                        {product.name}
+                      </h3>
+                      <div className="flex justify-between items-center mt-2">
+                        <span className={`font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                          €{product.price.toFixed(2)}
+                        </span>
+                        <button
+                          onClick={() => addToCart(product)}
+                          className="bg-indigo-600 text-white p-2 rounded-full hover:bg-indigo-700"
+                          disabled={product.stock <= 0}
+                        >
+                          <Plus className="h-4 w-4" />
+                        </button>
+                      </div>
+                      <div className={`text-sm mt-1 ${product.stock <= 5 ? 'text-red-600 font-medium' : product.stock <= 10 ? 'text-yellow-600' : 'text-gray-500'}`}>
+                        Stock: {product.stock} {product.stock <= 5 ? '⚠️ Faible stock!' : product.stock <= 10 ? '⚠️ Stock limité' : ''}
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
             
             {filteredProducts.length === 0 && (

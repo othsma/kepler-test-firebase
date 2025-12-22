@@ -312,7 +312,7 @@ export default function Clients() {
   };
 
   // Export functionality
-  const exportClients = (clientsToExport: any[], scope: 'current' | 'all', exportFormat: 'csv' | 'json') => {
+  const exportClients = (clientsToExport: any[], scope: 'current' | 'all' | 'selected', exportFormat: 'csv' | 'json') => {
     const timestamp = format(new Date(), 'yyyy-MM-dd_HH-mm-ss');
     const filename = `clients_${scope}_${timestamp}.${exportFormat}`;
 
