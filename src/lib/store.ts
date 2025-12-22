@@ -1420,29 +1420,45 @@ const useQuotesStore = create<QuotesState>((set, get) => ({
   },
 
   updateQuote: async (id: string, quoteData: Partial<Quote>) => {
+    console.log('=== STORE updateQuote START ===');
+    console.log('Quote ID:', id);
+    console.log('Quote data:', quoteData);
+
     set({ loading: true, error: null });
     try {
       const quoteRef = doc(db, 'quotes', id);
+      console.log('Quote reference:', quoteRef);
 
       const updateData = {
         ...quoteData,
         updatedAt: serverTimestamp()
       };
+      console.log('Final update data:', updateData);
 
+      console.log('Calling updateDoc...');
       await updateDoc(quoteRef, updateData);
+      console.log('updateDoc completed successfully');
 
       // Update the quote in the local state
-      set(state => ({
-        quotes: state.quotes.map(quote =>
+      set(state => {
+        const updatedQuotes = state.quotes.map(quote =>
           quote.id === id
             ? { ...quote, ...quoteData, updatedAt: new Date().toISOString() }
             : quote
-        ),
-        loading: false
-      }));
+        );
+        console.log('Updated local state quotes count:', updatedQuotes.length);
+        return {
+          quotes: updatedQuotes,
+          loading: false
+        };
+      });
+
+      console.log('=== STORE updateQuote END ===');
     } catch (error) {
+      console.error('=== STORE updateQuote ERROR ===');
       console.error('Error updating quote:', error);
       set({ error: 'Failed to update quote', loading: false });
+      throw error; // Re-throw so the caller can handle it
     }
   },
 

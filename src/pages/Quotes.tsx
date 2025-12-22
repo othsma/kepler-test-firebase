@@ -4,16 +4,19 @@ import { Search, Plus, Eye, Edit, Trash2, Download, Mail, CheckCircle, XCircle, 
 import { format } from 'date-fns';
 import UnifiedDocument from '../components/documents/UnifiedDocument';
 import { convertQuoteToDocument } from '../components/documents/DocumentConverter';
+import QuoteEditModal from '../components/QuoteEditModal';
 
 export default function Quotes() {
   const isDarkMode = useThemeStore((state) => state.isDarkMode);
-  const { quotes, loading, error, fetchQuotes, updateQuoteStatus, convertQuoteToSale } = useQuotesStore();
+  const { quotes, loading, error, fetchQuotes, updateQuote, updateQuoteStatus, convertQuoteToSale } = useQuotesStore();
   const { clients } = useClientsStore();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'draft' | 'sent' | 'accepted' | 'rejected' | 'expired'>('all');
   const [showQuoteViewer, setShowQuoteViewer] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
   const [selectedQuote, setSelectedQuote] = useState<any>(null);
+  const [editingQuote, setEditingQuote] = useState<any>(null);
 
   useEffect(() => {
     fetchQuotes();
@@ -114,6 +117,49 @@ export default function Quotes() {
             setSelectedQuote(null);
           }}
           initialFormat="a4"
+        />
+      )}
+
+      {/* Edit Quote Modal */}
+      {showEditModal && editingQuote && (
+        <QuoteEditModal
+          quote={editingQuote}
+          clients={clients}
+          onClose={() => {
+            setShowEditModal(false);
+            setEditingQuote(null);
+          }}
+          onSave={async (updatedQuote) => {
+            console.log('=== QUOTE SAVE START ===');
+            console.log('Original updatedQuote:', updatedQuote);
+
+            try {
+              // Remove id from the update data since it's passed separately
+              const { id, ...quoteData } = updatedQuote;
+
+              // Filter out undefined values to prevent Firestore errors
+              const cleanQuoteData = Object.fromEntries(
+                Object.entries(quoteData).filter(([_, value]) => value !== undefined)
+              );
+
+              console.log('Quote ID:', id);
+              console.log('Original quote data:', quoteData);
+              console.log('Clean quote data:', cleanQuoteData);
+
+              console.log('Calling updateQuote...');
+              await updateQuote(id, cleanQuoteData);
+              console.log('updateQuote completed successfully');
+
+              alert('Devis mis à jour avec succès!');
+              setShowEditModal(false);
+              setEditingQuote(null);
+              fetchQuotes(); // Refresh quotes
+            } catch (error) {
+              console.error('=== QUOTE SAVE ERROR ===');
+              console.error('Error updating quote:', error);
+              alert('Erreur lors de la mise à jour du devis');
+            }
+          }}
         />
       )}
 
@@ -229,6 +275,20 @@ export default function Quotes() {
                         >
                           <Eye className="h-4 w-4" />
                         </button>
+
+                        {/* Edit Quote - Only for draft and sent quotes */}
+                        {(quote.status === 'draft' || quote.status === 'sent') && (
+                          <button
+                            onClick={() => {
+                              setEditingQuote({...quote});
+                              setShowEditModal(true);
+                            }}
+                            className="text-blue-600 hover:text-blue-900 p-1"
+                            title="Modifier le devis"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </button>
+                        )}
 
                         {/* Status Actions */}
                         {quote.status === 'draft' && (
