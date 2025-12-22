@@ -12,6 +12,51 @@ import {
 } from 'firebase/firestore';
 import { db, initializeSuperAdmin, ROLES } from './firebase';
 import { User } from 'firebase/auth';
+import { format } from 'date-fns';
+
+interface QuoteItem {
+  productId: string;
+  quantity: number;
+  name: string;
+  description?: string;
+  price: number;
+  sku?: string;
+}
+
+interface Quote {
+  id: string;
+  quoteNumber: string;
+  items: QuoteItem[];
+  subtotal: number;
+  tax: number;
+  total: number;
+  customer?: {
+    id: string;
+    name: string;
+    email?: string;
+    phone?: string;
+    address?: string;
+  };
+  status: 'draft' | 'sent' | 'accepted' | 'rejected' | 'expired';
+  validUntil: string;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+  createdFrom?: 'pos' | 'manual';
+  convertedToSaleId?: string;
+}
+
+interface QuotesState {
+  quotes: Quote[];
+  loading: boolean;
+  error: string | null;
+  fetchQuotes: () => Promise<void>;
+  createQuote: (quoteData: Omit<Quote, 'id' | 'quoteNumber' | 'createdAt' | 'updatedAt' | 'validUntil' | 'status'>) => Promise<string>;
+  updateQuote: (id: string, quoteData: Partial<Quote>) => Promise<void>;
+  updateQuoteStatus: (id: string, status: Quote['status']) => Promise<void>;
+  convertQuoteToSale: (quoteId: string) => Promise<string>;
+  deleteQuote: (id: string) => Promise<void>;
+}
 
 interface ThemeState {
   isDarkMode: boolean;
@@ -1293,6 +1338,227 @@ const useSalesStore = create<SalesState>((set) => ({
   }
 }));
 
+const generateQuoteNumber = () => {
+  const date = format(new Date(), 'yyMMdd');
+  const random = Math.floor(100 + Math.random() * 900);
+  return `Q-${date}-${random}`;
+};
+
+const useQuotesStore = create<QuotesState>((set, get) => ({
+  quotes: [],
+  loading: false,
+  error: null,
+
+  fetchQuotes: async () => {
+    set({ loading: true, error: null });
+    try {
+      const quotesCollection = collection(db, 'quotes');
+      const quotesSnapshot = await getDocs(quotesCollection);
+      const quotesList = quotesSnapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          ...data,
+          createdAt: data.createdAt?.toDate().toISOString() || new Date().toISOString(),
+          updatedAt: data.updatedAt?.toDate().toISOString() || new Date().toISOString(),
+          validUntil: data.validUntil?.toDate().toISOString() || new Date().toISOString()
+        } as Quote;
+      });
+
+      set({ quotes: quotesList, loading: false });
+    } catch (error) {
+      console.error('Error fetching quotes:', error);
+      set({ error: 'Failed to fetch quotes', loading: false });
+    }
+  },
+
+  createQuote: async (quoteData) => {
+    set({ loading: true, error: null });
+    try {
+      const quoteNumber = generateQuoteNumber();
+      const validUntil = new Date();
+      validUntil.setDate(validUntil.getDate() + 30); // 30 days validity
+
+      const quoteDoc = {
+        ...quoteData,
+        quoteNumber,
+        status: 'draft' as const,
+        validUntil: serverTimestamp(),
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        createdFrom: 'pos' as const
+      };
+
+      console.log('Creating quote with data:', quoteDoc);
+      const docRef = await addDoc(collection(db, 'quotes'), quoteDoc);
+      console.log('Quote created with ID:', docRef.id);
+
+      // Create quote object for local state
+      const newQuote = {
+        id: docRef.id,
+        ...quoteData,
+        quoteNumber,
+        status: 'draft' as const,
+        validUntil: validUntil.toISOString(),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        createdFrom: 'pos' as const
+      };
+
+      // Update local state
+      set(state => ({
+        quotes: [...state.quotes, newQuote],
+        loading: false
+      }));
+
+      return docRef.id;
+    } catch (error) {
+      console.error('Error creating quote:', error);
+      set({ error: 'Failed to create quote', loading: false });
+      return '';
+    }
+  },
+
+  updateQuote: async (id: string, quoteData: Partial<Quote>) => {
+    set({ loading: true, error: null });
+    try {
+      const quoteRef = doc(db, 'quotes', id);
+
+      const updateData = {
+        ...quoteData,
+        updatedAt: serverTimestamp()
+      };
+
+      await updateDoc(quoteRef, updateData);
+
+      // Update the quote in the local state
+      set(state => ({
+        quotes: state.quotes.map(quote =>
+          quote.id === id
+            ? { ...quote, ...quoteData, updatedAt: new Date().toISOString() }
+            : quote
+        ),
+        loading: false
+      }));
+    } catch (error) {
+      console.error('Error updating quote:', error);
+      set({ error: 'Failed to update quote', loading: false });
+    }
+  },
+
+  updateQuoteStatus: async (id: string, status: Quote['status']) => {
+    set({ loading: true, error: null });
+    try {
+      const quoteRef = doc(db, 'quotes', id);
+
+      const updateData = {
+        status,
+        updatedAt: serverTimestamp()
+      };
+
+      await updateDoc(quoteRef, updateData);
+
+      // Update the quote in the local state
+      set(state => ({
+        quotes: state.quotes.map(quote =>
+          quote.id === id
+            ? { ...quote, status, updatedAt: new Date().toISOString() }
+            : quote
+        ),
+        loading: false
+      }));
+    } catch (error) {
+      console.error('Error updating quote status:', error);
+      set({ error: 'Failed to update quote status', loading: false });
+    }
+  },
+
+  convertQuoteToSale: async (quoteId: string) => {
+    set({ loading: true, error: null });
+    try {
+      const { quotes } = get();
+      const quote = quotes.find(q => q.id === quoteId);
+
+      if (!quote) {
+        throw new Error('Quote not found');
+      }
+
+      // Generate invoice ID
+      const prefix = 'INV';
+      const date = format(new Date(), 'yyMMdd');
+      const random = Math.floor(1000 + Math.random() * 9000);
+      const invoiceNumber = `${prefix}-${date}-${random}`;
+
+      // Create sale from quote
+      const saleData = {
+        invoiceNumber,
+        items: quote.items.map(item => ({
+          productId: item.productId,
+          quantity: item.quantity,
+          name: item.name,
+          sku: item.sku,
+          price: item.price,
+        })),
+        subtotal: quote.subtotal,
+        tax: quote.tax,
+        total: quote.total,
+        customer: quote.customer,
+        paymentMethod: 'cash',
+        paymentStatus: 'Paid',
+        date: new Date().toISOString(),
+        note: `Converted from quote ${quote.quoteNumber}`
+      };
+
+      // Create sale in Firestore
+      const saleDoc = {
+        ...saleData,
+        createdAt: new Date()
+      };
+
+      const saleDocRef = await addDoc(collection(db, 'sales'), saleDoc);
+
+      // Update quote status and link to sale
+      const quoteRef = doc(db, 'quotes', quoteId);
+      await updateDoc(quoteRef, {
+        status: 'accepted',
+        convertedToSaleId: saleDocRef.id,
+        updatedAt: serverTimestamp()
+      });
+
+      // Update local state
+      set(state => ({
+        quotes: state.quotes.map(q =>
+          q.id === quoteId
+            ? { ...q, status: 'accepted' as const, convertedToSaleId: saleDocRef.id, updatedAt: new Date().toISOString() }
+            : q
+        ),
+        loading: false
+      }));
+
+      return saleDocRef.id;
+    } catch (error) {
+      console.error('Error converting quote to sale:', error);
+      set({ error: 'Failed to convert quote to sale', loading: false });
+      return '';
+    }
+  },
+
+  deleteQuote: async (id: string) => {
+    set({ loading: true, error: null });
+    try {
+      await deleteDoc(doc(db, 'quotes', id));
+
+      set(state => ({
+        quotes: state.quotes.filter(quote => quote.id !== id),
+        loading: false
+      }));
+    } catch (error) {
+      console.error('Error deleting quote:', error);
+      set({ error: 'Failed to delete quote', loading: false });
+    }
+  }
+}));
+
 // Export all stores
 export {
   useThemeStore,
@@ -1303,7 +1569,8 @@ export {
   useProductsStore,
   useOrdersStore,
   useSalesStore,
-  usePosStore
+  usePosStore,
+  useQuotesStore
 };
 
 // Initialize the super admin account

@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { useThemeStore, useProductsStore, useClientsStore, useTicketsStore, useSalesStore, usePosStore } from '../lib/store';
+import { useThemeStore, useProductsStore, useClientsStore, useTicketsStore, useSalesStore, usePosStore, useQuotesStore } from '../lib/store';
 import { Search, ShoppingCart, Plus, Minus, Trash2, CreditCard, Banknote, Receipt, FileText, Printer, ArrowRight, ArrowUp, ArrowDown, Calendar, Zap, ChevronDown } from 'lucide-react';
 import { format } from 'date-fns';
 import { useVirtualizer } from '@tanstack/react-virtual';
@@ -20,6 +20,7 @@ export default function Pos() {
   const { clients } = useClientsStore();
   const { tickets } = useTicketsStore();
   const { createSale } = useSalesStore();
+  const { createQuote } = useQuotesStore();
   const { showReceipt, currentInvoice, setShowReceipt, setCurrentInvoice, clearReceipt } = usePosStore();
 
   // Cart state
@@ -302,6 +303,64 @@ export default function Pos() {
     // Save to localStorage immediately to prevent loss on remount
     localStorage.setItem('pos_showReceipt', 'true');
     localStorage.setItem('pos_currentInvoice', JSON.stringify(invoiceData));
+  };
+
+  // Create quote
+  const handleCreateQuote = async () => {
+    if (cart.length === 0) return;
+
+    const client = selectedClient ? clients.find(c => c.id === selectedClient) : undefined;
+
+    // Validate that if a client is selected, it exists
+    if (selectedClient && !client) {
+      alert('Erreur: Client sélectionné introuvable. Veuillez réessayer.');
+      return;
+    }
+
+    // For quotes, we don't require a client, but it's recommended
+    if (!selectedClient && !quickSale) {
+      alert('Pour créer un devis, veuillez sélectionner un client ou cocher "Vente rapide".');
+      return;
+    }
+
+    const quoteData: any = {
+      items: cart.map(item => ({
+        productId: item.product.id,
+        quantity: item.quantity,
+        name: item.product.name,
+        sku: item.product.sku,
+        price: item.product.price,
+        description: item.product.description || undefined
+      })),
+      subtotal,
+      tax: vatAmount,
+      total,
+      customer: client ? {
+        id: client.id,
+        name: client.name,
+        ...(client.email && { email: client.email }),
+        ...(client.phone && { phone: client.phone }),
+        ...(client.address && { address: client.address }),
+      } : undefined
+    };
+
+    // Only include notes if they have a value
+    if (note && note.trim().length > 0) {
+      quoteData.notes = note.trim();
+    }
+
+    console.log('Creating quote with data:', quoteData);
+    const quoteId = await createQuote(quoteData);
+    console.log('Quote creation result:', quoteId);
+
+    if (!quoteId) {
+      alert('Erreur: Impossible de créer le devis. Veuillez réessayer.');
+      return;
+    }
+
+    // Show success message and clear cart
+    alert(`Devis créé avec succès! Numéro: ${quoteId}`);
+    clearCart();
   };
 
   // Get sales data for the sales view
@@ -1375,14 +1434,23 @@ export default function Pos() {
                   />
                 </div>
 
-                <button
-                  onClick={createInvoice}
-                  disabled={cart.length === 0 || (!quickSale && !selectedClient)}
-                  className="w-full bg-indigo-600 text-white px-4 py-3 rounded-md hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                >
-                  <ArrowRight className="h-5 w-5" />
-                  Finaliser la vente
-                </button>
+                <div className="flex gap-3">
+                  <button
+                    onClick={handleCreateQuote}
+                    disabled={cart.length === 0 || (!quickSale && !selectedClient)}
+                    className="flex-1 bg-green-600 text-white px-4 py-3 rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  >
+                    📄 Créer devis
+                  </button>
+                  <button
+                    onClick={createInvoice}
+                    disabled={cart.length === 0 || (!quickSale && !selectedClient)}
+                    className="flex-1 bg-indigo-600 text-white px-4 py-3 rounded-md hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  >
+                    <ArrowRight className="h-5 w-5" />
+                    Finaliser la vente
+                  </button>
+                </div>
               </div>
             </div>
           </div>

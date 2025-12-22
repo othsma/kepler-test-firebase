@@ -36,13 +36,16 @@ export interface DocumentData {
   amountPaid?: number;
   note?: string;
   type: 'receipt' | 'invoice' | 'ticket' | 'quote';
-  
+
   // Additional fields for tickets
   deviceType?: string;
   brand?: string;
   model?: string;
   passcode?: string;
-  
+
+  // Additional fields for quotes
+  validUntil?: string;
+
   // Source information
   sourceType?: 'pos' | 'ticket';
   sourceId?: string;

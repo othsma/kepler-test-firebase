@@ -151,3 +151,37 @@ export function convertReceiptToDocument(receipt: any): DocumentData {
     sourceId: receipt.id
   };
 }
+
+/**
+ * Convert a quote to the unified document format
+ */
+export function convertQuoteToDocument(quote: any): DocumentData {
+  return {
+    id: quote.id || `quote-${Math.random().toString(36).substring(2, 9)}`,
+    number: quote.quoteNumber || '',
+    date: quote.createdAt || new Date().toISOString(),
+    customer: quote.customer ? {
+      id: quote.customer.id || `customer-${Math.random().toString(36).substring(2, 9)}`,
+      name: quote.customer.name || '',
+      email: quote.customer.email || '',
+      phone: quote.customer.phone || '',
+      address: quote.customer.address || ''
+    } : undefined,
+    items: (quote.items || []).map((item: any) => ({
+      id: item.productId || `item-${Math.random().toString(36).substring(2, 9)}`,
+      name: item.name || '',
+      quantity: item.quantity || 1,
+      price: item.price || 0,
+      sku: item.sku
+    })),
+    subtotal: quote.subtotal || 0,
+    tax: quote.tax || 0,
+    total: quote.total || 0,
+    note: quote.notes,
+    type: 'quote',
+    status: quote.status || 'draft',
+    validUntil: quote.validUntil,
+    sourceType: 'pos',
+    sourceId: quote.id
+  };
+}

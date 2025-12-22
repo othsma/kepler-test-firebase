@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Users, PenTool as Tool, ShoppingCart, Wrench, Settings, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, UserCog } from 'lucide-react';
+import { LayoutDashboard, Users, PenTool as Tool, ShoppingCart, Wrench, Settings, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, UserCog, Receipt } from 'lucide-react';
 import { useThemeStore, useAuthStore } from '../lib/store';
 import { ROLES } from '../lib/firebase';
 
@@ -50,6 +50,7 @@ export default function Sidebar({ isCollapsed, toggleSidebar }: SidebarProps) {
         icon: ShoppingCart,
         children: [
           { name: 'Ventes', href: '/pos' },
+          { name: 'Devis', href: '/pos/quotes' },
           { name: 'Produits', href: '/pos/products' },
           { name: 'Commandes', href: '/pos/orders' }
         ],

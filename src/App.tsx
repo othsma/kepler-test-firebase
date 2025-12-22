@@ -14,6 +14,7 @@ const Clients = lazy(() => import('./pages/Clients'));
 const Tickets = lazy(() => import('./pages/SimpleTickets'));
 const Products = lazy(() => import('./pages/Products'));
 const Orders = lazy(() => import('./pages/Orders'));
+const Quotes = lazy(() => import('./pages/Quotes'));
 const Settings = lazy(() => import('./pages/Settings'));
 const Login = lazy(() => import('./pages/Login'));
 const Register = lazy(() => import('./pages/Register'));
@@ -147,11 +148,16 @@ function App() {
                 <Tickets />
               </ProtectedRoute>
             } />
-            
+
             {/* Super Admin Only Routes */}
             <Route path="pos" element={
               <ProtectedRoute requiredRole={ROLES.SUPER_ADMIN}>
                 <Pos />
+              </ProtectedRoute>
+            } />
+            <Route path="pos/quotes" element={
+              <ProtectedRoute requiredRole={ROLES.SUPER_ADMIN}>
+                <Quotes />
               </ProtectedRoute>
             } />
             <Route path="pos/products" element={
