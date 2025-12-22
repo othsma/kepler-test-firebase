@@ -112,7 +112,8 @@ export const DOCUMENT_TYPE_NAMES: Record<DocumentData['type'], string> = {
   receipt: 'Receipt',
   invoice: 'Invoice',
   ticket: 'Repair Ticket',
-  quote: 'Quote'
+  quote: 'Quote',
+  engagement: 'Client Engagement Contract'
 };
 
 // Status display configurations
@@ -169,5 +170,15 @@ export const TERMS_CONFIG: Record<DocumentData['type'], string[]> = {
     'Toute modification demandée pourra entraîner une révision du devis.',
     'L’exécution des travaux débutera après réception de l’acompte prévu.',
     'Le tarif définitif sera confirmé lors de la validation de la commande. '
+  ],
+  engagement: [
+    "Je reconnais avoir confié mon appareil à OMEGA SERVICES",
+    "J'ai été informé(e) que je dois sauvegarder mes données avant toute intervention",
+    "Le client reconnaît avoir été informé que l'intervention peut entraîner la perte de tout ou une partie de ses données et en accepte les conséquences",
+    "J'accepte que le diagnostic puisse être payant",
+    "Je reconnais que les délais sont indicatifs",
+    "Je m'engage à régler la totalité de la prestation avant récupération de l'appareil",
+    "Je reconnais la garantie de 3 mois applicable uniquement sur les pièces remplacées",
+    "Tout appareil non récupéré sous 30 jours pourra être considéré comme abandonné"
   ]
 };

@@ -35,7 +35,7 @@ export interface DocumentData {
   paymentStatus?: string;
   amountPaid?: number;
   note?: string;
-  type: 'receipt' | 'invoice' | 'ticket' | 'quote';
+  type: 'receipt' | 'invoice' | 'ticket' | 'quote' | 'engagement';
 
   // Additional fields for tickets
   deviceType?: string;

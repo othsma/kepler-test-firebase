@@ -186,3 +186,61 @@ export function convertQuoteToDocument(quote: any): DocumentData {
     sourceId: quote.id
   };
 }
+
+/**
+ * Convert a ticket to an engagement contract document format
+ */
+export function convertEngagementToDocument(ticket: any, client: any): DocumentData {
+  // Create items from ticket tasks (if available)
+  const items: DocumentItem[] = [];
+
+  if (ticket.taskPrices && Array.isArray(ticket.taskPrices)) {
+    ticket.taskPrices.forEach((task: any) => {
+      items.push({
+        id: `task-${Math.random().toString(36).substring(2, 9)}`,
+        name: task.name,
+        quantity: 1,
+        price: task.price
+      });
+    });
+  } else if (ticket.tasks && Array.isArray(ticket.tasks)) {
+    // For engagement contracts, we don't need pricing, just task names
+    ticket.tasks.forEach((task: string) => {
+      items.push({
+        id: `task-${Math.random().toString(36).substring(2, 9)}`,
+        name: task,
+        quantity: 1,
+        price: 0,
+        description: 'Prestation de réparation'
+      });
+    });
+  }
+
+  return {
+    id: ticket.id || `engagement-${Math.random().toString(36).substring(2, 9)}`,
+    number: `ENG-${ticket.ticketNumber || Math.random().toString(36).substring(2, 9)}`,
+    date: ticket.createdAt || new Date().toISOString(),
+    customer: client ? {
+      id: client.id || `customer-${Math.random().toString(36).substring(2, 9)}`,
+      name: client.name || '',
+      email: client.email || '',
+      phone: client.phone || '',
+      address: client.address || ''
+    } : undefined,
+    items: items,
+    subtotal: ticket.cost || 0,
+    tax: 0, // Engagement contracts typically don't include tax breakdown
+    total: ticket.cost || 0,
+    status: ticket.status || 'pending',
+    type: 'engagement',
+    deviceType: ticket.deviceType || '',
+    brand: ticket.brand || '',
+    model: ticket.model || '',
+    passcode: ticket.passcode,
+    sourceType: 'ticket',
+    sourceId: ticket.id,
+
+    // Engagement-specific fields (stored in note for now)
+    note: `CONTRAT D'ENGAGEMENT CLIENT - ${ticket.ticketNumber}`
+  };
+}

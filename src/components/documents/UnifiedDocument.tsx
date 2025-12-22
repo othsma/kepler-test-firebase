@@ -31,6 +31,7 @@ import PrintAction from './actions/PrintAction';
 import ThermalFormat from './formats/ThermalFormat';
 import A4Format from './formats/A4Format';
 import PDFFormat from './formats/PDFFormat';
+import EngagementFormat from './formats/EngagementFormat';
 
 interface UnifiedDocumentProps {
   data: DocumentData;
@@ -72,10 +73,16 @@ function UnifiedDocument({
     handleFormatToggle(format);
   };
 
-  // Render document content based on selected format
+  // Render document content based on document type and format
   const renderDocumentContent = () => {
     const commonProps = { data };
 
+    // Special handling for engagement contracts - always use A4 format
+    if (data.type === 'engagement') {
+      return <EngagementFormat {...commonProps} />;
+    }
+
+    // Standard format handling for other document types
     switch (format) {
       case 'thermal':
         return <ThermalFormat {...commonProps} />;

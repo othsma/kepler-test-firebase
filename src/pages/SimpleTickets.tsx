@@ -4,7 +4,7 @@ import { Search, Plus, Calendar, User, Edit, FileText as FileIcon, Trash2, Arrow
 import { format } from 'date-fns';
 import ClientForm from '../components/ClientForm';
 import UnifiedDocument from '../components/documents/UnifiedDocument';
-import { convertTicketToDocument } from '../components/documents/DocumentConverter';
+import { convertTicketToDocument, convertEngagementToDocument } from '../components/documents/DocumentConverter';
 import { getAllTechnicians, ROLES } from '../lib/firebase';
 
 export default function SimpleTickets() {
@@ -54,6 +54,8 @@ export default function SimpleTickets() {
     return '';
   });
   const [showInvoice, setShowInvoice] = useState(false);
+  const [showEngagement, setShowEngagement] = useState(false);
+  const [selectedTicket, setSelectedTicket] = useState<any>(null);
   const [newTicketNumber, setNewTicketNumber] = useState('');
   const [isAddingClient, setIsAddingClient] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -1334,6 +1336,25 @@ export default function SimpleTickets() {
                           >
                             <FileIcon className="h-5 w-5" />
                           </button>
+
+                          {/* Engagement Contract button */}
+                          <button
+                            onClick={() => {
+                              const client = clients.find(c => c.id === ticket.clientId);
+                              if (!client) {
+                                alert('Client information not found for this ticket.');
+                                return;
+                              }
+                              // Set the selected ticket and client for the engagement contract
+                              setSelectedTicket(ticket);
+                              setSelectedClientId(ticket.clientId);
+                              setShowEngagement(true);
+                            }}
+                            className="text-purple-600 hover:text-purple-800"
+                            title="Generate Engagement Contract"
+                          >
+                            📄
+                          </button>
                           
                           {/* Delete button - only for super admin */}
                           {userRole === ROLES.SUPER_ADMIN && (
@@ -1373,6 +1394,21 @@ export default function SimpleTickets() {
             clients.find(c => c.id === selectedClientId)
           )}
           onClose={() => setShowInvoice(false)}
+          initialFormat="a4"
+        />
+      )}
+
+      {/* Engagement Contract Modal */}
+      {showEngagement && selectedTicket && (
+        <UnifiedDocument
+          data={convertEngagementToDocument(
+            selectedTicket,
+            clients.find(c => c.id === selectedTicket.clientId)
+          )}
+          onClose={() => {
+            setShowEngagement(false);
+            setSelectedTicket(null);
+          }}
           initialFormat="a4"
         />
       )}
