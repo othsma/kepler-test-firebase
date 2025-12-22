@@ -814,6 +814,7 @@ interface Product {
   sku: string;
   description: string;
   imageUrl: string;
+  createdAt: string;
 }
 
 interface ProductsState {
