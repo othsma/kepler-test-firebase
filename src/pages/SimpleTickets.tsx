@@ -176,7 +176,7 @@ export default function SimpleTickets() {
   const [searchField, setSearchField] = useState<'all' | 'tasks' | 'client' | 'ticket'>('all');
 
   // Tab navigation state
-  const [currentView, setCurrentView] = useState<'create' | 'all'>('create');
+  const [currentView, setCurrentView] = useState<'create' | 'all'>('all');
 
   // Fetch technicians for super admin
   useEffect(() => {
@@ -483,7 +483,7 @@ export default function SimpleTickets() {
       case 'partially_paid':
         return <span className="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">Partiellement payé</span>;
       case 'fully_paid':
-        return <span className="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">Entièrement payé</span>;
+        return <span className="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">Payé</span>;
       default:
         return null;
     }
@@ -1078,7 +1078,7 @@ export default function SimpleTickets() {
                 >
                   <option value="not_paid">Non payé</option>
                   <option value="partially_paid">Partiellement payé</option>
-                  <option value="fully_paid">Entièrement payé</option>
+                  <option value="fully_paid">Payé</option>
                 </select>
               </div>
 
@@ -1298,25 +1298,7 @@ export default function SimpleTickets() {
                         )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        {canEditTicket(ticket) ? (
-                          <select
-                            value={ticket.paymentStatus || 'not_paid'}
-                            onChange={(e) => {
-                              const newPaymentStatus = e.target.value as 'not_paid' | 'partially_paid' | 'fully_paid';
-                              updateTicket(ticket.id, {
-                                paymentStatus: newPaymentStatus,
-                                amountPaid: newPaymentStatus === 'not_paid' ? 0 : ticket.amountPaid || 0
-                              });
-                            }}
-                            className="text-sm rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                          >
-                            <option value="not_paid">Non payé</option>
-                            <option value="partially_paid">Partiellement payé</option>
-                            <option value="fully_paid">Entièrement payé</option>
-                          </select>
-                        ) : (
-                          getPaymentStatusBadge(ticket.paymentStatus || 'not_paid')
-                        )}
+                        {getPaymentStatusBadge(ticket.paymentStatus || 'not_paid')}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
                         <div className="flex items-center">

@@ -9,7 +9,7 @@ export default function Clients() {
   const { tickets } = useTicketsStore();
   const { orders } = useOrdersStore();
   const { sales } = useSalesStore();
-  const [activeTab, setActiveTab] = useState<'main' | 'all'>('main');
+  const [activeTab, setActiveTab] = useState<'main' | 'all'>('all');
   const [selectedClient, setSelectedClient] = useState<string | null>(null);
   const [editingInline, setEditingInline] = useState<string | null>(null);
   const [expandedClients, setExpandedClients] = useState<Set<string>>(new Set());
