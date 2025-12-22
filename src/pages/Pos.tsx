@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useThemeStore, useProductsStore, useClientsStore, useTicketsStore, useSalesStore, usePosStore } from '../lib/store';
-import { Search, ShoppingCart, Plus, Minus, Trash2, CreditCard, Banknote, Receipt, FileText, Printer, ArrowRight, ArrowUp, ArrowDown, Calendar, Zap } from 'lucide-react';
+import { Search, ShoppingCart, Plus, Minus, Trash2, CreditCard, Banknote, Receipt, FileText, Printer, ArrowRight, ArrowUp, ArrowDown, Calendar, Zap, ChevronDown } from 'lucide-react';
 import { format } from 'date-fns';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import UnifiedDocument from '../components/documents/UnifiedDocument';
@@ -16,12 +16,12 @@ const PAYMENT_METHODS = [
 
 export default function Pos() {
   const isDarkMode = useThemeStore((state) => state.isDarkMode);
-  const { products, categories, searchQuery, selectedCategory, setSearchQuery, setSelectedCategory, updateStock } = useProductsStore();
+  const { products, categories, updateStock } = useProductsStore();
   const { clients } = useClientsStore();
   const { tickets } = useTicketsStore();
   const { createSale } = useSalesStore();
   const { showReceipt, currentInvoice, setShowReceipt, setCurrentInvoice, clearReceipt } = usePosStore();
-  
+
   // Cart state
   const [cart, setCart] = useState<Array<{ product: any; quantity: number }>>([]);
   const [selectedClient, setSelectedClient] = useState<string | null>(null);
@@ -40,15 +40,37 @@ export default function Pos() {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc'); // desc = newest first
-  
-  // Filtered products based on search and category
+
+  // Local search state - independent of store
+  const [localSearchQuery, setLocalSearchQuery] = useState('');
+
+  // Multi-category selection state
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
+
+  // Advanced filters state
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+  const [priceRange, setPriceRange] = useState({ min: '', max: '' });
+  const [stockRange, setStockRange] = useState({ min: '', max: '' });
+  const [dateRange, setDateRange] = useState({ from: '', to: '' });
+
+  // Filtered products based on search, categories, and advanced filters
   const filteredProducts = products.filter((product) => {
-    const matchesSearch = searchQuery
-      ? product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        product.description.toLowerCase().includes(searchQuery.toLowerCase())
+    const matchesSearch = localSearchQuery
+      ? product.name.toLowerCase().includes(localSearchQuery.toLowerCase()) ||
+        product.description.toLowerCase().includes(localSearchQuery.toLowerCase())
       : true;
-    const matchesCategory = selectedCategory === 'all' || product.category === selectedCategory;
-    return matchesSearch && matchesCategory;
+    const matchesCategory = selectedCategories.length === 0 || selectedCategories.includes(product.category || '');
+
+    // Advanced filters
+    const matchesPrice = (!priceRange.min || product.price >= Number(priceRange.min)) &&
+      (!priceRange.max || product.price <= Number(priceRange.max));
+    const matchesStock = (!stockRange.min || product.stock >= Number(stockRange.min)) &&
+      (!stockRange.max || product.stock <= Number(stockRange.max));
+    const matchesDate = (!dateRange.from || new Date(product.createdAt) >= new Date(dateRange.from)) &&
+      (!dateRange.to || new Date(product.createdAt) <= new Date(dateRange.to));
+
+    return matchesSearch && matchesCategory && matchesPrice && matchesStock && matchesDate;
   });
 
   // Virtual scrolling setup for product catalog
@@ -595,36 +617,224 @@ export default function Pos() {
           )}
         </div>
       ) : (
-        <>
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Product Catalog */}
-        <div className="lg:col-span-2 space-y-6">
-          <div className={`rounded-lg ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow p-6`}>
-            <div className="flex flex-col sm:flex-row gap-4 mb-6">
-              <div className="flex-1 flex items-center gap-4 bg-white dark:bg-gray-700 p-4 rounded-lg shadow-inner">
-                <Search className="h-5 w-5 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Rechercher des produits..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="flex-1 bg-transparent border-0 focus:ring-0 text-gray-900 dark:text-white placeholder-gray-400"
-                />
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Product Catalog */}
+          <div className="lg:col-span-2 space-y-6">
+            <div className={`rounded-lg ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow p-6`}>
+              <div className="flex flex-col sm:flex-row gap-4 mb-6">
+                <div className="flex-1 flex items-center gap-4 bg-white dark:bg-gray-700 p-4 rounded-lg shadow-inner">
+                  <Search className="h-5 w-5 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Rechercher des produits..."
+                    value={localSearchQuery}
+                    onChange={(e) => setLocalSearchQuery(e.target.value)}
+                    className="flex-1 bg-transparent border-0 focus:ring-0 text-gray-900 dark:text-white placeholder-gray-400"
+                  />
+                </div>
+
+                {/* Clear Filters Button */}
+                {(selectedCategories.length > 0 || priceRange.min || priceRange.max || stockRange.min || stockRange.max || dateRange.from || dateRange.to || localSearchQuery) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedCategories([]);
+                      setPriceRange({ min: '', max: '' });
+                      setStockRange({ min: '', max: '' });
+                      setDateRange({ from: '', to: '' });
+                      setLocalSearchQuery('');
+                    }}
+                    className="px-3 py-2 text-sm text-gray-500 hover:text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50 whitespace-nowrap"
+                  >
+                    Effacer les filtres
+                  </button>
+                )}
               </div>
-              <select
-                value={selectedCategory}
-                onChange={(e) => setSelectedCategory(e.target.value)}
-                className="rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-              >
-                <option value="all">Toutes les catégories</option>
-                {categories.map((category) => (
-                  <option key={category} value={category}>
-                    {category}
-                  </option>
-                ))}
-              </select>
+
+              {/* Category Filter */}
+              <div className="relative min-w-[200px]">
+                <button
+                  type="button"
+                  onClick={() => setShowCategoryDropdown(!showCategoryDropdown)}
+                  className={`w-full flex items-center justify-between rounded-lg border shadow-sm px-3 py-2 text-left text-sm ${
+                    isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300 text-gray-900'
+                  } focus:border-indigo-500 focus:ring-indigo-500`}
+                >
+                  <span className="block truncate">
+                    {selectedCategories.length === 0
+                      ? 'Toutes les catégories'
+                      : `${selectedCategories.length} cat. sélectionnée${selectedCategories.length > 1 ? 's' : ''}`
+                    }
+                  </span>
+                  <ChevronDown className="h-4 w-4 text-gray-400 ml-2" />
+                </button>
+
+                {showCategoryDropdown && (
+                  <div className="relative">
+                    {/* Click outside overlay */}
+                    <div
+                      className="fixed inset-0 z-10"
+                      onClick={() => setShowCategoryDropdown(false)}
+                    />
+                    <div className={`absolute z-20 mt-1 w-full rounded-md shadow-lg border ${
+                      isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
+                    }`}>
+                      <div className="p-2 max-h-60 overflow-auto">
+                        {/* Select All / Clear All */}
+                        <div className="flex items-center justify-between px-2 py-1 border-b border-gray-200 dark:border-gray-600 mb-2">
+                          <span className={`text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                            Catégories
+                          </span>
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setSelectedCategories(categories)}
+                              className="text-xs text-indigo-600 hover:text-indigo-800"
+                            >
+                              Tout
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setSelectedCategories([])}
+                              className="text-xs text-gray-500 hover:text-gray-700"
+                            >
+                              Effacer
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Category checkboxes */}
+                        {categories.map((category) => (
+                          <label
+                            key={category}
+                            className={`flex items-center px-2 py-2 rounded-md cursor-pointer ${
+                              isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-50'
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={selectedCategories.includes(category)}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setSelectedCategories([...selectedCategories, category]);
+                                } else {
+                                  setSelectedCategories(selectedCategories.filter(c => c !== category));
+                                }
+                              }}
+                              className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                            />
+                            <span className={`ml-2 text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                              {category}
+                            </span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
-            
+
+            {/* Advanced Filters Toggle */}
+            <div className="flex items-center justify-between border-t pt-4 border-gray-200 dark:border-gray-700">
+              <button
+                type="button"
+                onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+                className={`flex items-center gap-2 text-sm font-medium ${
+                  isDarkMode ? 'text-gray-300 hover:text-white' : 'text-gray-700 hover:text-gray-900'
+                }`}
+              >
+                <ChevronDown className={`h-4 w-4 transition-transform ${showAdvancedFilters ? 'rotate-180' : ''}`} />
+                Filtres avancés
+              </button>
+            </div>
+
+            {/* Advanced Filters */}
+            {showAdvancedFilters && (
+              <div className={`border-t pt-4 ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`}>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {/* Price Range */}
+                  <div>
+                    <label className={`block text-sm font-medium mb-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                      Prix (€)
+                    </label>
+                    <div className="flex gap-2">
+                      <input
+                        type="number"
+                        placeholder="Min"
+                        value={priceRange.min}
+                        onChange={(e) => setPriceRange({ ...priceRange, min: e.target.value })}
+                        className={`flex-1 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm ${
+                          isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white'
+                        }`}
+                      />
+                      <input
+                        type="number"
+                        placeholder="Max"
+                        value={priceRange.max}
+                        onChange={(e) => setPriceRange({ ...priceRange, max: e.target.value })}
+                        className={`flex-1 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm ${
+                          isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white'
+                        }`}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Stock Range */}
+                  <div>
+                    <label className={`block text-sm font-medium mb-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                      Stock
+                    </label>
+                    <div className="flex gap-2">
+                      <input
+                        type="number"
+                        placeholder="Min"
+                        value={stockRange.min}
+                        onChange={(e) => setStockRange({ ...stockRange, min: e.target.value })}
+                        className={`flex-1 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm ${
+                          isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white'
+                        }`}
+                      />
+                      <input
+                        type="number"
+                        placeholder="Max"
+                        value={stockRange.max}
+                        onChange={(e) => setStockRange({ ...stockRange, max: e.target.value })}
+                        className={`flex-1 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm ${
+                          isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white'
+                        }`}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Date Range */}
+                  <div>
+                    <label className={`block text-sm font-medium mb-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                      Date de création
+                    </label>
+                    <div className="flex gap-2">
+                      <input
+                        type="date"
+                        value={dateRange.from}
+                        onChange={(e) => setDateRange({ ...dateRange, from: e.target.value })}
+                        className={`flex-1 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm ${
+                          isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white'
+                        }`}
+                      />
+                      <input
+                        type="date"
+                        value={dateRange.to}
+                        onChange={(e) => setDateRange({ ...dateRange, to: e.target.value })}
+                        className={`flex-1 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm ${
+                          isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white'
+                        }`}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Quick Add - Top Selling Products */}
             {sales.length > 0 && (
               <div className="mb-4">
@@ -681,332 +891,368 @@ export default function Pos() {
               </div>
             )}
 
-            <div className="max-h-96 overflow-y-auto">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="min-h-[600px] max-h-[800px] overflow-y-auto">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                 {filteredProducts.map((product) => (
                   <div
                     key={product.id}
-                    className={`border rounded-lg overflow-hidden ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`}
+                    className={`border rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow ${
+                      isDarkMode ? 'border-gray-700 bg-gray-800' : 'border-gray-200 bg-white'
+                    } ${product.stock <= 0 ? 'opacity-60' : ''}`}
                   >
-                    <div className="h-32 bg-gray-100 flex items-center justify-center">
+                    <div className="h-40 bg-gray-50 dark:bg-gray-700 flex items-center justify-center relative">
                       <img
                         src={product.imageUrl}
                         alt={product.name}
-                        className="h-full object-contain"
+                        className="h-full w-full object-contain p-4"
                         loading="lazy"
                       />
+                      {product.stock <= 0 && (
+                        <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+                          <span className="text-white font-medium text-sm">RUPTURE DE STOCK</span>
+                        </div>
+                      )}
+                      {product.stock > 0 && product.stock <= 5 && (
+                        <div className="absolute top-2 right-2 bg-red-500 text-white text-xs px-2 py-1 rounded-full font-medium">
+                          STOCK CRITIQUE
+                        </div>
+                      )}
                     </div>
                     <div className="p-4">
-                      <h3 className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                      <h3 className={`font-semibold text-sm leading-tight mb-2 line-clamp-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                         {product.name}
                       </h3>
-                      <div className="flex justify-between items-center mt-2">
-                        <span className={`font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                          €{product.price.toFixed(2)}
-                        </span>
+
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex flex-col">
+                          <span className={`text-lg font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                            €{product.price.toFixed(2)}
+                          </span>
+                          <span className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                            {product.category || 'Sans catégorie'}
+                          </span>
+                        </div>
                         <button
                           onClick={() => addToCart(product)}
-                          className="bg-indigo-600 text-white p-2 rounded-full hover:bg-indigo-700"
                           disabled={product.stock <= 0}
+                          className={`p-3 rounded-full transition-colors ${
+                            product.stock <= 0
+                              ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                              : 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-md hover:shadow-lg'
+                          }`}
+                          title={product.stock <= 0 ? 'Produit indisponible' : 'Ajouter au panier'}
+                        >
+                          <Plus className="h-5 w-5" />
+                        </button>
+                      </div>
+
+                      <div className={`text-xs font-medium ${
+                        product.stock <= 0 ? 'text-red-600' :
+                        product.stock <= 5 ? 'text-red-500' :
+                        product.stock <= 10 ? 'text-yellow-600' :
+                        'text-green-600'
+                      }`}>
+                        {product.stock <= 0 ? '🚫 Indisponible' :
+                         product.stock <= 5 ? `⚠️ ${product.stock} en stock` :
+                         product.stock <= 10 ? `⚠️ ${product.stock} en stock` :
+                         `✅ ${product.stock} en stock`}
+                      </div>
+
+                      {product.stock > 0 && product.stock <= 10 && (
+                        <div className="mt-2 text-xs text-orange-600 font-medium">
+                          ⚠️ Stock faible - réapprovisionner bientôt
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {filteredProducts.length === 0 && (
+              <div className="text-center py-8">
+                <p className={`text-lg ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                  Aucun produit trouvé. Essayez une recherche ou une catégorie différente.
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* Cart and Checkout */}
+          <div className="space-y-6">
+            <div className={`rounded-lg ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow p-6`}>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className={`text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                  <ShoppingCart className="h-5 w-5 inline mr-2" />
+                  Panier
+                </h2>
+                <button
+                  onClick={clearCart}
+                  className="text-gray-400 hover:text-gray-500"
+                  disabled={cart.length === 0}
+                >
+                  <Trash2 className="h-5 w-5" />
+                </button>
+              </div>
+
+              {cart.length === 0 ? (
+                <div className="text-center py-8">
+                  <p className={`text-lg ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                    Votre panier est vide
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-4 max-h-80 overflow-y-auto mb-4">
+                  {cart.map((item) => (
+                    <div key={item.product.id} className="flex items-center justify-between border-b pb-4">
+                      <div className="flex-1">
+                        <h3 className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                          {item.product.name}
+                        </h3>
+                        <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                          €{item.product.price.toFixed(2)} x {item.quantity}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => updateQuantity(item.product.id, item.quantity - 1)}
+                          className="p-1 rounded-full hover:bg-gray-100"
+                        >
+                          <Minus className="h-4 w-4" />
+                        </button>
+                        <span className={isDarkMode ? 'text-white' : 'text-gray-900'}>
+                          {item.quantity}
+                        </span>
+                        <button
+                          onClick={() => updateQuantity(item.product.id, item.quantity + 1)}
+                          className="p-1 rounded-full hover:bg-gray-100"
+                          disabled={item.quantity >= item.product.stock}
                         >
                           <Plus className="h-4 w-4" />
                         </button>
                       </div>
-                      <div className={`text-sm mt-1 ${product.stock <= 5 ? 'text-red-600 font-medium' : product.stock <= 10 ? 'text-yellow-600' : 'text-gray-500'}`}>
-                        Stock: {product.stock} {product.stock <= 5 ? '⚠️ Faible stock!' : product.stock <= 10 ? '⚠️ Stock limité' : ''}
-                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
+              )}
+
+              <div className="border-t pt-4 space-y-2">
+                <div className="flex justify-between">
+                  <span className={isDarkMode ? 'text-gray-300' : 'text-gray-600'}>Sous-total</span>
+                  <span className={isDarkMode ? 'text-white' : 'text-gray-900'}>
+                    €{subtotal.toFixed(2)}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className={isDarkMode ? 'text-gray-300' : 'text-gray-600'}>TVA (20%)</span>
+                  <span className={isDarkMode ? 'text-white' : 'text-gray-900'}>
+                    €{vatAmount.toFixed(2)}
+                  </span>
+                </div>
+                <div className="flex justify-between font-bold text-lg">
+                  <span className={isDarkMode ? 'text-white' : 'text-gray-900'}>Total</span>
+                  <span className={isDarkMode ? 'text-white' : 'text-gray-900'}>
+                    €{total.toFixed(2)}
+                  </span>
+                </div>
               </div>
             </div>
-            
-            {filteredProducts.length === 0 && (
-            <div className="text-center py-8">
-              <p className={`text-lg ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                Aucun produit trouvé. Essayez une recherche ou une catégorie différente.
-              </p>
-            </div>
-            )}
-          </div>
-        </div>
-        
-        {/* Cart and Checkout */}
-        <div className="space-y-6">
-          <div className={`rounded-lg ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow p-6`}>
-            <div className="flex items-center justify-between mb-4">
-              <h2 className={`text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                <ShoppingCart className="h-5 w-5 inline mr-2" />
-                Panier
+
+            <div className={`rounded-lg ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow p-6`}>
+              <h2 className={`text-lg font-semibold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                Paiement
               </h2>
-              <button
-                onClick={clearCart}
-                className="text-gray-400 hover:text-gray-500"
-                disabled={cart.length === 0}
-              >
-                <Trash2 className="h-5 w-5" />
-              </button>
-            </div>
-            
-            {cart.length === 0 ? (
-              <div className="text-center py-8">
-                <p className={`text-lg ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                  Votre panier est vide
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-4 max-h-80 overflow-y-auto mb-4">
-                {cart.map((item) => (
-                  <div key={item.product.id} className="flex items-center justify-between border-b pb-4">
-                    <div className="flex-1">
-                      <h3 className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                        {item.product.name}
-                      </h3>
-                      <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                        €{item.product.price.toFixed(2)} x {item.quantity}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => updateQuantity(item.product.id, item.quantity - 1)}
-                        className="p-1 rounded-full hover:bg-gray-100"
-                      >
-                        <Minus className="h-4 w-4" />
-                      </button>
-                      <span className={isDarkMode ? 'text-white' : 'text-gray-900'}>
-                        {item.quantity}
-                      </span>
-                      <button
-                        onClick={() => updateQuantity(item.product.id, item.quantity + 1)}
-                        className="p-1 rounded-full hover:bg-gray-100"
-                        disabled={item.quantity >= item.product.stock}
-                      >
-                        <Plus className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-            
-            <div className="border-t pt-4 space-y-2">
-              <div className="flex justify-between">
-                <span className={isDarkMode ? 'text-gray-300' : 'text-gray-600'}>Sous-total</span>
-                <span className={isDarkMode ? 'text-white' : 'text-gray-900'}>
-                  €{subtotal.toFixed(2)}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className={isDarkMode ? 'text-gray-300' : 'text-gray-600'}>TVA (20%)</span>
-                <span className={isDarkMode ? 'text-white' : 'text-gray-900'}>
-                  €{vatAmount.toFixed(2)}
-                </span>
-              </div>
-              <div className="flex justify-between font-bold text-lg">
-                <span className={isDarkMode ? 'text-white' : 'text-gray-900'}>Total</span>
-                <span className={isDarkMode ? 'text-white' : 'text-gray-900'}>
-                  €{total.toFixed(2)}
-                </span>
-              </div>
-            </div>
-          </div>
-          
-          <div className={`rounded-lg ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow p-6`}>
-            <h2 className={`text-lg font-semibold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-              Paiement
-            </h2>
-            
-            <div className="space-y-4">
-              <div className="flex items-center">
-                <input
-                  type="checkbox"
-                  id="quickSale"
-                  checked={quickSale}
-                  onChange={(e) => {
-                    setQuickSale(e.target.checked);
-                    if (e.target.checked) {
-                      setSelectedClient(null);
-                      setClientSearch('');
-                    }
-                  }}
-                  className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
-                />
-                <label htmlFor="quickSale" className={`ml-2 block text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                  Vente rapide (sans info client)
-                </label>
-              </div>
-              
-              {!quickSale && (
-                <div>
-                  <label className={`block text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'} mb-1`}>
-                    Client
+
+              <div className="space-y-4">
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    id="quickSale"
+                    checked={quickSale}
+                    onChange={(e) => {
+                      setQuickSale(e.target.checked);
+                      if (e.target.checked) {
+                        setSelectedClient(null);
+                        setClientSearch('');
+                      }
+                    }}
+                    className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                  />
+                  <label htmlFor="quickSale" className={`ml-2 block text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                    Vente rapide (sans info client)
                   </label>
-                  <div className="relative">
-                    <input
-                      type="text"
-                      value={selectedClient ? (clients.find(c => c.id === selectedClient)?.name || clientSearch) : clientSearch}
-                      onChange={(e) => {
-                        setClientSearch(e.target.value);
-                        setClientDropdownOpen(true);
-                        if (selectedClient) {
-                          setSelectedClient(null);
-                        }
-                      }}
-                      onFocus={() => {
-                        setClientDropdownOpen(true);
-                      }}
-                      onBlur={() => {
-                        // Delay hiding dropdown to allow for clicks
-                        setTimeout(() => setClientDropdownOpen(false), 200);
-                      }}
-                      placeholder="Rechercher un client..."
-                      className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                    />
-                    {clientDropdownOpen && filteredClients.length > 0 && (
-                      <div className="absolute z-10 w-full mt-1 bg-white rounded-md shadow-lg max-h-60 overflow-y-auto">
-                        {filteredClients.map((client) => (
-                          <div
-                            key={client.id}
-                            className={`px-4 py-2 hover:bg-gray-100 cursor-pointer ${selectedClient === client.id ? 'bg-indigo-50 border-l-4 border-indigo-500' : ''}`}
-                            onClick={() => {
-                              setSelectedClient(client.id);
-                              setClientSearch('');
-                              setClientDropdownOpen(false);
-                            }}
-                          >
-                            <div className="font-medium">{client.name}</div>
-                            <div className="text-sm text-gray-500">{client.phone}</div>
-                            {selectedClient === client.id && (
-                              <div className="text-xs text-indigo-600 font-medium">Sélectionné</div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
                 </div>
-              )}
-              
-              {selectedClient && (
-                <div>
-                  <label className={`block text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'} mb-1`}>
-                    Lier à un ticket de réparation (optionnel)
-                  </label>
-                  <div className="relative">
-                    <input
-                      type="text"
-                      value={ticketSearch}
-                      onChange={(e) => {
-                        setTicketSearch(e.target.value);
-                        setSelectedTicket(null);
-                      }}
-                      placeholder="Rechercher un ticket..."
-                      className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                    />
-                    {ticketSearch && !selectedTicket && filteredTickets.length > 0 && (
-                      <div className="absolute z-10 w-full mt-1 bg-white rounded-md shadow-lg max-h-60 overflow-y-auto">
-                        {filteredTickets.map((ticket) => (
-                          <div
-                            key={ticket.id}
-                            className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
-                            onClick={() => {
-                              setSelectedTicket(ticket.id);
-                              setTicketSearch(ticket.ticketNumber);
-                            }}
-                          >
-                            <div className="font-medium">#{ticket.ticketNumber}</div>
-                            <div className="text-sm text-gray-500">
-                              {ticket.deviceType} - {ticket.brand}
+
+                {!quickSale && (
+                  <div>
+                    <label className={`block text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'} mb-1`}>
+                      Client
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={selectedClient ? (clients.find(c => c.id === selectedClient)?.name || clientSearch) : clientSearch}
+                        onChange={(e) => {
+                          setClientSearch(e.target.value);
+                          setClientDropdownOpen(true);
+                          if (selectedClient) {
+                            setSelectedClient(null);
+                          }
+                        }}
+                        onFocus={() => {
+                          setClientDropdownOpen(true);
+                        }}
+                        onBlur={() => {
+                          // Delay hiding dropdown to allow for clicks
+                          setTimeout(() => setClientDropdownOpen(false), 200);
+                        }}
+                        placeholder="Rechercher un client..."
+                        className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                      />
+                      {clientDropdownOpen && filteredClients.length > 0 && (
+                        <div className="absolute z-10 w-full mt-1 bg-white rounded-md shadow-lg max-h-60 overflow-y-auto">
+                          {filteredClients.map((client) => (
+                            <div
+                              key={client.id}
+                              className={`px-4 py-2 hover:bg-gray-100 cursor-pointer ${selectedClient === client.id ? 'bg-indigo-50 border-l-4 border-indigo-500' : ''}`}
+                              onClick={() => {
+                                setSelectedClient(client.id);
+                                setClientSearch('');
+                                setClientDropdownOpen(false);
+                              }}
+                            >
+                              <div className="font-medium">{client.name}</div>
+                              <div className="text-sm text-gray-500">{client.phone}</div>
+                              {selectedClient === client.id && (
+                                <div className="text-xs text-indigo-600 font-medium">Sélectionné</div>
+                              )}
                             </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
-              )}
-              
-              <div className="mb-4">
-                <label className={`block text-sm font-medium mb-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                  Format du reçu
-                </label>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setReceiptFormat('thermal')}
-                    className={`flex flex-col items-center justify-center gap-2 p-3 rounded-md ${
-                      receiptFormat === 'thermal'
-                        ? 'bg-indigo-600 text-white'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    }`}
-                  >
-                    <Printer className="h-5 w-5" />
-                    <span className="text-sm">Reçu thermique</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setReceiptFormat('a4')}
-                    className={`flex flex-col items-center justify-center gap-2 p-3 rounded-md ${
-                      receiptFormat === 'a4'
-                        ? 'bg-indigo-600 text-white'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    }`}
-                  >
-                    <FileText className="h-5 w-5" />
-                    <span className="text-sm">Facture A4</span>
-                  </button>
-                </div>
-              </div>
-              
-              <div>
-                <label className={`block text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'} mb-1`}>
-                  Mode de paiement
-                </label>
-                <div className="grid grid-cols-2 gap-2">
-                  {PAYMENT_METHODS.map((method) => (
+                )}
+
+                {selectedClient && (
+                  <div>
+                    <label className={`block text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'} mb-1`}>
+                      Lier à un ticket de réparation (optionnel)
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={ticketSearch}
+                        onChange={(e) => {
+                          setTicketSearch(e.target.value);
+                          setSelectedTicket(null);
+                        }}
+                        placeholder="Rechercher un ticket..."
+                        className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                      />
+                      {ticketSearch && !selectedTicket && filteredTickets.length > 0 && (
+                        <div className="absolute z-10 w-full mt-1 bg-white rounded-md shadow-lg max-h-60 overflow-y-auto">
+                          {filteredTickets.map((ticket) => (
+                            <div
+                              key={ticket.id}
+                              className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
+                              onClick={() => {
+                                setSelectedTicket(ticket.id);
+                                setTicketSearch(ticket.ticketNumber);
+                              }}
+                            >
+                              <div className="font-medium">#{ticket.ticketNumber}</div>
+                              <div className="text-sm text-gray-500">
+                                {ticket.deviceType} - {ticket.brand}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                <div className="mb-4">
+                  <label className={`block text-sm font-medium mb-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                    Format du reçu
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
                     <button
-                      key={method.id}
                       type="button"
-                      onClick={() => setPaymentMethod(method.id)}
-                      className={`flex items-center justify-center gap-2 p-3 rounded-md ${
-                        paymentMethod === method.id
+                      onClick={() => setReceiptFormat('thermal')}
+                      className={`flex flex-col items-center justify-center gap-2 p-3 rounded-md ${
+                        receiptFormat === 'thermal'
                           ? 'bg-indigo-600 text-white'
                           : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                       }`}
                     >
-                      <method.icon className="h-5 w-5" />
-                      {method.name}
+                      <Printer className="h-5 w-5" />
+                      <span className="text-sm">Reçu thermique</span>
                     </button>
-                  ))}
+                    <button
+                      type="button"
+                      onClick={() => setReceiptFormat('a4')}
+                      className={`flex flex-col items-center justify-center gap-2 p-3 rounded-md ${
+                        receiptFormat === 'a4'
+                          ? 'bg-indigo-600 text-white'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                    >
+                      <FileText className="h-5 w-5" />
+                      <span className="text-sm">Facture A4</span>
+                    </button>
+                  </div>
                 </div>
+
+                <div>
+                  <label className={`block text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'} mb-1`}>
+                    Mode de paiement
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {PAYMENT_METHODS.map((method) => (
+                      <button
+                        key={method.id}
+                        type="button"
+                        onClick={() => setPaymentMethod(method.id)}
+                        className={`flex items-center justify-center gap-2 p-3 rounded-md ${
+                          paymentMethod === method.id
+                            ? 'bg-indigo-600 text-white'
+                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        }`}
+                      >
+                        <method.icon className="h-5 w-5" />
+                        {method.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <label className={`block text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'} mb-1`}>
+                    Note (Optional)
+                  </label>
+                  <textarea
+                    value={note}
+                    onChange={(e) => setNote(e.target.value)}
+                    rows={2}
+                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                    placeholder="Ajouter une note à cette vente..."
+                  />
+                </div>
+
+                <button
+                  onClick={createInvoice}
+                  disabled={cart.length === 0 || (!quickSale && !selectedClient)}
+                  className="w-full bg-indigo-600 text-white px-4 py-3 rounded-md hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  <ArrowRight className="h-5 w-5" />
+                  Finaliser la vente
+                </button>
               </div>
-              
-              <div>
-                <label className={`block text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'} mb-1`}>
-                  Note (Optional)
-                </label>
-                <textarea
-                  value={note}
-                  onChange={(e) => setNote(e.target.value)}
-                  rows={2}
-                  className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                  placeholder="Ajouter une note à cette vente..."
-                />
-              </div>
-              
-              <button
-                onClick={createInvoice}
-                disabled={cart.length === 0 || (!quickSale && !selectedClient)}
-                className="w-full bg-indigo-600 text-white px-4 py-3 rounded-md hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-              >
-                <ArrowRight className="h-5 w-5" />
-                Finaliser la vente
-              </button>
             </div>
           </div>
         </div>
-      </div>
-        </>
       )}
     </div>
   );
