@@ -1,6 +1,6 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useThemeStore, useClientsStore, useTicketsStore, useOrdersStore, useSalesStore } from '../lib/store';
-import { Search, Plus, Edit2, Trash2, History, Calendar, User, Users, ChevronDown, ChevronRight } from 'lucide-react';
+import { Search, Plus, Edit2, Trash2, History, Calendar, User, Users, ChevronDown, ChevronRight, Download, FileText } from 'lucide-react';
 import { format } from 'date-fns';
 
 export default function Clients() {
@@ -32,6 +32,20 @@ export default function Clients() {
   // Sorting state
   const [sortField, setSortField] = useState<'name' | 'email' | 'createdAt'>('name');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [paginationLoading, setPaginationLoading] = useState(false);
+  const [useLoadMore, setUseLoadMore] = useState(false);
+  const [loadedItemsCount, setLoadedItemsCount] = useState(10);
+  const [showExportDropdown, setShowExportDropdown] = useState(false);
+  const [selectedClients, setSelectedClients] = useState<Set<string>>(new Set());
+
+  // Pagination calculations
+  const totalPages = Math.ceil(clients.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
 
   const sortedAndFilteredClients = useMemo(() => {
     let result = clients;
@@ -69,6 +83,169 @@ export default function Clients() {
 
     return result;
   }, [clients, localSearchQuery, sortField, sortDirection]);
+
+  // Get current page items with optimized memoization (pagination mode) or loaded items (load more mode)
+  const displayedClients = useMemo(() => {
+    if (useLoadMore) {
+      return sortedAndFilteredClients.slice(0, loadedItemsCount);
+    } else {
+      return sortedAndFilteredClients.slice(startIndex, endIndex);
+    }
+  }, [sortedAndFilteredClients, startIndex, endIndex, useLoadMore, loadedItemsCount]);
+
+  // Optimized pagination calculations
+  const paginationInfo = useMemo(() => ({
+    totalPages,
+    startIndex,
+    endIndex,
+    totalItems: sortedAndFilteredClients.length
+  }), [totalPages, startIndex, endIndex, sortedAndFilteredClients.length]);
+
+  // Reset to page 1 when search changes
+  useMemo(() => {
+    setCurrentPage(1);
+  }, [localSearchQuery]);
+
+  // Reset to page 1 when sorting changes
+  useMemo(() => {
+    setCurrentPage(1);
+  }, [sortField, sortDirection]);
+
+  // Cached client history - prevent recalculation on every render
+  const clientHistoryCache = useMemo(() => {
+    const cache = new Map();
+    return {
+      get: (clientId: string) => {
+        if (!cache.has(clientId)) {
+          const clientTickets = tickets.filter(ticket => ticket.clientId === clientId);
+          const clientOrders = orders.filter(order => order.clientId === clientId);
+          const clientSales = sales.filter(sale => sale.customer?.id === clientId);
+          cache.set(clientId, { tickets: clientTickets, orders: clientOrders, sales: clientSales });
+        }
+        return cache.get(clientId);
+      }
+    };
+  }, [tickets, orders, sales]);
+
+  // Keyboard shortcuts for pagination
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // Only handle shortcuts when not typing in inputs
+      if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) {
+        return;
+      }
+
+      // Only handle shortcuts on the clients page
+      if (activeTab !== 'all') return;
+
+      switch (event.key) {
+        case 'ArrowLeft':
+          event.preventDefault();
+          if (!useLoadMore && currentPage > 1) {
+            setCurrentPage(prev => prev - 1);
+          }
+          break;
+        case 'ArrowRight':
+          event.preventDefault();
+          if (!useLoadMore && currentPage < totalPages) {
+            setCurrentPage(prev => prev + 1);
+          }
+          break;
+        case 'Home':
+          event.preventDefault();
+          if (!useLoadMore) {
+            setCurrentPage(1);
+          }
+          break;
+        case 'End':
+          event.preventDefault();
+          if (!useLoadMore) {
+            setCurrentPage(totalPages);
+          }
+          break;
+        default:
+          // Number keys for direct page navigation
+          const num = parseInt(event.key);
+          if (!isNaN(num) && num >= 1 && num <= 9 && !useLoadMore) {
+            event.preventDefault();
+            if (num <= totalPages) {
+              setCurrentPage(num);
+            }
+          }
+          break;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [activeTab, currentPage, totalPages, useLoadMore]);
+
+  // URL state management
+  useEffect(() => {
+    // Update URL with current state
+    const url = new URL(window.location.href);
+    if (currentPage > 1) {
+      url.searchParams.set('page', currentPage.toString());
+    } else {
+      url.searchParams.delete('page');
+    }
+
+    if (itemsPerPage !== 10) {
+      url.searchParams.set('perPage', itemsPerPage.toString());
+    } else {
+      url.searchParams.delete('perPage');
+    }
+
+    if (localSearchQuery) {
+      url.searchParams.set('search', localSearchQuery);
+    } else {
+      url.searchParams.delete('search');
+    }
+
+    if (sortField !== 'name') {
+      url.searchParams.set('sort', sortField);
+    } else {
+      url.searchParams.delete('sort');
+    }
+
+    if (sortDirection !== 'asc') {
+      url.searchParams.set('dir', sortDirection);
+    } else {
+      url.searchParams.delete('dir');
+    }
+
+    if (useLoadMore) {
+      url.searchParams.set('mode', 'loadmore');
+    } else {
+      url.searchParams.delete('mode');
+    }
+
+    // Update URL without triggering navigation
+    window.history.replaceState({}, '', url.toString());
+  }, [currentPage, itemsPerPage, localSearchQuery, sortField, sortDirection, useLoadMore]);
+
+  // Load state from URL on mount
+  useEffect(() => {
+    const url = new URL(window.location.href);
+
+    const page = parseInt(url.searchParams.get('page') || '1');
+    if (page >= 1) setCurrentPage(page);
+
+    const perPage = parseInt(url.searchParams.get('perPage') || '10');
+    if ([10, 25, 50, 100].includes(perPage)) setItemsPerPage(perPage);
+
+    const search = url.searchParams.get('search');
+    if (search) setLocalSearchQuery(search);
+
+    const sort = url.searchParams.get('sort');
+    if (['name', 'email', 'createdAt'].includes(sort || '')) setSortField(sort as any);
+
+    const dir = url.searchParams.get('dir');
+    if (['asc', 'desc'].includes(dir || '')) setSortDirection(dir as any);
+
+    const mode = url.searchParams.get('mode');
+    if (mode === 'loadmore') setUseLoadMore(true);
+  }, []); // Only run on mount
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -131,6 +308,49 @@ export default function Clients() {
     } else {
       setSortField(field);
       setSortDirection('asc');
+    }
+  };
+
+  // Export functionality
+  const exportClients = (clientsToExport: any[], scope: 'current' | 'all', exportFormat: 'csv' | 'json') => {
+    const timestamp = format(new Date(), 'yyyy-MM-dd_HH-mm-ss');
+    const filename = `clients_${scope}_${timestamp}.${exportFormat}`;
+
+    if (exportFormat === 'csv') {
+      // CSV Export
+      const headers = ['Nom', 'Email', 'Téléphone', 'Adresse', 'Date d\'inscription'];
+      const csvContent = [
+        headers.join(','),
+        ...clientsToExport.map(client => [
+          `"${client.name}"`,
+          `"${client.email || ''}"`,
+          `"${client.phone}"`,
+          `"${client.address || ''}"`,
+          `"${format(new Date(client.createdAt), 'yyyy-MM-dd HH:mm:ss')}"`
+        ].join(','))
+      ].join('\n');
+
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = filename;
+      link.click();
+    } else {
+      // JSON Export
+      const jsonContent = JSON.stringify(clientsToExport.map(client => ({
+        id: client.id,
+        name: client.name,
+        email: client.email,
+        phone: client.phone,
+        address: client.address,
+        createdAt: client.createdAt
+      })), null, 2);
+
+      const blob = new Blob([jsonContent], { type: 'application/json;charset=utf-8;' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = filename;
+      link.click();
     }
   };
 
@@ -278,52 +498,267 @@ export default function Clients() {
             </div>
           )}
 
+          {/* Bulk Actions Toolbar */}
+          {selectedClients.size > 0 && (
+            <div className={`rounded-lg ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow p-4 border-l-4 border-indigo-500`}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className={`px-3 py-1 rounded-full text-sm font-medium ${
+                    isDarkMode ? 'bg-indigo-900 text-indigo-200' : 'bg-indigo-100 text-indigo-800'
+                  }`}>
+                    {selectedClients.size} client{selectedClients.size > 1 ? 's' : ''} sélectionné{selectedClients.size > 1 ? 's' : ''}
+                  </div>
+                  <span className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                    Actions groupées:
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => {
+                      const selectedClientsData = displayedClients.filter(client => selectedClients.has(client.id));
+                      exportClients(selectedClientsData, 'selected', 'csv');
+                    }}
+                    className="flex items-center gap-2 px-3 py-2 text-sm bg-green-600 text-white rounded-md hover:bg-green-700"
+                  >
+                    <Download className="h-4 w-4" />
+                    Exporter CSV
+                  </button>
+                  <button
+                    onClick={() => {
+                      const selectedClientsData = displayedClients.filter(client => selectedClients.has(client.id));
+                      exportClients(selectedClientsData, 'selected', 'json');
+                    }}
+                    className="flex items-center gap-2 px-3 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                  >
+                    <Download className="h-4 w-4" />
+                    Exporter JSON
+                  </button>
+                  <button
+                    onClick={async () => {
+                      if (window.confirm(`Êtes-vous sûr de vouloir supprimer ${selectedClients.size} client${selectedClients.size > 1 ? 's' : ''} ?`)) {
+                        for (const clientId of selectedClients) {
+                          await deleteClient(clientId);
+                        }
+                        setSelectedClients(new Set());
+                      }
+                    }}
+                    className="flex items-center gap-2 px-3 py-2 text-sm bg-red-600 text-white rounded-md hover:bg-red-700"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    Supprimer
+                  </button>
+                  <button
+                    onClick={() => setSelectedClients(new Set())}
+                    className={`px-3 py-2 text-sm rounded-md border ${
+                      isDarkMode ? 'border-gray-600 text-gray-300 hover:bg-gray-700' : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+                    }`}
+                  >
+                    Désélectionner
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Search and Sort Controls */}
           <div className={`rounded-lg ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow p-4`}>
-            <div className="flex flex-col sm:flex-row gap-4">
-              <div className="flex-1 relative">
-                <Search className="h-5 w-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Rechercher des clients..."
-                  value={localSearchQuery}
-                  onChange={(e) => setLocalSearchQuery(e.target.value)}
-                  className={`w-full pl-10 pr-4 py-2 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 ${
-                    isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white'
-                  }`}
-                />
+            <div className="flex flex-col gap-4">
+              <div className="flex flex-col sm:flex-row gap-4">
+                <div className="flex-1 relative">
+                  <Search className="h-5 w-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Rechercher des clients..."
+                    value={localSearchQuery}
+                    onChange={(e) => setLocalSearchQuery(e.target.value)}
+                    className={`w-full pl-10 pr-4 py-2 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 ${
+                      isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white'
+                    }`}
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => handleSort('name')}
+                    className={`px-3 py-2 text-sm rounded-md border ${
+                      sortField === 'name'
+                        ? 'bg-indigo-100 text-indigo-700 border-indigo-300'
+                        : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+                    }`}
+                  >
+                    Nom {sortField === 'name' && (sortDirection === 'asc' ? '↑' : '↓')}
+                  </button>
+                  <button
+                    onClick={() => handleSort('email')}
+                    className={`px-3 py-2 text-sm rounded-md border ${
+                      sortField === 'email'
+                        ? 'bg-indigo-100 text-indigo-700 border-indigo-300'
+                        : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+                    }`}
+                  >
+                    Email {sortField === 'email' && (sortDirection === 'asc' ? '↑' : '↓')}
+                  </button>
+                  <button
+                    onClick={() => handleSort('createdAt')}
+                    className={`px-3 py-2 text-sm rounded-md border ${
+                      sortField === 'createdAt'
+                        ? 'bg-indigo-100 text-indigo-700 border-indigo-300'
+                        : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+                    }`}
+                  >
+                    Date {sortField === 'createdAt' && (sortDirection === 'asc' ? '↑' : '↓')}
+                  </button>
+                </div>
               </div>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => handleSort('name')}
-                  className={`px-3 py-2 text-sm rounded-md border ${
-                    sortField === 'name'
-                      ? 'bg-indigo-100 text-indigo-700 border-indigo-300'
-                      : 'border-gray-300 text-gray-700 hover:bg-gray-50'
-                  }`}
-                >
-                  Nom {sortField === 'name' && (sortDirection === 'asc' ? '↑' : '↓')}
-                </button>
-                <button
-                  onClick={() => handleSort('email')}
-                  className={`px-3 py-2 text-sm rounded-md border ${
-                    sortField === 'email'
-                      ? 'bg-indigo-100 text-indigo-700 border-indigo-300'
-                      : 'border-gray-300 text-gray-700 hover:bg-gray-50'
-                  }`}
-                >
-                  Email {sortField === 'email' && (sortDirection === 'asc' ? '↑' : '↓')}
-                </button>
-                <button
-                  onClick={() => handleSort('createdAt')}
-                  className={`px-3 py-2 text-sm rounded-md border ${
-                    sortField === 'createdAt'
-                      ? 'bg-indigo-100 text-indigo-700 border-indigo-300'
-                      : 'border-gray-300 text-gray-700 hover:bg-gray-50'
-                  }`}
-                >
-                  Date {sortField === 'createdAt' && (sortDirection === 'asc' ? '↑' : '↓')}
-                </button>
+
+              {/* Bulk Selection Header */}
+              <div className="flex items-center justify-between border-t pt-4">
+                <div className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    checked={displayedClients.length > 0 && displayedClients.every(client => selectedClients.has(client.id))}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        // Select all visible clients
+                        const newSelection = new Set(selectedClients);
+                        displayedClients.forEach(client => newSelection.add(client.id));
+                        setSelectedClients(newSelection);
+                      } else {
+                        // Deselect all visible clients
+                        const newSelection = new Set(selectedClients);
+                        displayedClients.forEach(client => newSelection.delete(client.id));
+                        setSelectedClients(newSelection);
+                      }
+                    }}
+                    className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                  />
+                  <span className={`text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                    Tout sélectionner
+                  </span>
+                  {selectedClients.size > 0 && (
+                    <span className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                      ({selectedClients.size} sélectionné{selectedClients.size > 1 ? 's' : ''})
+                    </span>
+                  )}
+                </div>
+
+                {/* View Mode Toggle & Export */}
+                <div className="flex items-center gap-4">
+                  <span className={`text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                    Mode d'affichage:
+                  </span>
+                  <div className="flex rounded-md border border-gray-300">
+                    <button
+                      onClick={() => {
+                        setUseLoadMore(false);
+                        setCurrentPage(1);
+                      }}
+                      className={`px-3 py-1 text-sm rounded-l-md ${
+                        !useLoadMore
+                          ? 'bg-indigo-600 text-white'
+                          : 'text-gray-700 hover:bg-gray-50'
+                      }`}
+                    >
+                      Pagination
+                    </button>
+                    <button
+                      onClick={() => {
+                        setUseLoadMore(true);
+                        setLoadedItemsCount(10);
+                      }}
+                      className={`px-3 py-1 text-sm rounded-r-md ${
+                        useLoadMore
+                          ? 'bg-indigo-600 text-white'
+                          : 'text-gray-700 hover:bg-gray-50'
+                      }`}
+                    >
+                      Charger plus
+                    </button>
+                  </div>
+
+                  {/* Export Dropdown */}
+                  <div className="relative">
+                    <button
+                      onClick={() => setShowExportDropdown(!showExportDropdown)}
+                      className={`flex items-center gap-2 px-3 py-2 text-sm rounded-md border ${
+                        isDarkMode ? 'border-gray-600 text-gray-300 hover:bg-gray-700' : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+                      }`}
+                    >
+                      <Download className="h-4 w-4" />
+                      Exporter
+                      <ChevronDown className="h-3 w-3" />
+                    </button>
+                    {showExportDropdown && (
+                      <>
+                        {/* Click outside overlay */}
+                        <div
+                          className="fixed inset-0 z-5"
+                          onClick={() => setShowExportDropdown(false)}
+                        />
+                        <div className={`absolute right-0 mt-2 w-56 rounded-md shadow-xl border ${
+                          isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
+                        } z-10`}>
+                          <div className="py-1">
+                            <div className="px-3 py-2 text-xs font-medium text-gray-500 uppercase tracking-wide">
+                              Exporter les données
+                            </div>
+                            <button
+                              onClick={() => {
+                                exportClients(displayedClients, 'current', 'csv');
+                                setShowExportDropdown(false);
+                              }}
+                              className={`block w-full text-left px-4 py-2 text-sm ${
+                                isDarkMode ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-700 hover:bg-gray-100'
+                              }`}
+                            >
+                              📄 Page actuelle (CSV)
+                            </button>
+                            <button
+                              onClick={() => {
+                                exportClients(sortedAndFilteredClients, 'all', 'csv');
+                                setShowExportDropdown(false);
+                              }}
+                              className={`block w-full text-left px-4 py-2 text-sm ${
+                                isDarkMode ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-700 hover:bg-gray-100'
+                              }`}
+                            >
+                              📊 Tous les clients (CSV)
+                            </button>
+                            <div className={`border-t ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`}></div>
+                            <button
+                              onClick={() => {
+                                exportClients(displayedClients, 'current', 'json');
+                                setShowExportDropdown(false);
+                              }}
+                              className={`block w-full text-left px-4 py-2 text-sm ${
+                                isDarkMode ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-700 hover:bg-gray-100'
+                              }`}
+                            >
+                              💾 Page actuelle (JSON)
+                            </button>
+                            <button
+                              onClick={() => {
+                                exportClients(sortedAndFilteredClients, 'all', 'json');
+                                setShowExportDropdown(false);
+                              }}
+                              className={`block w-full text-left px-4 py-2 text-sm ${
+                                isDarkMode ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-700 hover:bg-gray-100'
+                              }`}
+                            >
+                              💽 Tous les clients (JSON)
+                            </button>
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </div>
+
+                  {/* Load More Info */}
+                  {useLoadMore && (
+                    <div className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                      Affichage de {displayedClients.length} sur {sortedAndFilteredClients.length} clients
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -341,7 +776,7 @@ export default function Clients() {
                 </p>
               </div>
             ) : (
-              sortedAndFilteredClients.map((client) => {
+              displayedClients.map((client) => {
           const { tickets: clientTickets, orders: clientOrders, sales: clientSales } = getClientHistory(client.id);
           const isSelected = selectedClient === client.id;
           const isExpanded = expandedClients.has(client.id);
@@ -441,6 +876,21 @@ export default function Clients() {
                     >
                       <div className="flex items-center gap-3 flex-1">
                         <div className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={selectedClients.has(client.id)}
+                            onChange={(e) => {
+                              e.stopPropagation();
+                              const newSelection = new Set(selectedClients);
+                              if (e.target.checked) {
+                                newSelection.add(client.id);
+                              } else {
+                                newSelection.delete(client.id);
+                              }
+                              setSelectedClients(newSelection);
+                            }}
+                            className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                          />
                           {isExpanded ? (
                             <ChevronDown className="h-4 w-4 text-indigo-600" />
                           ) : (
@@ -710,7 +1160,176 @@ export default function Clients() {
             </div>
           );
         })
-      )}
+          )}
+
+          {/* Load More Button */}
+          {useLoadMore && displayedClients.length < sortedAndFilteredClients.length && (
+            <div className="flex justify-center pt-6">
+              <button
+                onClick={() => setLoadedItemsCount(prev => prev + 10)}
+                className="px-6 py-3 bg-indigo-600 text-white text-sm font-medium rounded-md hover:bg-indigo-700 flex items-center gap-2"
+              >
+                <Plus className="h-4 w-4" />
+                Charger 10 clients supplémentaires
+              </button>
+            </div>
+          )}
+
+          {/* Pagination Controls */}
+          {!useLoadMore && totalPages > 1 && (
+            <div className={`rounded-lg ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow p-4`}>
+              <div className="flex flex-col lg:flex-row items-center justify-between gap-4">
+                {/* Page Info */}
+                <div className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'} text-center lg:text-left`}>
+                  Affichage de {startIndex + 1}-{Math.min(endIndex, sortedAndFilteredClients.length)} sur {sortedAndFilteredClients.length} clients
+                </div>
+
+                {/* Items Per Page Selector & Go to Page */}
+                <div className="flex flex-col sm:flex-row items-center gap-3">
+                  <div className="flex items-center gap-2">
+                    <span className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                      Par page:
+                    </span>
+                    <select
+                      value={itemsPerPage}
+                      onChange={(e) => {
+                        setItemsPerPage(Number(e.target.value));
+                        setCurrentPage(1); // Reset to first page
+                      }}
+                      className={`rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm ${
+                        isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white'
+                      }`}
+                    >
+                      <option value={10}>10</option>
+                      <option value={25}>25</option>
+                      <option value={50}>50</option>
+                      <option value={100}>100</option>
+                    </select>
+                  </div>
+
+                  {/* Go to Page Input */}
+                  <div className="flex items-center gap-2">
+                    <span className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                      Aller à:
+                    </span>
+                    <input
+                      type="number"
+                      min={1}
+                      max={totalPages}
+                      value={currentPage}
+                      onChange={(e) => {
+                        const page = Number(e.target.value);
+                        if (page >= 1 && page <= totalPages) {
+                          setCurrentPage(page);
+                        }
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          const page = Number((e.target as HTMLInputElement).value);
+                          if (page >= 1 && page <= totalPages) {
+                            setCurrentPage(page);
+                          }
+                        }
+                      }}
+                      className={`w-16 text-center rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm ${
+                        isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white'
+                      }`}
+                    />
+                    <span className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                      / {totalPages}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Page Navigation */}
+                <div className="flex items-center gap-2 flex-wrap justify-center">
+                  {/* First Page */}
+                  <button
+                    onClick={() => setCurrentPage(1)}
+                    disabled={currentPage === 1}
+                    className={`px-2 py-2 text-sm rounded-md border ${
+                      currentPage === 1
+                        ? 'border-gray-300 text-gray-400 cursor-not-allowed'
+                        : 'border-gray-300 text-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700'
+                    }`}
+                    title="Première page"
+                  >
+                    ⟪
+                  </button>
+
+                  {/* Previous Page */}
+                  <button
+                    onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                    disabled={currentPage === 1}
+                    className={`px-3 py-2 text-sm rounded-md border ${
+                      currentPage === 1
+                        ? 'border-gray-300 text-gray-400 cursor-not-allowed'
+                        : 'border-gray-300 text-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700'
+                    }`}
+                  >
+                    Précédent
+                  </button>
+
+                  {/* Page Numbers */}
+                  <div className="flex gap-1">
+                    {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                      let pageNum;
+                      if (totalPages <= 5) {
+                        pageNum = i + 1;
+                      } else if (currentPage <= 3) {
+                        pageNum = i + 1;
+                      } else if (currentPage >= totalPages - 2) {
+                        pageNum = totalPages - 4 + i;
+                      } else {
+                        pageNum = currentPage - 2 + i;
+                      }
+
+                      return (
+                        <button
+                          key={pageNum}
+                          onClick={() => setCurrentPage(pageNum)}
+                          className={`px-3 py-2 text-sm rounded-md border min-w-[40px] ${
+                            currentPage === pageNum
+                              ? 'bg-indigo-600 text-white border-indigo-600'
+                              : 'border-gray-300 text-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700'
+                          }`}
+                        >
+                          {pageNum}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Next Page */}
+                  <button
+                    onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                    disabled={currentPage === totalPages}
+                    className={`px-3 py-2 text-sm rounded-md border ${
+                      currentPage === totalPages
+                        ? 'border-gray-300 text-gray-400 cursor-not-allowed'
+                        : 'border-gray-300 text-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700'
+                    }`}
+                  >
+                    Suivant
+                  </button>
+
+                  {/* Last Page */}
+                  <button
+                    onClick={() => setCurrentPage(totalPages)}
+                    disabled={currentPage === totalPages}
+                    className={`px-2 py-2 text-sm rounded-md border ${
+                      currentPage === totalPages
+                        ? 'border-gray-300 text-gray-400 cursor-not-allowed'
+                        : 'border-gray-300 text-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700'
+                    }`}
+                    title="Dernière page"
+                  >
+                    ⟫
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
           </div>
         </>
       )}
