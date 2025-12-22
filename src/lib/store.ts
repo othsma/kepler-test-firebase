@@ -37,6 +37,8 @@ interface Quote {
     phone?: string;
     address?: string;
   };
+  paymentMethod?: string;
+  paymentStatus?: string;
   status: 'draft' | 'sent' | 'accepted' | 'rejected' | 'expired';
   validUntil: string;
   notes?: string;
@@ -1372,16 +1374,28 @@ const useQuotesStore = create<QuotesState>((set, get) => ({
       const quotesSnapshot = await getDocs(quotesCollection);
       const quotesList = quotesSnapshot.docs.map(doc => {
         const data = doc.data();
+
+        // Safely handle timestamp fields
+        const createdAt = data.createdAt?.toDate ? data.createdAt.toDate().toISOString() :
+                        (typeof data.createdAt === 'string' ? data.createdAt : new Date().toISOString());
+
+        const updatedAt = data.updatedAt?.toDate ? data.updatedAt.toDate().toISOString() :
+                        (typeof data.updatedAt === 'string' ? data.updatedAt : createdAt);
+
+        const validUntil = data.validUntil?.toDate ? data.validUntil.toDate().toISOString() :
+                         (typeof data.validUntil === 'string' ? data.validUntil : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString());
+
         return {
           id: doc.id,
           ...data,
-          createdAt: data.createdAt?.toDate().toISOString() || new Date().toISOString(),
-          updatedAt: data.updatedAt?.toDate().toISOString() || new Date().toISOString(),
-          validUntil: data.validUntil?.toDate().toISOString() || new Date().toISOString()
+          createdAt,
+          updatedAt,
+          validUntil
         } as Quote;
       });
 
       set({ quotes: quotesList, loading: false });
+      console.log('Fetched quotes:', quotesList.length);
     } catch (error) {
       console.error('Error fetching quotes:', error);
       set({ error: 'Failed to fetch quotes', loading: false });
@@ -1395,8 +1409,12 @@ const useQuotesStore = create<QuotesState>((set, get) => ({
       const validUntil = new Date();
       validUntil.setDate(validUntil.getDate() + 30); // 30 days validity
 
-      const quoteDoc = {
-        ...quoteData,
+      // Explicitly construct quote document to ensure all fields are included
+      const quoteDoc: any = {
+        items: quoteData.items,
+        subtotal: quoteData.subtotal,
+        tax: quoteData.tax,
+        total: quoteData.total,
         quoteNumber,
         status: 'draft' as const,
         validUntil: serverTimestamp(),
@@ -1405,7 +1423,20 @@ const useQuotesStore = create<QuotesState>((set, get) => ({
         createdFrom: 'pos' as const
       };
 
-      console.log('Creating quote with data:', quoteDoc);
+      // Only include optional fields if they have values
+      if (quoteData.customer) {
+        quoteDoc.customer = quoteData.customer;
+      }
+      if (quoteData.paymentMethod) {
+        quoteDoc.paymentMethod = quoteData.paymentMethod;
+      }
+      if (quoteData.paymentStatus) {
+        quoteDoc.paymentStatus = quoteData.paymentStatus;
+      }
+      if (quoteData.notes) {
+        quoteDoc.notes = quoteData.notes;
+      }
+
       const docRef = await addDoc(collection(db, 'quotes'), quoteDoc);
       console.log('Quote created with ID:', docRef.id);
 
@@ -1521,7 +1552,7 @@ const useQuotesStore = create<QuotesState>((set, get) => ({
       const random = Math.floor(1000 + Math.random() * 9000);
       const invoiceNumber = `${prefix}-${date}-${random}`;
 
-      // Create sale from quote
+      // Create sale from quote - use payment method and status from quote
       const saleData = {
         invoiceNumber,
         items: quote.items.map(item => ({
@@ -1535,10 +1566,10 @@ const useQuotesStore = create<QuotesState>((set, get) => ({
         tax: quote.tax,
         total: quote.total,
         customer: quote.customer,
-        paymentMethod: 'cash',
-        paymentStatus: 'Paid',
+        paymentMethod: quote.paymentMethod || 'cash', // Use quote's payment method or default to cash
+        paymentStatus: 'Paid', // When converted to sale, it's paid
         date: new Date().toISOString(),
-        note: `Converted from quote ${quote.quoteNumber}`
+        note: `Issu du devis numéro ${quote.quoteNumber}`
       };
 
       // Create sale in Firestore

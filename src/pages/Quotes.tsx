@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useThemeStore, useQuotesStore, useClientsStore } from '../lib/store';
-import { Search, Plus, Eye, Edit, Trash2, Download, Mail, CheckCircle, XCircle, Clock, AlertCircle } from 'lucide-react';
+import { Search, Plus, Eye, Edit, Trash2, Download, Mail, CheckCircle, XCircle, Clock, AlertCircle, ArrowUp, ArrowDown } from 'lucide-react';
 import { format } from 'date-fns';
 import UnifiedDocument from '../components/documents/UnifiedDocument';
 import { convertQuoteToDocument } from '../components/documents/DocumentConverter';
@@ -13,6 +13,7 @@ export default function Quotes() {
 
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'draft' | 'sent' | 'accepted' | 'rejected' | 'expired'>('all');
+  const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc'); // desc = newest first
   const [showQuoteViewer, setShowQuoteViewer] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedQuote, setSelectedQuote] = useState<any>(null);
@@ -22,17 +23,28 @@ export default function Quotes() {
     fetchQuotes();
   }, [fetchQuotes]);
 
-  // Filter quotes based on search and status
-  const filteredQuotes = quotes.filter((quote) => {
-    const matchesSearch = searchQuery === '' ||
-      quote.quoteNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (quote.customer?.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-      quote.items.some(item => item.name.toLowerCase().includes(searchQuery.toLowerCase()));
+  // Filter and sort quotes based on search, status, and sort order
+  const filteredQuotes = useMemo(() => {
+    let filtered = quotes.filter((quote) => {
+      const matchesSearch = searchQuery === '' ||
+        quote.quoteNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (quote.customer?.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+        quote.items.some(item => item.name.toLowerCase().includes(searchQuery.toLowerCase()));
 
-    const matchesStatus = statusFilter === 'all' || quote.status === statusFilter;
+      const matchesStatus = statusFilter === 'all' || quote.status === statusFilter;
 
-    return matchesSearch && matchesStatus;
-  });
+      return matchesSearch && matchesStatus;
+    });
+
+    // Sort by date
+    filtered.sort((a, b) => {
+      const dateA = new Date(a.createdAt).getTime();
+      const dateB = new Date(b.createdAt).getTime();
+      return sortOrder === 'desc' ? dateB - dateA : dateA - dateB;
+    });
+
+    return filtered;
+  }, [quotes, searchQuery, statusFilter, sortOrder]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -180,25 +192,38 @@ export default function Quotes() {
             </div>
           </div>
 
-          {/* Status Filter */}
-          <div className="flex items-center gap-2">
-            <label className={`text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-              Statut:
-            </label>
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value as any)}
-              className={`px-3 py-2 border rounded-md focus:ring-indigo-500 focus:border-indigo-500 ${
-                isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300 text-gray-900'
+          {/* Status Filter and Sort */}
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <label className={`text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                Statut:
+              </label>
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value as any)}
+                className={`px-3 py-2 border rounded-md focus:ring-indigo-500 focus:border-indigo-500 ${
+                  isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300 text-gray-900'
+                }`}
+              >
+                <option value="all">Tous</option>
+                <option value="draft">Brouillon</option>
+                <option value="sent">Envoyé</option>
+                <option value="accepted">Accepté</option>
+                <option value="rejected">Rejeté</option>
+                <option value="expired">Expiré</option>
+              </select>
+            </div>
+
+            <button
+              onClick={() => setSortOrder(sortOrder === 'desc' ? 'asc' : 'desc')}
+              className={`flex items-center gap-2 px-3 py-2 rounded-md border ${
+                isDarkMode ? 'border-gray-600 text-gray-300 hover:bg-gray-700' : 'border-gray-300 text-gray-700 hover:bg-gray-50'
               }`}
+              title={`Trier par date (${sortOrder === 'desc' ? 'Plus récent d\'abord' : 'Plus ancien d\'abord'})`}
             >
-              <option value="all">Tous</option>
-              <option value="draft">Brouillon</option>
-              <option value="sent">Envoyé</option>
-              <option value="accepted">Accepté</option>
-              <option value="rejected">Rejeté</option>
-              <option value="expired">Expiré</option>
-            </select>
+              {sortOrder === 'desc' ? <ArrowDown className="h-4 w-4" /> : <ArrowUp className="h-4 w-4" />}
+              <span className="text-sm">Date {sortOrder === 'desc' ? '↓' : '↑'}</span>
+            </button>
           </div>
         </div>
       </div>

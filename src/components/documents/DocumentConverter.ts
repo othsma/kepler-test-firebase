@@ -177,6 +177,7 @@ export function convertQuoteToDocument(quote: any): DocumentData {
     subtotal: quote.subtotal || 0,
     tax: quote.tax || 0,
     total: quote.total || 0,
+    paymentMethod: quote.paymentMethod,
     note: quote.notes,
     type: 'quote',
     status: quote.status || 'draft',

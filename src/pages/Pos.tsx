@@ -341,7 +341,8 @@ export default function Pos() {
         ...(client.email && { email: client.email }),
         ...(client.phone && { phone: client.phone }),
         ...(client.address && { address: client.address }),
-      } : undefined
+      } : undefined,
+      paymentMethod: PAYMENT_METHODS.find(m => m.id === paymentMethod)?.name || paymentMethod
     };
 
     // Only include notes if they have a value
