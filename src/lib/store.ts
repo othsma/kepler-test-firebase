@@ -1025,28 +1025,8 @@ const useProductsStore = create<ProductsState>((set, get) => ({
   }
 }));
 
-interface OrderItem {
-  productId: string;
-  quantity: number;
-  name?: string;
-  description?: string;
-  price?: number;
-}
 
-interface Order {
-  id: string;
-  items: OrderItem[];
-  total: number;
-  status: 'pending' | 'processing' | 'ready_for_pickup' | 'completed' | 'cancelled';
-  clientId: string;
-  createdAt: string;
-  paymentMethod?: string;
-  paymentStatus?: string;
-  amountPaid?: number;
-  orderDate?: string;
-  deliveryDate?: string;
-  note?: string;
-}
+
 
 interface SaleItem {
   productId: string;
@@ -1087,168 +1067,8 @@ interface SalesState {
   deleteSale: (id: string) => Promise<void>;
 }
 
-interface OrdersState {
-  orders: Order[];
-  cart: OrderItem[];
-  loading: boolean;
-  error: string | null;
-  fetchOrders: () => Promise<void>;
-  addToCart: (productId: string, quantity: number) => void;
-  removeFromCart: (productId: string) => void;
-  clearCart: () => void;
-  createOrder: (clientId: string, total: number, items?: OrderItem[]) => Promise<string>;
-  updateOrder: (orderId: string, orderData: Partial<Order>) => Promise<void>;
-  updateOrderStatus: (orderId: string, status: Order['status']) => Promise<void>;
-  deleteOrder: (orderId: string) => Promise<void>;
-}
 
-const useOrdersStore = create<OrdersState>((set, get) => ({
-  orders: [],
-  cart: [],
-  loading: false,
-  error: null,
-  
-  fetchOrders: async () => {
-    set({ loading: true, error: null });
-    try {
-      const ordersCollection = collection(db, 'orders');
-      const ordersSnapshot = await getDocs(ordersCollection);
-      const ordersList = ordersSnapshot.docs.map(doc => {
-        const data = doc.data();
-        return {
-          id: doc.id,
-          ...data,
-          createdAt: data.createdAt?.toDate().toISOString() || new Date().toISOString()
-        } as Order;
-      });
-      
-      set({ orders: ordersList, loading: false });
-    } catch (error) {
-      console.error('Error fetching orders:', error);
-      set({ error: 'Failed to fetch orders', loading: false });
-    }
-  },
-  
-  addToCart: (productId: string, quantity: number) => {
-    set(state => ({
-      cart: [
-        ...state.cart.filter(item => item.productId !== productId),
-        { productId, quantity }
-      ]
-    }));
-  },
-  
-  removeFromCart: (productId: string) => {
-    set(state => ({
-      cart: state.cart.filter(item => item.productId !== productId)
-    }));
-  },
-  
-  clearCart: () => set({ cart: [] }),
-  
-  createOrder: async (clientId: string, total: number, items?: OrderItem[]) => {
-    try {
-      const { cart } = get();
-      const orderItems = items || [...cart];
 
-      const orderData = {
-        items: orderItems,
-        total,
-        status: 'pending',
-        clientId,
-        createdAt: serverTimestamp(),
-        paymentMethod: 'cash',
-        paymentStatus: 'not_paid',
-        amountPaid: 0,
-        orderDate: new Date().toISOString(),
-        deliveryDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
-      };
-
-      console.log('Creating order with data:', orderData);
-      const docRef = await addDoc(collection(db, 'orders'), orderData);
-      console.log('Order created with ID:', docRef.id);
-
-      // Create order object for local state
-      const newOrder = {
-        id: docRef.id,
-        items: orderItems,
-        total,
-        status: 'pending' as const,
-        clientId,
-        createdAt: new Date().toISOString(),
-        paymentMethod: 'cash',
-        paymentStatus: 'not_paid',
-        amountPaid: 0,
-        orderDate: new Date().toISOString(),
-        deliveryDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
-      };
-
-      // Update local state
-      set(state => ({
-        orders: [...state.orders, newOrder],
-        cart: [],
-        loading: false
-      }));
-
-      return docRef.id;
-    } catch (error) {
-      console.error('Error creating order:', error);
-      set({ error: 'Failed to create order', loading: false });
-      return '';
-    }
-  },
-  
-  updateOrder: async (orderId: string, orderData: Partial<Order>) => {
-    set({ loading: true, error: null });
-    try {
-      const orderRef = doc(db, 'orders', orderId);
-      await updateDoc(orderRef, orderData);
-      
-      set(state => ({
-        orders: state.orders.map(order => 
-          order.id === orderId ? { ...order, ...orderData } : order
-        ),
-        loading: false
-      }));
-    } catch (error) {
-      console.error('Error updating order:', error);
-      set({ error: 'Failed to update order', loading: false });
-    }
-  },
-  
-  updateOrderStatus: async (orderId: string, status: Order['status']) => {
-    set({ loading: true, error: null });
-    try {
-      const orderRef = doc(db, 'orders', orderId);
-      await updateDoc(orderRef, { status });
-      
-      set(state => ({
-        orders: state.orders.map(order => 
-          order.id === orderId ? { ...order, status } : order
-        ),
-        loading: false
-      }));
-    } catch (error) {
-      console.error('Error updating order status:', error);
-      set({ error: 'Failed to update order status', loading: false });
-    }
-  },
-  
-  deleteOrder: async (orderId: string) => {
-    set({ loading: true, error: null });
-    try {
-      await deleteDoc(doc(db, 'orders', orderId));
-      
-      set(state => ({
-        orders: state.orders.filter(order => order.id !== orderId),
-        loading: false
-      }));
-    } catch (error) {
-      console.error('Error deleting order:', error);
-      set({ error: 'Failed to delete order', loading: false });
-    }
-  }
-}));
 
 interface PosState {
   showReceipt: boolean;
@@ -1631,7 +1451,6 @@ export {
   useClientsStore,
   useTicketsStore,
   useProductsStore,
-  useOrdersStore,
   useSalesStore,
   usePosStore,
   useQuotesStore

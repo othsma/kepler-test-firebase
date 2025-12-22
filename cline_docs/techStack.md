@@ -7,7 +7,7 @@
 
 ## State Management
 - **Zustand**: Lightweight state management library that simplifies global state handling
-  - Used for managing application state including authentication, clients, tickets, products, orders, and invoices
+  - Used for managing application state including authentication, clients, tickets, products, and invoices
   - Chosen for its simplicity and performance compared to Redux
 
 ## Styling

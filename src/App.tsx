@@ -2,7 +2,7 @@ import React, { useEffect, Suspense, lazy } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { onAuthStateChanged, getAuth } from 'firebase/auth';
 import Layout from './components/Layout';
-import { useClientsStore, useTicketsStore, useProductsStore, useOrdersStore, useAuthStore } from './lib/store';
+import { useClientsStore, useTicketsStore, useProductsStore, useAuthStore } from './lib/store';
 import { getUserRole, ROLES } from './lib/firebase';
 import LoadingScreen from './components/LoadingScreen';
 import AccessDenied from './components/AccessDenied';
@@ -13,7 +13,7 @@ const Dashboard = lazy(() => import('./pages/Dashboard'));
 const Clients = lazy(() => import('./pages/Clients'));
 const Tickets = lazy(() => import('./pages/SimpleTickets'));
 const Products = lazy(() => import('./pages/Products'));
-const Orders = lazy(() => import('./pages/Orders'));
+
 const Quotes = lazy(() => import('./pages/Quotes'));
 const Settings = lazy(() => import('./pages/Settings'));
 const Login = lazy(() => import('./pages/Login'));
@@ -36,7 +36,6 @@ function App() {
   const { fetchClients } = useClientsStore();
   const { fetchTickets, fetchSettings, fetchTechnicianTickets } = useTicketsStore();
   const { fetchProducts, fetchCategories } = useProductsStore();
-  const { fetchOrders } = useOrdersStore();
 
   useEffect(() => {
     const auth = getAuth();
@@ -60,7 +59,7 @@ function App() {
           fetchSettings();
           fetchProducts();
           fetchCategories();
-          fetchOrders();
+
         } else {
           // Technicians only get their assigned tickets
           fetchSettings();
@@ -165,11 +164,7 @@ function App() {
                 <Products />
               </ProtectedRoute>
             } />
-            <Route path="pos/orders" element={
-              <ProtectedRoute requiredRole={ROLES.SUPER_ADMIN}>
-                <Orders />
-              </ProtectedRoute>
-            } />
+
             
             {/* Both Super Admin and Technicians */}
             <Route path="profile" element={

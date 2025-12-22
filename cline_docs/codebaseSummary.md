@@ -43,7 +43,6 @@ src/
 
 - **Products.tsx**: Product management page
 - **Pos.tsx**: Point of sale interface
-- **Orders.tsx**: Order management page
 - **Invoices.tsx**: Invoice management page
 
 ### Document System Components
@@ -80,7 +79,7 @@ src/
 2. **Client Management Flow**:
    - Clients are fetched from Firestore via useClientsStore
    - CRUD operations update both Firestore and local state
-   - Client data is used in tickets, orders, and invoices
+   - Client data is used in tickets and invoices
 
 3. **Ticket Management Flow**:
    - Tickets are created and assigned to technicians
@@ -89,7 +88,7 @@ src/
 
 4. **POS Flow**:
    - Products are added to cart
-   - Orders are created and linked to clients
+   - Sales are created and linked to clients
    - Receipts and invoices are generated
 
 ## External Dependencies
@@ -102,7 +101,6 @@ src/
   - tickets
   - products
   - categories
-  - orders
   - invoices
   - settings
 

@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { useThemeStore, useClientsStore, useTicketsStore, useOrdersStore, useSalesStore } from '../lib/store';
+import { useThemeStore, useClientsStore, useTicketsStore, useSalesStore } from '../lib/store';
 import { Search, Plus, Edit2, Trash2, History, Calendar, User, Users, ChevronDown, ChevronRight, Download, FileText } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -7,7 +7,6 @@ export default function Clients() {
   const isDarkMode = useThemeStore((state) => state.isDarkMode);
   const { clients, addClient, updateClient, deleteClient, loading, error } = useClientsStore();
   const { tickets } = useTicketsStore();
-  const { orders } = useOrdersStore();
   const { sales } = useSalesStore();
   const [activeTab, setActiveTab] = useState<'main' | 'all'>('all');
   const [selectedClient, setSelectedClient] = useState<string | null>(null);
@@ -118,14 +117,13 @@ export default function Clients() {
       get: (clientId: string) => {
         if (!cache.has(clientId)) {
           const clientTickets = tickets.filter(ticket => ticket.clientId === clientId);
-          const clientOrders = orders.filter(order => order.clientId === clientId);
           const clientSales = sales.filter(sale => sale.customer?.id === clientId);
-          cache.set(clientId, { tickets: clientTickets, orders: clientOrders, sales: clientSales });
+          cache.set(clientId, { tickets: clientTickets, sales: clientSales });
         }
         return cache.get(clientId);
       }
     };
-  }, [tickets, orders, sales]);
+  }, [tickets, sales]);
 
   // Keyboard shortcuts for pagination
   useEffect(() => {
@@ -255,9 +253,8 @@ export default function Clients() {
 
   const getClientHistory = (clientId: string) => {
     const clientTickets = tickets.filter(ticket => ticket.clientId === clientId);
-    const clientOrders = orders.filter(order => order.clientId === clientId);
     const clientSales = sales.filter(sale => sale.customer?.id === clientId);
-    return { tickets: clientTickets, orders: clientOrders, sales: clientSales };
+    return { tickets: clientTickets, sales: clientSales };
   };
 
   const handleDeleteClient = async (id: string) => {
@@ -777,7 +774,7 @@ export default function Clients() {
               </div>
             ) : (
               displayedClients.map((client) => {
-          const { tickets: clientTickets, orders: clientOrders, sales: clientSales } = getClientHistory(client.id);
+          const { tickets: clientTickets, sales: clientSales } = getClientHistory(client.id);
           const isSelected = selectedClient === client.id;
           const isExpanded = expandedClients.has(client.id);
 
@@ -1071,82 +1068,46 @@ export default function Clients() {
                         Historique d'achat
                       </h5>
                       <div className="space-y-2">
-                        {clientOrders.length > 0 || clientSales.length > 0 ? (
-                          <>
-                            {/* Orders */}
-                            {clientOrders.map((order) => (
-                              <div
-                                key={`order-${order.id}`}
-                                className={`p-3 rounded-md ${
-                                  isDarkMode ? 'bg-gray-700' : 'bg-gray-50'
-                                }`}
-                              >
-                                <div className="flex justify-between">
-                                  <span className={isDarkMode ? 'text-white' : 'text-gray-900'}>
-                                    Commande #{order.id}
-                                  </span>
-                                  <span className={`text-sm ${
-                                    isDarkMode ? 'text-gray-300' : 'text-gray-600'
-                                  }`}>
-                                    €{order.total}
-                                  </span>
-                                </div>
-                                <div className="flex justify-between items-center mt-2">
-                                  <span className={`text-sm ${
-                                    isDarkMode ? 'text-gray-400' : 'text-gray-500'
-                                  }`}>
-                                    Type: Commande • Statut: {order.status}
-                                  </span>
-                                  <span className={`text-sm ${
-                                    isDarkMode ? 'text-gray-400' : 'text-gray-500'
-                                  }`}>
-                                    {format(new Date(order.createdAt), 'MMM d, yyyy')}
-                                  </span>
-                                </div>
+                        {clientSales.length > 0 ? (
+                          clientSales.map((sale) => (
+                            <div
+                              key={`sale-${sale.id}`}
+                              className={`p-3 rounded-md ${
+                                isDarkMode ? 'bg-gray-700' : 'bg-gray-50'
+                              }`}
+                            >
+                              <div className="flex justify-between">
+                                <span className={isDarkMode ? 'text-white' : 'text-gray-900'}>
+                                  Facture {sale.invoiceNumber}
+                                </span>
+                                <span className={`text-sm ${
+                                  isDarkMode ? 'text-gray-300' : 'text-gray-600'
+                                }`}>
+                                  €{sale.total.toFixed(2)}
+                                </span>
                               </div>
-                            ))}
-
-                            {/* Sales/Invoices */}
-                            {clientSales.map((sale) => (
-                              <div
-                                key={`sale-${sale.id}`}
-                                className={`p-3 rounded-md ${
-                                  isDarkMode ? 'bg-gray-700' : 'bg-gray-50'
-                                }`}
-                              >
-                                <div className="flex justify-between">
-                                  <span className={isDarkMode ? 'text-white' : 'text-gray-900'}>
-                                    Facture {sale.invoiceNumber}
-                                  </span>
-                                  <span className={`text-sm ${
-                                    isDarkMode ? 'text-gray-300' : 'text-gray-600'
-                                  }`}>
-                                    €{sale.total.toFixed(2)}
-                                  </span>
-                                </div>
-                                <div className="mt-1">
-                                  <p className={`text-sm ${
-                                    isDarkMode ? 'text-gray-400' : 'text-gray-500'
-                                  }`}>
-                                    {sale.items.length} article(s): {sale.items.slice(0, 2).map(item => item.name).join(', ')}
-                                    {sale.items.length > 2 ? '...' : ''}
-                                  </p>
-                                </div>
-                                <div className="flex justify-between items-center mt-2">
-                                  <span className={`text-sm ${
-                                    isDarkMode ? 'text-gray-400' : 'text-gray-500'
-                                  }`}>
-                                    Type: Vente PDV • Paiement: {sale.paymentMethod}
-                                  </span>
-                                  <span className={`text-sm ${
-                                    isDarkMode ? 'text-gray-400' : 'text-gray-500'
-                                  }`}>
-                                    {format(new Date(sale.date), 'MMM d, yyyy')}
-                                  </span>
-                                </div>
+                              <div className="mt-1">
+                                <p className={`text-sm ${
+                                  isDarkMode ? 'text-gray-400' : 'text-gray-500'
+                                }`}>
+                                  {sale.items.length} article(s): {sale.items.slice(0, 2).map(item => item.name).join(', ')}
+                                  {sale.items.length > 2 ? '...' : ''}
+                                </p>
                               </div>
-                            ))}
-                          </>
+                              <div className="flex justify-between items-center mt-2">
+                                <span className={`text-sm ${
+                                  isDarkMode ? 'text-gray-400' : 'text-gray-500'
+                                }`}>
+                                  Type: Vente PDV • Paiement: {sale.paymentMethod}
+                                </span>
+                                <span className={`text-sm ${
+                                  isDarkMode ? 'text-gray-400' : 'text-gray-500'
+                                }`}>
+                                  {format(new Date(sale.date), 'MMM d, yyyy')}
+                                </span>
+                              </div>
+                            </div>
+                          ))
                         ) : (
                           <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                             Aucun historique d'achat pour le moment

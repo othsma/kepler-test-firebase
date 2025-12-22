@@ -52,7 +52,7 @@ export default function Sidebar({ isCollapsed, toggleSidebar }: SidebarProps) {
           { name: 'Ventes', href: '/pos' },
           { name: 'Devis', href: '/pos/quotes' },
           { name: 'Produits', href: '/pos/products' },
-          { name: 'Commandes', href: '/pos/orders' }
+
         ],
       });
       baseNavigation.push({ name: 'Paramètres', href: '/settings', icon: Settings });
