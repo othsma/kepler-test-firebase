@@ -58,7 +58,10 @@ export default function Pos() {
   const filteredProducts = products.filter((product) => {
     const matchesSearch = localSearchQuery
       ? product.name.toLowerCase().includes(localSearchQuery.toLowerCase()) ||
-        product.description.toLowerCase().includes(localSearchQuery.toLowerCase())
+        product.description.toLowerCase().includes(localSearchQuery.toLowerCase()) ||
+        product.sku.toLowerCase().includes(localSearchQuery.toLowerCase()) ||
+        (product.category || '').toLowerCase().includes(localSearchQuery.toLowerCase()) ||
+        product.price.toString().includes(localSearchQuery)
       : true;
     const matchesCategory = selectedCategories.length === 0 || selectedCategories.includes(product.category || '');
 
