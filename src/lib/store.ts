@@ -1292,10 +1292,26 @@ const useSalesStore = create<SalesState>((set) => ({
   createSale: async (saleData: Omit<Sale, 'id' | 'createdAt'>) => {
     set({ loading: true, error: null });
     try {
-      const saleDoc = {
-        ...saleData,
+      // Prepare sale document, filtering out undefined values
+      const saleDoc: any = {
+        invoiceNumber: saleData.invoiceNumber,
+        items: saleData.items,
+        subtotal: saleData.subtotal,
+        tax: saleData.tax,
+        total: saleData.total,
+        paymentMethod: saleData.paymentMethod,
+        paymentStatus: saleData.paymentStatus,
+        date: saleData.date,
         createdAt: new Date()
       };
+
+      // Only include optional fields if they have values
+      if (saleData.customer) {
+        saleDoc.customer = saleData.customer;
+      }
+      if (saleData.note) {
+        saleDoc.note = saleData.note;
+      }
 
       console.log('Creating sale with data:', saleDoc);
       const docRef = await addDoc(collection(db, 'sales'), saleDoc);
