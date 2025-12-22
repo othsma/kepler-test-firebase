@@ -131,6 +131,12 @@ export default function A4Format({ data }: A4FormatProps) {
                     <td className="py-2 text-gray-800">{data.model}</td>
                   </tr>
                 )}
+                {data.imeiSerial && (
+                  <tr className="border-b border-gray-200">
+                    <td className="py-2 font-medium text-gray-800">IMEI / Numéro de Série:</td>
+                    <td className="py-2 text-gray-800">{data.imeiSerial}</td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>

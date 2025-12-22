@@ -42,6 +42,7 @@ export interface DocumentData {
   brand?: string;
   model?: string;
   passcode?: string;
+  imeiSerial?: string;
 
   // Additional fields for quotes
   validUntil?: string;

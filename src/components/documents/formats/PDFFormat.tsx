@@ -173,10 +173,10 @@ export default function PDFFormat({ data }: PDFFormatProps) {
                 <Text>{data.model}</Text>
               </View>
             )}
-            {data.passcode && (
+            {data.imeiSerial && (
               <View style={styles.flexRow}>
-                <Text>Code:</Text>
-                <Text>{data.passcode}</Text>
+                <Text>IMEI/Série:</Text>
+                <Text>{data.imeiSerial}</Text>
               </View>
             )}
           </View>

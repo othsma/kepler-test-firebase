@@ -73,16 +73,16 @@ export default function EngagementFormat({ data }: EngagementFormatProps) {
           )}
         </div>
 
-        {/* Device Information - Single Row Table */}
+        {/* Device Information - Compact Single Row Table */}
         <div className="mb-4">
           <h3 className="font-bold mb-2 text-gray-900">Appareil confié:</h3>
           <table className="w-full border-collapse border border-gray-300" style={{ tableLayout: 'fixed' }}>
             <thead>
               <tr className="bg-gray-50">
-                <th className="border border-gray-300 px-3 py-2 text-left text-sm font-bold text-gray-900" style={{ width: '20%' }}>Type</th>
-                <th className="border border-gray-300 px-3 py-2 text-left text-sm font-bold text-gray-900" style={{ width: '20%' }}>Marque</th>
-                <th className="border border-gray-300 px-3 py-2 text-left text-sm font-bold text-gray-900" style={{ width: '20%' }}>Modèle</th>
-                <th className="border border-gray-300 px-3 py-2 text-left text-sm font-bold text-gray-900" style={{ width: '40%' }}>Problème signalé</th>
+                <th className="border border-gray-300 px-3 py-2 text-left text-sm font-bold text-gray-900" style={{ width: '25%' }}>Type</th>
+                <th className="border border-gray-300 px-3 py-2 text-left text-sm font-bold text-gray-900" style={{ width: '25%' }}>Marque</th>
+                <th className="border border-gray-300 px-3 py-2 text-left text-sm font-bold text-gray-900" style={{ width: '25%' }}>Modèle</th>
+                <th className="border border-gray-300 px-3 py-2 text-left text-sm font-bold text-gray-900" style={{ width: '25%' }}>IMEI / Numéro de Série</th>
               </tr>
             </thead>
             <tbody>
@@ -90,7 +90,7 @@ export default function EngagementFormat({ data }: EngagementFormatProps) {
                 <td className="border border-gray-300 px-3 pt-1 pb-2 text-sm text-gray-800" style={{ verticalAlign: 'text-top' }}>{data.deviceType || 'Non spécifié'}</td>
                 <td className="border border-gray-300 px-3 pt-1 pb-2 text-sm text-gray-800" style={{ verticalAlign: 'text-top' }}>{data.brand || 'Non spécifiée'}</td>
                 <td className="border border-gray-300 px-3 pt-1 pb-2 text-sm text-gray-800" style={{ verticalAlign: 'text-top' }}>{data.model || 'Non spécifié'}</td>
-                <td className="border border-gray-300 px-3 pt-1 pb-2 text-sm text-gray-800" style={{ verticalAlign: 'text-top' }}>{data.note?.replace('CONTRAT D\'ENGAGEMENT CLIENT - ', '') || 'À diagnostiquer'}</td>
+                <td className="border border-gray-300 px-3 pt-1 pb-2 text-sm text-gray-800" style={{ verticalAlign: 'text-top' }}>{data.imeiSerial || 'Non fourni'}</td>
               </tr>
             </tbody>
           </table>

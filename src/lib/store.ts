@@ -263,6 +263,7 @@ interface Ticket {
   cost: number;
   technicianId: string;
   passcode?: string;
+  imeiSerial?: string;
   paymentStatus?: 'not_paid' | 'partially_paid' | 'fully_paid';
   amountPaid?: number;
   createdAt: string;

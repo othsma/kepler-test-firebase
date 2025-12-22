@@ -76,7 +76,7 @@ export function convertTicketToDocument(ticket: any, clientId: string, client: a
     deviceType: ticket.deviceType || '',
     brand: ticket.brand || '',
     model: ticket.model || '',
-    passcode: ticket.passcode,
+    imeiSerial: ticket.imeiSerial, // IMEI/Serial number for documents
     sourceType: 'ticket',
     sourceId: ticket.id
   };
@@ -236,7 +236,7 @@ export function convertEngagementToDocument(ticket: any, client: any): DocumentD
     deviceType: ticket.deviceType || '',
     brand: ticket.brand || '',
     model: ticket.model || '',
-    passcode: ticket.passcode,
+    imeiSerial: ticket.imeiSerial, // IMEI/Serial number for documents
     sourceType: 'ticket',
     sourceId: ticket.id,
 

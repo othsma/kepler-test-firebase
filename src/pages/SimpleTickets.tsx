@@ -130,6 +130,16 @@ export default function SimpleTickets() {
     }
     return '';
   });
+  const [imeiSerial, setImeiSerial] = useState(() => {
+    if (!isFreshLoad.current) {
+      try {
+        return sessionStorage.getItem('ticketImeiSerial') || '';
+      } catch {
+        return '';
+      }
+    }
+    return '';
+  });
   const [status, setStatus] = useState<'pending' | 'in-progress' | 'completed'>(() => {
     if (!isFreshLoad.current) {
       try {
@@ -206,6 +216,7 @@ export default function SimpleTickets() {
         setModel(ticket.model || '');
         setIssue(ticket.issue || '');
         setPasscode(ticket.passcode || '');
+        setImeiSerial(ticket.imeiSerial || '');
         setAmountPaid(ticket.amountPaid || 0);
 
         setTasksWithPrice(ticket.taskPrices ||
@@ -233,6 +244,7 @@ export default function SimpleTickets() {
       sessionStorage.setItem('ticketTasksWithPrice', JSON.stringify(tasksWithPrice));
       sessionStorage.setItem('ticketIssue', issue);
       sessionStorage.setItem('ticketPasscode', passcode);
+      sessionStorage.setItem('ticketImeiSerial', imeiSerial);
       sessionStorage.setItem('ticketStatus', status);
       sessionStorage.setItem('ticketTechnicianId', technicianId);
       sessionStorage.setItem('ticketPaymentStatus', paymentStatus);
@@ -336,6 +348,7 @@ export default function SimpleTickets() {
         taskPrices: tasksWithPrice,
         issue,
         passcode,
+        imeiSerial,
         status,
         cost: totalCost,
         technicianId: technicianId || '',
@@ -343,6 +356,8 @@ export default function SimpleTickets() {
         paymentStatus,
         amountPaid
       };
+
+      console.log('Creating ticket with IMEI data:', { imeiSerial, ticketData });
       
       if (editingTicket) {
         await updateTicket(editingTicket, ticketData);
@@ -360,17 +375,18 @@ export default function SimpleTickets() {
         setClientSearch('');
         setSelectedClientId('');
 
-        // Reset form fields
-        setDeviceType('');
-        setBrand('');
-        setModel('');
-        setTasksWithPrice([]);
-        setIssue('');
-        setPasscode('');
-        setStatus('pending');
-        setTechnicianId('');
-        setPaymentStatus('not_paid');
-        setAmountPaid(0);
+                    // Reset form fields
+                    setDeviceType('');
+                    setBrand('');
+                    setModel('');
+                    setTasksWithPrice([]);
+                    setIssue('');
+                    setPasscode('');
+                    setImeiSerial('');
+                    setStatus('pending');
+                    setTechnicianId('');
+                    setPaymentStatus('not_paid');
+                    setAmountPaid(0);
 
         // Reset the form tracking state
         setHasStartedFillingForm(false);
@@ -1034,6 +1050,20 @@ export default function SimpleTickets() {
                   type="text"
                   value={passcode}
                   onChange={(e) => setPasscode(e.target.value)}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                />
+              </div>
+
+              {/* IMEI/Serial Number */}
+              <div>
+                <label className={`block text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                  IMEI / Numéro de Série (optionnel)
+                </label>
+                <input
+                  type="text"
+                  value={imeiSerial}
+                  onChange={(e) => setImeiSerial(e.target.value)}
+                  placeholder="Entrez l'IMEI ou le numéro de série"
                   className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                 />
               </div>
