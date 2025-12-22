@@ -35,6 +35,13 @@ export default function Pos() {
   const [receiptFormat, setReceiptFormat] = useState<'thermal' | 'a4'>('thermal');
   const [currentView, setCurrentView] = useState<'pos' | 'sales'>('pos');
 
+  // Custom item state
+  const [showCustomItemModal, setShowCustomItemModal] = useState(false);
+  const [customItem, setCustomItem] = useState({
+    name: '',
+    price: '',
+  });
+
   // Sales table state
   const [salesSearchQuery, setSalesSearchQuery] = useState('');
   const [dateFrom, setDateFrom] = useState('');
@@ -114,15 +121,49 @@ export default function Pos() {
     setCart(prevCart => {
       const existingItem = prevCart.find(item => item.product.id === product.id);
       if (existingItem) {
-        return prevCart.map(item => 
-          item.product.id === product.id 
-            ? { ...item, quantity: item.quantity + 1 } 
+        return prevCart.map(item =>
+          item.product.id === product.id
+            ? { ...item, quantity: item.quantity + 1 }
             : item
         );
       } else {
         return [...prevCart, { product, quantity: 1 }];
       }
     });
+  };
+
+  // Add custom item to cart
+  const addCustomItemToCart = () => {
+    if (!customItem.name.trim() || !customItem.price.trim()) {
+      alert('Veuillez saisir un nom et un prix pour l\'article personnalisé.');
+      return;
+    }
+
+    const price = parseFloat(customItem.price);
+    if (isNaN(price) || price <= 0) {
+      alert('Veuillez saisir un prix valide.');
+      return;
+    }
+
+    // Create a custom item object
+    const customProduct = {
+      id: `custom-${Date.now()}`,
+      name: customItem.name.trim(),
+      price: price,
+      sku: 'CUSTOM',
+      description: 'Article personnalisé',
+      category: 'Service/Article personnalisé',
+      stock: 999, // Unlimited stock for custom items
+      imageUrl: '', // No image for custom items
+      isCustom: true, // Flag to identify custom items
+    };
+
+    // Add to cart
+    setCart(prevCart => [...prevCart, { product: customProduct, quantity: 1 }]);
+
+    // Reset form and close modal
+    setCustomItem({ name: '', price: '' });
+    setShowCustomItemModal(false);
   };
   
   // Update cart item quantity
@@ -349,6 +390,10 @@ export default function Pos() {
           event.preventDefault();
           setQuickSale(!quickSale);
           break;
+        case 'f8':
+          event.preventDefault();
+          setShowCustomItemModal(true);
+          break;
         case 'f9':
           event.preventDefault();
           if (cart.length > 0 && (quickSale || selectedClient)) {
@@ -380,7 +425,7 @@ export default function Pos() {
         </h1>
         <div className="flex items-center gap-2">
           <div className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'} hidden sm:block`}>
-            Raccourcis: F1-F4 (Paiement) | F5-F6 (Reçu) | F7 (Vente Rapide) | F9 (Finaliser) | F10 (Vider)
+            Raccourcis: F1-F4 (Paiement) | F5-F6 (Reçu) | F7 (Vente Rapide) | F8 (Article Pers.) | F9 (Finaliser) | F10 (Vider)
           </div>
           <button
             onClick={() => setCurrentView(currentView === 'pos' ? 'sales' : 'pos')}
@@ -405,6 +450,92 @@ export default function Pos() {
           }}
           initialFormat={receiptFormat}
         />
+      )}
+
+      {/* Custom Item Modal */}
+      {showCustomItemModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-black bg-opacity-50" onClick={() => setShowCustomItemModal(false)} />
+          <div className={`relative w-full max-w-md rounded-lg shadow-xl ${
+            isDarkMode ? 'bg-gray-800' : 'bg-white'
+          } p-6`}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className={`text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                🛠️ Ajouter un article personnalisé
+              </h3>
+              <button
+                onClick={() => setShowCustomItemModal(false)}
+                className={`p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 ${
+                  isDarkMode ? 'text-gray-400' : 'text-gray-600'
+                }`}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className={`block text-sm font-medium mb-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                  Nom de l'article *
+                </label>
+                <input
+                  type="text"
+                  value={customItem.name}
+                  onChange={(e) => setCustomItem({ ...customItem, name: e.target.value })}
+                  placeholder="Ex: Service de réparation, Consultation..."
+                  className={`w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 ${
+                    isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white'
+                  }`}
+                  required
+                />
+              </div>
+
+              <div>
+                <label className={`block text-sm font-medium mb-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                  Prix (€) *
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={customItem.price}
+                  onChange={(e) => setCustomItem({ ...customItem, price: e.target.value })}
+                  placeholder="0.00"
+                  className={`w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 ${
+                    isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white'
+                  }`}
+                  required
+                />
+              </div>
+
+
+
+              <div className="flex justify-end gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowCustomItemModal(false);
+                    setCustomItem({ name: '', price: '' });
+                  }}
+                  className={`px-4 py-2 border rounded-md text-sm font-medium ${
+                    isDarkMode
+                      ? 'border-gray-600 text-gray-300 hover:bg-gray-700'
+                      : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  Annuler
+                </button>
+                <button
+                  type="button"
+                  onClick={addCustomItemToCart}
+                  className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 text-sm font-medium"
+                >
+                  Ajouter au panier
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Tabs */}
@@ -1257,6 +1388,18 @@ export default function Pos() {
           </div>
         </div>
       )}
+
+      {/* Floating Action Button for Custom Items */}
+      <button
+        onClick={() => setShowCustomItemModal(true)}
+        className="fixed bottom-6 right-6 bg-green-600 text-white p-4 rounded-full shadow-lg hover:bg-green-700 hover:shadow-xl transition-all duration-200 z-40 group"
+        title="Ajouter un article personnalisé"
+      >
+        <Plus className="h-6 w-6" />
+        <div className="absolute bottom-full right-0 mb-2 px-3 py-1 bg-gray-800 text-white text-sm rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+          Article personnalisé
+        </div>
+      </button>
     </div>
   );
 }
