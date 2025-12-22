@@ -10,6 +10,15 @@ export default function Products() {
   const [activeTab, setActiveTab] = useState<'main' | 'all'>('all');
   const [editingProduct, setEditingProduct] = useState<string | null>(null);
   const [expandedProducts, setExpandedProducts] = useState<Set<string>>(new Set());
+  const [inlineEditData, setInlineEditData] = useState({
+    name: '',
+    category: '',
+    price: '',
+    stock: '',
+    sku: '',
+    description: '',
+    imageUrl: '',
+  });
   const [formData, setFormData] = useState({
     name: '',
     category: '',
@@ -865,18 +874,18 @@ export default function Products() {
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              setEditingProduct(product.id);
-                              setActiveTab('main');
-                              setFormData({
+                              setInlineEditData({
                                 name: product.name,
-                                category: product.category,
-                                price: product.price,
-                                stock: product.stock,
+                                category: product.category || '',
+                                price: product.price.toString(),
+                                stock: product.stock.toString(),
                                 sku: product.sku,
                                 description: product.description,
                                 imageUrl: product.imageUrl,
-                                createdAt: product.createdAt || '',
                               });
+                              setEditingProduct(product.id);
+                              // Auto-expand if not already expanded
+                              setExpandedProducts(prev => new Set([...prev, product.id]));
                             }}
                             className="p-2 text-gray-400 hover:text-gray-500"
                             title="Modifier"
@@ -901,54 +910,218 @@ export default function Products() {
                       {/* Additional Details - Expandable */}
                       {isExpanded && (
                         <div className={`mt-4 pt-4 border-t ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`}>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div>
-                              <div className="aspect-square bg-gray-100 rounded-lg overflow-hidden mb-4">
-                                <img
-                                  src={product.imageUrl}
-                                  alt={product.name}
-                                  className="w-full h-full object-cover"
-                                />
+                          {editingProduct === product.id ? (
+                            // Inline Editing Form
+                            <div className="space-y-4">
+                              <div className="flex items-center justify-between mb-4">
+                                <h4 className={`text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                                  Modifier le produit
+                                </h4>
+                                <div className="flex gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setEditingProduct(null);
+                                      setInlineEditData({
+                                        name: '',
+                                        category: '',
+                                        price: '',
+                                        stock: '',
+                                        sku: '',
+                                        description: '',
+                                        imageUrl: '',
+                                      });
+                                    }}
+                                    className="px-3 py-1 text-sm text-gray-500 hover:text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50"
+                                  >
+                                    Annuler
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      updateProduct(product.id, {
+                                        name: inlineEditData.name,
+                                        category: inlineEditData.category || undefined,
+                                        price: Number(inlineEditData.price),
+                                        stock: Number(inlineEditData.stock),
+                                        sku: inlineEditData.sku,
+                                        description: inlineEditData.description,
+                                        imageUrl: inlineEditData.imageUrl,
+                                      });
+                                      setEditingProduct(null);
+                                      setInlineEditData({
+                                        name: '',
+                                        category: '',
+                                        price: '',
+                                        stock: '',
+                                        sku: '',
+                                        description: '',
+                                        imageUrl: '',
+                                      });
+                                    }}
+                                    className="px-3 py-1 text-sm text-white bg-indigo-600 hover:bg-indigo-700 rounded-md"
+                                  >
+                                    Sauvegarder
+                                  </button>
+                                </div>
                               </div>
-                              <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                                {product.description}
-                              </p>
+
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="space-y-4">
+                                  <div>
+                                    <label className={`block text-sm font-medium mb-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                      Nom
+                                    </label>
+                                    <input
+                                      type="text"
+                                      value={inlineEditData.name}
+                                      onChange={(e) => setInlineEditData({ ...inlineEditData, name: e.target.value })}
+                                      className={`w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm ${
+                                        isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white'
+                                      }`}
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className={`block text-sm font-medium mb-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                      Catégorie
+                                    </label>
+                                    <select
+                                      value={inlineEditData.category}
+                                      onChange={(e) => setInlineEditData({ ...inlineEditData, category: e.target.value })}
+                                      className={`w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm ${
+                                        isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white'
+                                      }`}
+                                    >
+                                      <option value="">Aucune catégorie</option>
+                                      {categories.map((category) => (
+                                        <option key={category} value={category}>
+                                          {category}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  </div>
+                                  <div>
+                                    <label className={`block text-sm font-medium mb-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                      Prix (€)
+                                    </label>
+                                    <input
+                                      type="number"
+                                      value={inlineEditData.price}
+                                      onChange={(e) => setInlineEditData({ ...inlineEditData, price: e.target.value })}
+                                      className={`w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm ${
+                                        isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white'
+                                      }`}
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className={`block text-sm font-medium mb-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                      Stock
+                                    </label>
+                                    <input
+                                      type="number"
+                                      value={inlineEditData.stock}
+                                      onChange={(e) => setInlineEditData({ ...inlineEditData, stock: e.target.value })}
+                                      className={`w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm ${
+                                        isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white'
+                                      }`}
+                                    />
+                                  </div>
+                                </div>
+
+                                <div className="space-y-4">
+                                  <div>
+                                    <label className={`block text-sm font-medium mb-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                      SKU
+                                    </label>
+                                    <input
+                                      type="text"
+                                      value={inlineEditData.sku}
+                                      onChange={(e) => setInlineEditData({ ...inlineEditData, sku: e.target.value })}
+                                      className={`w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm ${
+                                        isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white'
+                                      }`}
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className={`block text-sm font-medium mb-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                      URL de l'image
+                                    </label>
+                                    <input
+                                      type="url"
+                                      value={inlineEditData.imageUrl}
+                                      onChange={(e) => setInlineEditData({ ...inlineEditData, imageUrl: e.target.value })}
+                                      className={`w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm ${
+                                        isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white'
+                                      }`}
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className={`block text-sm font-medium mb-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                      Description
+                                    </label>
+                                    <textarea
+                                      value={inlineEditData.description}
+                                      onChange={(e) => setInlineEditData({ ...inlineEditData, description: e.target.value })}
+                                      rows={3}
+                                      className={`w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm ${
+                                        isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white'
+                                      }`}
+                                    />
+                                  </div>
+                                </div>
+                              </div>
                             </div>
-                            <div className="space-y-3">
+                          ) : (
+                            // Display Mode
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                               <div>
-                                <p className={`text-sm font-medium mb-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                                  SKU
-                                </p>
-                                <p className={`text-sm font-mono ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                                  {product.sku}
-                                </p>
-                              </div>
-                              <div>
-                                <p className={`text-sm font-medium mb-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                                  Prix de vente
-                                </p>
-                                <p className={`text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                                  €{product.price}
-                                </p>
-                              </div>
-                              <div>
-                                <p className={`text-sm font-medium mb-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                                  Stock disponible
-                                </p>
-                                <p className={`text-sm ${product.stock <= 5 ? 'text-red-600 font-medium' : product.stock <= 10 ? 'text-yellow-600' : isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                                  {product.stock} unités
-                                </p>
-                              </div>
-                              <div>
-                                <p className={`text-sm font-medium mb-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                                  Catégorie
-                                </p>
+                                <div className="aspect-square bg-gray-100 rounded-lg overflow-hidden mb-4">
+                                  <img
+                                    src={product.imageUrl}
+                                    alt={product.name}
+                                    className="w-full h-full object-cover"
+                                  />
+                                </div>
                                 <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                                  {product.category || 'Aucune catégorie'}
+                                  {product.description}
                                 </p>
                               </div>
+                              <div className="space-y-3">
+                                <div>
+                                  <p className={`text-sm font-medium mb-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                    SKU
+                                  </p>
+                                  <p className={`text-sm font-mono ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                    {product.sku}
+                                  </p>
+                                </div>
+                                <div>
+                                  <p className={`text-sm font-medium mb-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                    Prix de vente
+                                  </p>
+                                  <p className={`text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                                    €{product.price}
+                                  </p>
+                                </div>
+                                <div>
+                                  <p className={`text-sm font-medium mb-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                    Stock disponible
+                                  </p>
+                                  <p className={`text-sm ${product.stock <= 5 ? 'text-red-600 font-medium' : product.stock <= 10 ? 'text-yellow-600' : isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                    {product.stock} unités
+                                  </p>
+                                </div>
+                                <div>
+                                  <p className={`text-sm font-medium mb-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                    Catégorie
+                                  </p>
+                                  <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                    {product.category || 'Aucune catégorie'}
+                                  </p>
+                                </div>
+                              </div>
                             </div>
-                          </div>
+                          )}
                         </div>
                       )}
                     </div>
