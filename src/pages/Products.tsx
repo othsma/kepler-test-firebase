@@ -34,6 +34,13 @@ export default function Products() {
   const [stockRange, setStockRange] = useState({ min: '', max: '' });
   const [dateRange, setDateRange] = useState({ from: '', to: '' });
 
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [paginationLoading, setPaginationLoading] = useState(false);
+  const [useLoadMore, setUseLoadMore] = useState(false);
+  const [loadedItemsCount, setLoadedItemsCount] = useState(10);
+
   const filteredProducts = products.filter((product) => {
     const matchesSearch = product.name.toLowerCase().includes(localSearchQuery.toLowerCase()) ||
       product.description.toLowerCase().includes(localSearchQuery.toLowerCase());
@@ -70,6 +77,22 @@ export default function Products() {
       return aValue > bValue ? -1 : aValue < bValue ? 1 : 0;
     }
   });
+
+  // Pagination calculations
+  const totalPages = Math.ceil(sortedAndFilteredProducts.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+
+  // Get current page items with optimized memoization (pagination mode) or loaded items (load more mode)
+  const displayedProducts = useLoadMore
+    ? sortedAndFilteredProducts.slice(0, loadedItemsCount)
+    : sortedAndFilteredProducts.slice(startIndex, endIndex);
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+    setLoadedItemsCount(10);
+  }, [localSearchQuery, selectedCategories, priceRange, stockRange, dateRange, sortField, sortDirection]);
 
   const handleSort = (field: 'name' | 'createdAt') => {
     if (sortField === field) {
@@ -224,32 +247,85 @@ export default function Products() {
     if (['asc', 'desc'].includes(dir || '')) setSortDirection(dir as any);
   }, [categories]); // Only run on mount and when categories change
 
+  // Keyboard shortcuts for pagination
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // Only handle shortcuts when not typing in inputs
+      if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) {
+        return;
+      }
+
+      // Only handle shortcuts on the products page
+      if (activeTab !== 'all') return;
+
+      switch (event.key) {
+        case 'ArrowLeft':
+          event.preventDefault();
+          if (!useLoadMore && currentPage > 1) {
+            setCurrentPage(prev => prev - 1);
+          }
+          break;
+        case 'ArrowRight':
+          event.preventDefault();
+          if (!useLoadMore && currentPage < totalPages) {
+            setCurrentPage(prev => prev + 1);
+          }
+          break;
+        case 'Home':
+          event.preventDefault();
+          if (!useLoadMore) {
+            setCurrentPage(1);
+          }
+          break;
+        case 'End':
+          event.preventDefault();
+          if (!useLoadMore) {
+            setCurrentPage(totalPages);
+          }
+          break;
+        default:
+          // Number keys for direct page navigation
+          const num = parseInt(event.key);
+          if (!isNaN(num) && num >= 1 && num <= 9 && !useLoadMore) {
+            event.preventDefault();
+            if (num <= totalPages) {
+              setCurrentPage(num);
+            }
+          }
+          break;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [activeTab, currentPage, totalPages, useLoadMore]);
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h1 className={`text-2xl font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
           Produits
         </h1>
-        <button
-          onClick={() => {
-            setActiveTab('main');
-            setFormData({
-              name: '',
-              category: '',
-              price: 0,
-              stock: 0,
-              sku: '',
-              description: '',
-              imageUrl: '',
-              createdAt: '',
-            });
-            setEditingProduct(null);
-          }}
-          className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 flex items-center gap-2"
-        >
-          <Plus className="h-4 w-4" />
-          Ajouter un produit
-        </button>
+          <button
+            onClick={() => {
+              setActiveTab('main');
+              setFormData({
+                name: '',
+                category: '',
+                price: 0,
+                stock: 0,
+                sku: '',
+                description: '',
+                imageUrl: '',
+                createdAt: '',
+              });
+              setEditingProduct(null);
+            }}
+            className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 flex items-center gap-2"
+          >
+            <Plus className="h-4 w-4" />
+            Ajouter un produit
+          </button>
       </div>
 
       {/* Tabs */}
@@ -682,164 +758,373 @@ export default function Products() {
             </div>
           </div>
 
+          {/* View Mode Toggle - Always Visible */}
+          <div className={`rounded-lg ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow p-4`}>
+            <div className="flex items-center justify-center gap-3">
+              <span className={`text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                Mode d'affichage:
+              </span>
+              <div className="flex rounded-md border border-gray-300">
+                <button
+                  onClick={() => {
+                    setUseLoadMore(false);
+                    setCurrentPage(1);
+                  }}
+                  className={`px-4 py-2 text-sm rounded-l-md ${
+                    !useLoadMore
+                      ? 'bg-indigo-600 text-white'
+                      : 'text-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700'
+                  }`}
+                >
+                  Pagination
+                </button>
+                <button
+                  onClick={() => {
+                    setUseLoadMore(true);
+                    setLoadedItemsCount(10);
+                  }}
+                  className={`px-4 py-2 text-sm rounded-r-md ${
+                    useLoadMore
+                      ? 'bg-indigo-600 text-white'
+                      : 'text-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700'
+                  }`}
+                >
+                  Charger plus
+                </button>
+              </div>
+              <span className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                {!useLoadMore ? `${totalPages} page${totalPages > 1 ? 's' : ''}` : `${Math.ceil(sortedAndFilteredProducts.length / 10)} chargement${Math.ceil(sortedAndFilteredProducts.length / 10) > 1 ? 's' : ''}`}
+              </span>
+            </div>
+          </div>
+
           {/* Product listing */}
           <div className="space-y-4">
-        {filteredProducts.length === 0 ? (
-          <div className={`rounded-lg ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow p-8 text-center`}>
-            <Package className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-            <p className={`text-lg ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-              {localSearchQuery ? 'Aucun produit trouvé' : 'Aucun produit enregistré'}
-            </p>
-            <p className="text-sm text-gray-400 mt-2">
-              {localSearchQuery ? 'Essayez une recherche différente' : 'Commencez par créer votre premier produit'}
-            </p>
-          </div>
-        ) : (
-          sortedAndFilteredProducts.map((product) => {
-            const isExpanded = expandedProducts.has(product.id);
+            {filteredProducts.length === 0 ? (
+              <div className={`rounded-lg ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow p-8 text-center`}>
+                <Package className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                <p className={`text-lg ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                  {localSearchQuery ? 'Aucun produit trouvé' : 'Aucun produit enregistré'}
+                </p>
+                <p className="text-sm text-gray-400 mt-2">
+                  {localSearchQuery ? 'Essayez une recherche différente' : 'Commencez par créer votre premier produit'}
+                </p>
+              </div>
+            ) : (
+              displayedProducts.map((product) => {
+                const isExpanded = expandedProducts.has(product.id);
 
-            return (
-              <div
-                key={product.id}
-                className={`rounded-lg ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow`}
-              >
-                <div className="p-4">
-                  {/* Essential Info - Always Visible */}
+                return (
                   <div
-                    className={`flex justify-between items-start cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors px-4 py-3 -mx-4 -my-3 rounded-lg ${
-                      isExpanded ? 'bg-gray-50 dark:bg-gray-700/30' : ''
-                    }`}
-                    onClick={(e) => {
-                      // Prevent expansion if clicking on action buttons
-                      if ((e.target as Element).closest('button')) return;
-                      toggleProductExpansion(product.id);
-                    }}
+                    key={product.id}
+                    className={`rounded-lg ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow`}
                   >
-                    <div className="flex items-center gap-3 flex-1">
-                      <div className="flex items-center gap-2">
-                        {isExpanded ? (
-                          <ChevronDown className="h-4 w-4 text-indigo-600" />
-                        ) : (
-                          <ChevronRight className="h-4 w-4 text-indigo-600" />
-                        )}
-                        <Package className="h-4 w-4 text-gray-400" />
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-1">
-                          <h3 className={`text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                            {product.name}
-                          </h3>
-                          <span className={`px-2 py-1 text-xs rounded-full ${
-                            isDarkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-600'
-                          }`}>
-                            {product.category || 'Sans catégorie'}
-                          </span>
+                    <div className="p-4">
+                      {/* Essential Info - Always Visible */}
+                      <div
+                        className={`flex justify-between items-start cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors px-4 py-3 -mx-4 -my-3 rounded-lg ${
+                          isExpanded ? 'bg-gray-50 dark:bg-gray-700/30' : ''
+                        }`}
+                        onClick={(e) => {
+                          // Prevent expansion if clicking on action buttons
+                          if ((e.target as Element).closest('button')) return;
+                          toggleProductExpansion(product.id);
+                        }}
+                      >
+                        <div className="flex items-center gap-3 flex-1">
+                          <div className="flex items-center gap-2">
+                            {isExpanded ? (
+                              <ChevronDown className="h-4 w-4 text-indigo-600" />
+                            ) : (
+                              <ChevronRight className="h-4 w-4 text-indigo-600" />
+                            )}
+                            <Package className="h-4 w-4 text-gray-400" />
+                          </div>
+                          <div className="flex-1">
+                            <div className="flex items-center gap-3 mb-1">
+                              <h3 className={`text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                                {product.name}
+                              </h3>
+                              <span className={`px-2 py-1 text-xs rounded-full ${
+                                isDarkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-600'
+                              }`}>
+                                {product.category || 'Sans catégorie'}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-4 text-sm text-gray-500">
+                              <span>€{product.price}</span>
+                              <span>Stock: {product.stock}</span>
+                              <span className={`text-xs ${product.stock <= 5 ? 'text-red-600 font-medium' : product.stock <= 10 ? 'text-yellow-600' : 'text-gray-500'}`}>
+                                {product.stock <= 5 ? '⚠️ Stock faible!' : product.stock <= 10 ? '⚠️ Stock limité' : ''}
+                              </span>
+                            </div>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-4 text-sm text-gray-500">
-                          <span>€{product.price}</span>
-                          <span>Stock: {product.stock}</span>
-                          <span className={`text-xs ${product.stock <= 5 ? 'text-red-600 font-medium' : product.stock <= 10 ? 'text-yellow-600' : 'text-gray-500'}`}>
-                            {product.stock <= 5 ? '⚠️ Stock faible!' : product.stock <= 10 ? '⚠️ Stock limité' : ''}
-                          </span>
+
+                        <div className="flex gap-2 ml-4">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEditingProduct(product.id);
+                              setActiveTab('main');
+                              setFormData({
+                                name: product.name,
+                                category: product.category,
+                                price: product.price,
+                                stock: product.stock,
+                                sku: product.sku,
+                                description: product.description,
+                                imageUrl: product.imageUrl,
+                                createdAt: product.createdAt || '',
+                              });
+                            }}
+                            className="p-2 text-gray-400 hover:text-gray-500"
+                            title="Modifier"
+                          >
+                            <Edit2 className="h-5 w-5" />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (window.confirm('Êtes-vous sûr de vouloir supprimer ce produit ?')) {
+                                deleteProduct(product.id);
+                              }
+                            }}
+                            className="p-2 text-gray-400 hover:text-red-500"
+                            title="Supprimer"
+                          >
+                            <Trash2 className="h-5 w-5" />
+                          </button>
                         </div>
                       </div>
+
+                      {/* Additional Details - Expandable */}
+                      {isExpanded && (
+                        <div className={`mt-4 pt-4 border-t ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`}>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                              <div className="aspect-square bg-gray-100 rounded-lg overflow-hidden mb-4">
+                                <img
+                                  src={product.imageUrl}
+                                  alt={product.name}
+                                  className="w-full h-full object-cover"
+                                />
+                              </div>
+                              <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                {product.description}
+                              </p>
+                            </div>
+                            <div className="space-y-3">
+                              <div>
+                                <p className={`text-sm font-medium mb-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                  SKU
+                                </p>
+                                <p className={`text-sm font-mono ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                  {product.sku}
+                                </p>
+                              </div>
+                              <div>
+                                <p className={`text-sm font-medium mb-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                  Prix de vente
+                                </p>
+                                <p className={`text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                                  €{product.price}
+                                </p>
+                              </div>
+                              <div>
+                                <p className={`text-sm font-medium mb-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                  Stock disponible
+                                </p>
+                                <p className={`text-sm ${product.stock <= 5 ? 'text-red-600 font-medium' : product.stock <= 10 ? 'text-yellow-600' : isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                  {product.stock} unités
+                                </p>
+                              </div>
+                              <div>
+                                <p className={`text-sm font-medium mb-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                  Catégorie
+                                </p>
+                                <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                  {product.category || 'Aucune catégorie'}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })
+            )}
+
+            {/* Load More Button */}
+            {useLoadMore && displayedProducts.length < sortedAndFilteredProducts.length && (
+              <div className="flex justify-center pt-6">
+                <button
+                  onClick={() => setLoadedItemsCount(prev => prev + 10)}
+                  className="px-6 py-3 bg-indigo-600 text-white text-sm font-medium rounded-md hover:bg-indigo-700 flex items-center gap-2"
+                >
+                  <Plus className="h-4 w-4" />
+                  Charger 10 produits supplémentaires
+                </button>
+              </div>
+            )}
+
+            {/* Pagination Controls */}
+            {!useLoadMore && totalPages > 1 && (
+              <div className={`rounded-lg ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow p-4`}>
+                <div className="flex flex-col lg:flex-row items-center justify-between gap-4">
+                  {/* Page Info */}
+                  <div className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'} text-center lg:text-left`}>
+                    Affichage de {startIndex + 1}-{Math.min(endIndex, sortedAndFilteredProducts.length)} sur {sortedAndFilteredProducts.length} produits
+                  </div>
+
+                  {/* Items Per Page Selector & Go to Page */}
+                  <div className="flex flex-col sm:flex-row items-center gap-3">
+                    <div className="flex items-center gap-2">
+                      <span className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                        Par page:
+                      </span>
+                      <select
+                        value={itemsPerPage}
+                        onChange={(e) => {
+                          setItemsPerPage(Number(e.target.value));
+                          setCurrentPage(1); // Reset to first page
+                        }}
+                        className={`rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm ${
+                          isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white'
+                        }`}
+                      >
+                        <option value={10}>10</option>
+                        <option value={25}>25</option>
+                        <option value={50}>50</option>
+                        <option value={100}>100</option>
+                      </select>
                     </div>
 
-                    <div className="flex gap-2 ml-4">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setEditingProduct(product.id);
-                          setActiveTab('main');
-                          setFormData({
-                            name: product.name,
-                            category: product.category,
-                            price: product.price,
-                            stock: product.stock,
-                            sku: product.sku,
-                            description: product.description,
-                            imageUrl: product.imageUrl,
-                            createdAt: product.createdAt || '',
-                          });
-                        }}
-                        className="p-2 text-gray-400 hover:text-gray-500"
-                        title="Modifier"
-                      >
-                        <Edit2 className="h-5 w-5" />
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (window.confirm('Êtes-vous sûr de vouloir supprimer ce produit ?')) {
-                            deleteProduct(product.id);
+                    {/* Go to Page Input */}
+                    <div className="flex items-center gap-2">
+                      <span className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                        Aller à:
+                      </span>
+                      <input
+                        type="number"
+                        min={1}
+                        max={totalPages}
+                        value={currentPage}
+                        onChange={(e) => {
+                          const page = Number(e.target.value);
+                          if (page >= 1 && page <= totalPages) {
+                            setCurrentPage(page);
                           }
                         }}
-                        className="p-2 text-gray-400 hover:text-red-500"
-                        title="Supprimer"
-                      >
-                        <Trash2 className="h-5 w-5" />
-                      </button>
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            const page = Number((e.target as HTMLInputElement).value);
+                            if (page >= 1 && page <= totalPages) {
+                              setCurrentPage(page);
+                            }
+                          }
+                        }}
+                        className={`w-16 text-center rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm ${
+                          isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white'
+                        }`}
+                      />
+                      <span className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                        / {totalPages}
+                      </span>
                     </div>
                   </div>
 
-                  {/* Additional Details - Expandable */}
-                  {isExpanded && (
-                    <div className={`mt-4 pt-4 border-t ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`}>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div>
-                          <div className="aspect-square bg-gray-100 rounded-lg overflow-hidden mb-4">
-                            <img
-                              src={product.imageUrl}
-                              alt={product.name}
-                              className="w-full h-full object-cover"
-                            />
-                          </div>
-                          <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                            {product.description}
-                          </p>
-                        </div>
-                        <div className="space-y-3">
-                          <div>
-                            <p className={`text-sm font-medium mb-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                              SKU
-                            </p>
-                            <p className={`text-sm font-mono ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                              {product.sku}
-                            </p>
-                          </div>
-                          <div>
-                            <p className={`text-sm font-medium mb-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                              Prix de vente
-                            </p>
-                            <p className={`text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                              €{product.price}
-                            </p>
-                          </div>
-                          <div>
-                            <p className={`text-sm font-medium mb-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                              Stock disponible
-                            </p>
-                            <p className={`text-sm ${product.stock <= 5 ? 'text-red-600 font-medium' : product.stock <= 10 ? 'text-yellow-600' : isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                              {product.stock} unités
-                            </p>
-                          </div>
-                          <div>
-                            <p className={`text-sm font-medium mb-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                              Catégorie
-                            </p>
-                            <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                              {product.category || 'Aucune catégorie'}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
+                  {/* Page Navigation */}
+                  <div className="flex items-center gap-2 flex-wrap justify-center">
+                    {/* First Page */}
+                    <button
+                      onClick={() => setCurrentPage(1)}
+                      disabled={currentPage === 1}
+                      className={`px-2 py-2 text-sm rounded-md border ${
+                        currentPage === 1
+                          ? 'border-gray-300 text-gray-400 cursor-not-allowed'
+                          : 'border-gray-300 text-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700'
+                      }`}
+                      title="Première page"
+                    >
+                      ⟪
+                    </button>
+
+                    {/* Previous Page */}
+                    <button
+                      onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                      disabled={currentPage === 1}
+                      className={`px-3 py-2 text-sm rounded-md border ${
+                        currentPage === 1
+                          ? 'border-gray-300 text-gray-400 cursor-not-allowed'
+                          : 'border-gray-300 text-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700'
+                      }`}
+                    >
+                      Précédent
+                    </button>
+
+                    {/* Page Numbers */}
+                    <div className="flex gap-1">
+                      {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                        let pageNum;
+                        if (totalPages <= 5) {
+                          pageNum = i + 1;
+                        } else if (currentPage <= 3) {
+                          pageNum = i + 1;
+                        } else if (currentPage >= totalPages - 2) {
+                          pageNum = totalPages - 4 + i;
+                        } else {
+                          pageNum = currentPage - 2 + i;
+                        }
+
+                        return (
+                          <button
+                            key={pageNum}
+                            onClick={() => setCurrentPage(pageNum)}
+                            className={`px-3 py-2 text-sm rounded-md border min-w-[40px] ${
+                              currentPage === pageNum
+                                ? 'bg-indigo-600 text-white border-indigo-600'
+                                : 'border-gray-300 text-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700'
+                            }`}
+                          >
+                            {pageNum}
+                          </button>
+                        );
+                      })}
                     </div>
-                  )}
+
+                    {/* Next Page */}
+                    <button
+                      onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                      disabled={currentPage === totalPages}
+                      className={`px-3 py-2 text-sm rounded-md border ${
+                        currentPage === totalPages
+                          ? 'border-gray-300 text-gray-400 cursor-not-allowed'
+                          : 'border-gray-300 text-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700'
+                      }`}
+                    >
+                      Suivant
+                    </button>
+
+                    {/* Last Page */}
+                    <button
+                      onClick={() => setCurrentPage(totalPages)}
+                      disabled={currentPage === totalPages}
+                      className={`px-2 py-2 text-sm rounded-md border ${
+                        currentPage === totalPages
+                          ? 'border-gray-300 text-gray-400 cursor-not-allowed'
+                          : 'border-gray-300 text-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700'
+                      }`}
+                      title="Dernière page"
+                    >
+                      ⟫
+                    </button>
+                  </div>
                 </div>
               </div>
-            );
-          })
-        )}
+            )}
           </div>
         </>
       )}
