@@ -31,29 +31,50 @@ export const ROLES = {
 
 // Authentication functions
 export const registerUser = async (email: string, password: string, fullName: string, phoneNumber?: string) => {
+  let createdUser = null;
+
   try {
-    // Create user with email and password
+    // Step 1: Create Firebase Auth user
+    console.log('Creating Firebase Auth user...');
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-    const user = userCredential.user;
-    
-    // Update profile with display name
-    await updateProfile(user, {
-      displayName: fullName
-    });
-    
-    // Store additional user data in Firestore
-    await setDoc(doc(db, 'users', user.uid), {
-      uid: user.uid,
-      email,
-      fullName,
-      phoneNumber: phoneNumber || '',
-      role: ROLES.TECHNICIAN, // Default role
-      createdAt: new Date().toISOString()
-    });
-    
-    return { success: true, user };
-  } catch (error: any) {
-    return { success: false, error: error.message };
+    createdUser = userCredential.user;
+
+    // Step 2: Update Auth profile
+    await updateProfile(createdUser, { displayName: fullName });
+
+    try {
+      // Step 3: Create Firestore document
+      console.log('Creating Firestore document...');
+      await setDoc(doc(db, 'users', createdUser.uid), {
+        uid: createdUser.uid,
+        email,
+        fullName,
+        phoneNumber: phoneNumber || '',
+        role: ROLES.TECHNICIAN, // Default role
+        createdAt: new Date().toISOString()
+      });
+
+      // Step 4: Verify document exists
+      console.log('Verifying Firestore document...');
+      const docSnap = await getDoc(doc(db, 'users', createdUser.uid));
+
+      if (!docSnap.exists()) {
+        throw new Error('Firestore document verification failed');
+      }
+
+      return { success: true, user: createdUser };
+
+    } catch (firestoreError: any) {
+      // Rollback: Delete Auth user if Firestore fails
+      console.error('Firestore operation failed:', firestoreError);
+      if (createdUser) {
+        await createdUser.delete();
+      }
+      return { success: false, error: `Échec de la création du profil utilisateur: ${firestoreError.message}` };
+    }
+
+  } catch (authError: any) {
+    return { success: false, error: `Échec de la création du compte: ${authError.message}` };
   }
 };
 

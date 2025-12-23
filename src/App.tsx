@@ -39,18 +39,18 @@ function App() {
 
   useEffect(() => {
     const auth = getAuth();
-    
+
     // Listen for auth state changes
     const unsubscribe = onAuthStateChanged(auth, async (authUser) => {
       setLoading(true);
-      
+
       if (authUser) {
         setUser(authUser);
-        
+
         // Get user role from Firestore
         const role = await getUserRole(authUser.uid);
         setUserRole(role);
-        
+
         // Initialize data from Firebase based on role
         if (role === ROLES.SUPER_ADMIN) {
           // Super admin gets access to all data
@@ -71,11 +71,11 @@ function App() {
         setUser(null);
         setUserRole(null);
       }
-      
+
       setLoading(false);
       setInitialized(true);
     });
-    
+
     // Cleanup subscription
     return () => unsubscribe();
   }, []);
