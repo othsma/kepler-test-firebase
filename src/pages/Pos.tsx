@@ -151,7 +151,7 @@ export default function Pos() {
       id: `custom-${Date.now()}`,
       name: customItem.name.trim(),
       price: price,
-      sku: 'CUSTOM',
+      sku: '',
       description: 'Article personnalisé',
       category: 'Service/Article personnalisé',
       stock: 999, // Unlimited stock for custom items
