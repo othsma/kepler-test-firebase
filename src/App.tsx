@@ -2,7 +2,9 @@ import React, { useEffect, Suspense, lazy } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { onAuthStateChanged, getAuth } from 'firebase/auth';
 import Layout from './components/Layout';
+import CustomerLayout from './components/customer/CustomerLayout';
 import { useClientsStore, useTicketsStore, useProductsStore, useAuthStore } from './lib/store';
+import { useCustomerStore } from './lib/customerStore';
 import { getUserRole, ROLES } from './lib/firebase';
 import LoadingScreen from './components/LoadingScreen';
 import AccessDenied from './components/AccessDenied';
@@ -22,17 +24,25 @@ const ForgotPassword = lazy(() => import('./pages/ForgotPassword'));
 const Profile = lazy(() => import('./pages/Profile'));
 const UserManagement = lazy(() => import('./pages/UserManagement'));
 
+// Customer pages
+const CustomerLogin = lazy(() => import('./pages/customer/CustomerLogin'));
+const CustomerRegister = lazy(() => import('./pages/customer/CustomerRegister'));
+const CustomerDashboard = lazy(() => import('./pages/customer/CustomerDashboard'));
+const CustomerProfile = lazy(() => import('./pages/customer/CustomerProfile'));
+
 function App() {
-  const { 
-    user, 
-    userRole, 
-    loading, 
-    setUser, 
-    setUserRole, 
-    setLoading, 
-    setInitialized 
+  const {
+    user,
+    userRole,
+    loading,
+    setUser,
+    setUserRole,
+    setLoading,
+    setInitialized
   } = useAuthStore();
-  
+
+  const { setUser: setCustomerUser } = useCustomerStore();
+
   const { fetchClients } = useClientsStore();
   const { fetchTickets, fetchSettings, fetchTechnicianTickets } = useTicketsStore();
   const { fetchProducts, fetchCategories } = useProductsStore();
@@ -51,6 +61,11 @@ function App() {
         const role = await getUserRole(authUser.uid);
         setUserRole(role);
 
+        // Set customer user if they're a customer
+        if (role === ROLES.CUSTOMER) {
+          setCustomerUser(authUser);
+        }
+
         // Initialize data from Firebase based on role
         if (role === ROLES.SUPER_ADMIN) {
           // Super admin gets access to all data
@@ -59,6 +74,10 @@ function App() {
           fetchSettings();
           fetchProducts();
           fetchCategories();
+
+        } else if (role === ROLES.CUSTOMER) {
+          // Customers don't need admin data loading
+          // Their data is loaded by CustomerLayout
 
         } else {
           // Technicians only get their assigned tickets
@@ -70,6 +89,7 @@ function App() {
       } else {
         setUser(null);
         setUserRole(null);
+        setCustomerUser(null);
       }
 
       setLoading(false);
@@ -185,6 +205,20 @@ function App() {
               </ProtectedRoute>
             } />
           </Route>
+
+          {/* Customer Portal Routes */}
+          <Route path="/customer" element={<CustomerLayout />}>
+            <Route index element={<CustomerDashboard />} />
+            <Route path="profile" element={<CustomerProfile />} />
+          </Route>
+
+          {/* Customer Auth Routes */}
+          <Route path="/customer/login" element={
+            user && userRole === ROLES.CUSTOMER ? <Navigate to="/customer" /> : <CustomerLogin />
+          } />
+          <Route path="/customer/register" element={
+            user && userRole === ROLES.CUSTOMER ? <Navigate to="/customer" /> : <CustomerRegister />
+          } />
         </Routes>
       </Suspense>
     </BrowserRouter>

@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { useThemeStore, useClientsStore, useTicketsStore, useSalesStore } from '../lib/store';
 import { Search, Plus, Edit2, Trash2, History, Calendar, User, Users, ChevronDown, ChevronRight, Download, FileText } from 'lucide-react';
 import { format } from 'date-fns';
+import { generateCustomerCode } from '../lib/firebase';
 
 export default function Clients() {
   const isDarkMode = useThemeStore((state) => state.isDarkMode);
@@ -40,6 +41,12 @@ export default function Clients() {
   const [loadedItemsCount, setLoadedItemsCount] = useState(10);
   const [showExportDropdown, setShowExportDropdown] = useState(false);
   const [selectedClients, setSelectedClients] = useState<Set<string>>(new Set());
+  const [customerCode, setCustomerCode] = useState('');
+
+  // Generate customer code when component mounts
+  useEffect(() => {
+    setCustomerCode(generateCustomerCode());
+  }, []);
 
   // Pagination calculations
   const totalPages = Math.ceil(clients.length / itemsPerPage);
@@ -247,8 +254,17 @@ export default function Clients() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    await addClient(newClientData);
+
+    // Add the new client with customer code
+    const clientData = {
+      ...newClientData,
+      customerCode
+    };
+
+    await addClient(clientData);
     setNewClientData({ name: '', email: '', phone: '', address: '' });
+    // Regenerate a new code for the next client
+    setCustomerCode(generateCustomerCode());
   };
 
   const getClientHistory = (clientId: string) => {
@@ -454,6 +470,28 @@ export default function Clients() {
                     isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white'
                   }`}
                 />
+              </div>
+            </div>
+
+            {/* Customer Code Display */}
+            <div className={`p-4 rounded-lg ${isDarkMode ? 'bg-indigo-900 border border-indigo-700' : 'bg-indigo-50 border border-indigo-200'}`}>
+              <div className="flex items-center">
+                <div className={`p-2 rounded-full ${isDarkMode ? 'bg-indigo-800' : 'bg-indigo-100'}`}>
+                  <svg className={`h-5 w-5 ${isDarkMode ? 'text-indigo-400' : 'text-indigo-600'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                  </svg>
+                </div>
+                <div className="ml-3">
+                  <h4 className={`text-sm font-medium ${isDarkMode ? 'text-indigo-200' : 'text-indigo-800'}`}>
+                    Code d'accès client
+                  </h4>
+                  <p className={`text-lg font-mono font-bold ${isDarkMode ? 'text-indigo-100' : 'text-indigo-900'}`}>
+                    {customerCode}
+                  </p>
+                  <p className={`text-xs mt-1 ${isDarkMode ? 'text-indigo-300' : 'text-indigo-600'}`}>
+                    Donnez ce code au client pour qu'il puisse accéder à ses réparations
+                  </p>
+                </div>
               </div>
             </div>
 
@@ -974,6 +1012,29 @@ export default function Clients() {
                             <p className={`text-sm font-mono ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                               {client.id}
                             </p>
+                          </div>
+                          <div>
+                            <p className={`text-sm font-medium mb-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                              Code d'accès client
+                            </p>
+                            <div className="flex items-center gap-2">
+                              <span className={`text-sm font-mono ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                🔑 {client.customerCode || 'Non généré'}
+                              </span>
+                              {client.customerCode && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    navigator.clipboard.writeText(client.customerCode!);
+                                    // Could add a toast notification here
+                                  }}
+                                  className="text-xs text-indigo-600 hover:text-indigo-800"
+                                  title="Copier le code"
+                                >
+                                  📋
+                                </button>
+                              )}
+                            </div>
                           </div>
                           <div>
                             <p className={`text-sm font-medium mb-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>

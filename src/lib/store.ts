@@ -124,6 +124,9 @@ interface Client {
   email: string;
   phone: string;
   address: string;
+  customerCode?: string;
+  linkedCustomerId?: string;
+  linkedAt?: string;
   createdAt: string;
 }
 

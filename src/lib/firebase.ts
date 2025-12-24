@@ -26,7 +26,8 @@ export const storage = getStorage(app);
 // User roles
 export const ROLES = {
   TECHNICIAN: 'technician',
-  SUPER_ADMIN: 'superAdmin'
+  SUPER_ADMIN: 'superAdmin',
+  CUSTOMER: 'customer'
 };
 
 // Authentication functions
@@ -205,10 +206,231 @@ export const updateUserRole = async (uid: string, newRole: string) => {
       role: newRole,
       updatedAt: new Date().toISOString()
     }, { merge: true });
-    
+
     return { success: true };
   } catch (error: any) {
     return { success: false, error: error.message };
+  }
+};
+
+// Customer-specific authentication functions
+export const registerCustomer = async (email: string, password: string, fullName: string, phoneNumber?: string, customerCode?: string) => {
+  let createdUser = null;
+  let linkedClient = null;
+
+  try {
+    // Step 1: Check for customer code first (highest priority)
+    if (customerCode) {
+      console.log('Checking customer code...');
+      linkedClient = await findClientByCode(customerCode);
+
+      if (linkedClient) {
+        console.log(`Found client by code: ${linkedClient.id}`);
+        // Pre-fill data from client record if available
+        if (!email && linkedClient.email) email = linkedClient.email;
+        if (!fullName && linkedClient.name) fullName = linkedClient.name;
+        if (!phoneNumber && linkedClient.phone) phoneNumber = linkedClient.phone;
+      } else {
+        return { success: false, error: 'Code d\'accès client invalide' };
+      }
+    } else {
+      // Step 2: Check for existing client with matching email/phone
+      console.log('Checking for existing client by email/phone...');
+      linkedClient = await findClientByEmailOrPhone(email, phoneNumber);
+
+      if (linkedClient) {
+        console.log(`Found existing client: ${linkedClient.id} (${linkedClient.matchType} match)`);
+      }
+    }
+
+    // Step 2: Create Firebase Auth user
+    console.log('Creating customer Firebase Auth user...');
+    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+    createdUser = userCredential.user;
+
+    // Step 3: Update Auth profile
+    await updateProfile(createdUser, { displayName: fullName });
+
+    try {
+      // Step 4: Create Firestore user document
+      console.log('Creating customer Firestore user document...');
+      await setDoc(doc(db, 'users', createdUser.uid), {
+        uid: createdUser.uid,
+        email,
+        fullName,
+        phoneNumber: phoneNumber || '',
+        role: ROLES.CUSTOMER,
+        createdAt: new Date().toISOString()
+      });
+
+      // Step 5: Create customer profile document
+      console.log('Creating customer profile document...');
+      const profileData: any = {
+        id: createdUser.uid,
+        email,
+        fullName,
+        phoneNumber: phoneNumber || '',
+        preferredLanguage: 'fr',
+        notificationPreferences: {
+          pushEnabled: true,
+          emailEnabled: true,
+          smsEnabled: false,
+        },
+        fcmTokens: [],
+        createdAt: new Date().toISOString(),
+        lastLoginAt: new Date().toISOString()
+      };
+
+      // If client was found, link them
+      if (linkedClient) {
+        profileData.linkedClientId = linkedClient.id;
+        profileData.linkedAt = new Date().toISOString();
+      }
+
+      await setDoc(doc(db, 'customer_profiles', createdUser.uid), profileData);
+
+      // Step 6: Link client if found
+      if (linkedClient) {
+        console.log('Linking existing client to new customer account...');
+        await linkClientToCustomer(linkedClient.id, createdUser.uid);
+      }
+
+      // Step 7: Verify documents exist
+      console.log('Verifying customer documents...');
+      const userDocSnap = await getDoc(doc(db, 'users', createdUser.uid));
+      const profileDocSnap = await getDoc(doc(db, 'customer_profiles', createdUser.uid));
+
+      if (!userDocSnap.exists() || !profileDocSnap.exists()) {
+        throw new Error('Customer document verification failed');
+      }
+
+      console.log('Customer registration successful', linkedClient ? '(with client linking)' : '');
+      return {
+        success: true,
+        user: createdUser,
+        linkedClient: linkedClient || null
+      };
+
+    } catch (firestoreError: any) {
+      // Rollback: Delete Auth user if Firestore fails
+      console.error('Customer Firestore operation failed:', firestoreError);
+      if (createdUser) {
+        await createdUser.delete();
+      }
+      return { success: false, error: `Échec de la création du compte client: ${firestoreError.message}` };
+    }
+
+  } catch (authError: any) {
+    return { success: false, error: `Échec de la création du compte: ${authError.message}` };
+  }
+};
+
+export const loginCustomer = async (email: string, password: string) => {
+  try {
+    const userCredential = await signInWithEmailAndPassword(auth, email, password);
+
+    // Update last login time
+    await setDoc(doc(db, 'customer_profiles', userCredential.user.uid), {
+      lastLoginAt: new Date().toISOString()
+    }, { merge: true });
+
+    return { success: true, user: userCredential.user };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+};
+
+// Helper functions for client-customer linking
+export const findClientByEmailOrPhone = async (email: string, phoneNumber?: string) => {
+  try {
+    // Check for client with matching email
+    const emailQuery = query(collection(db, 'clients'), where('email', '==', email));
+    const emailSnapshot = await getDocs(emailQuery);
+
+    if (!emailSnapshot.empty) {
+      const clientDoc = emailSnapshot.docs[0];
+      return {
+        id: clientDoc.id,
+        ...clientDoc.data(),
+        matchType: 'email'
+      };
+    }
+
+    // If no email match and phone provided, check phone
+    if (phoneNumber) {
+      const phoneQuery = query(collection(db, 'clients'), where('phone', '==', phoneNumber));
+      const phoneSnapshot = await getDocs(phoneQuery);
+
+      if (!phoneSnapshot.empty) {
+        const clientDoc = phoneSnapshot.docs[0];
+        return {
+          id: clientDoc.id,
+          ...clientDoc.data(),
+          matchType: 'phone'
+        };
+      }
+    }
+
+    return null;
+  } catch (error) {
+    console.error('Error finding client:', error);
+    return null;
+  }
+};
+
+export const linkClientToCustomer = async (clientId: string, customerId: string) => {
+  try {
+    // Update client with customer reference
+    await setDoc(doc(db, 'clients', clientId), {
+      linkedCustomerId: customerId,
+      linkedAt: new Date().toISOString()
+    }, { merge: true });
+
+    // Update customer profile with client reference
+    await setDoc(doc(db, 'customer_profiles', customerId), {
+      linkedClientId: clientId,
+      linkedAt: new Date().toISOString()
+    }, { merge: true });
+
+    console.log(`Linked client ${clientId} to customer ${customerId}`);
+    return { success: true };
+  } catch (error: any) {
+    console.error('Error linking client to customer:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+export const generateCustomerCode = () => {
+  // Generate a 6-character code (letters and numbers)
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  let code = '';
+  for (let i = 0; i < 6; i++) {
+    code += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return code;
+};
+
+export const findClientByCode = async (customerCode: string) => {
+  try {
+    const clientsQuery = query(collection(db, 'clients'), where('customerCode', '==', customerCode));
+    const clientsSnapshot = await getDocs(clientsQuery);
+
+    if (!clientsSnapshot.empty) {
+      const clientDoc = clientsSnapshot.docs[0];
+      const clientData = clientDoc.data();
+      return {
+        id: clientDoc.id,
+        name: clientData.name || '',
+        email: clientData.email || '',
+        phone: clientData.phone || '',
+        ...clientData
+      };
+    }
+
+    return null;
+  } catch (error) {
+    console.error('Error finding client by code:', error);
+    return null;
   }
 };
 
