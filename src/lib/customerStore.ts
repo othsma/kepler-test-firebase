@@ -15,6 +15,8 @@ export interface CustomerProfile {
     smsEnabled: boolean;
   };
   fcmTokens: string[];
+  linkedClientId?: string; // ID of linked client from registration
+  linkedAt?: string; // When the linking occurred
   createdAt: string;
   lastLoginAt: string;
 }
@@ -131,17 +133,44 @@ export const useCustomerStore = create<CustomerState>((set, get) => ({
 
     set({ loading: true, error: null });
     try {
-      // First, find all clients that match the customer's email
-      const clientsQuery = query(
-        collection(db, 'clients'),
-        where('email', '==', profile.email)
-      );
+      let clientIds: string[] = [];
 
-      const clientsSnapshot = await getDocs(clientsQuery);
-      const clientIds = clientsSnapshot.docs.map(doc => doc.id);
+      // First, check if customer is already linked to a specific client (from registration)
+      if (profile.linkedClientId) {
+        console.log('Customer has linked client ID:', profile.linkedClientId);
+        clientIds.push(profile.linkedClientId);
+      } else {
+        // Find all clients that match the customer's email OR phone
+        console.log('Searching for clients by email/phone...');
+
+        // Search by email
+        const emailQuery = query(
+          collection(db, 'clients'),
+          where('email', '==', profile.email)
+        );
+        const emailSnapshot = await getDocs(emailQuery);
+        const emailClientIds = emailSnapshot.docs.map(doc => doc.id);
+
+        // Search by phone (if provided)
+        let phoneClientIds: string[] = [];
+        if (profile.phoneNumber) {
+          const phoneQuery = query(
+            collection(db, 'clients'),
+            where('phone', '==', profile.phoneNumber)
+          );
+          const phoneSnapshot = await getDocs(phoneQuery);
+          phoneClientIds = phoneSnapshot.docs.map(doc => doc.id);
+        }
+
+        // Combine and deduplicate client IDs
+        clientIds = [...new Set([...emailClientIds, ...phoneClientIds])];
+
+        console.log(`Found ${clientIds.length} matching clients:`, clientIds);
+      }
 
       if (clientIds.length === 0) {
-        // No clients found for this customer email
+        // No clients found for this customer
+        console.log('No clients found for customer');
         set({ tickets: [], loading: false });
         return;
       }
@@ -174,6 +203,7 @@ export const useCustomerStore = create<CustomerState>((set, get) => ({
       // Sort tickets by creation date (newest first)
       tickets.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
+      console.log(`Fetched ${tickets.length} tickets for customer`);
       set({ tickets, loading: false });
     } catch (error) {
       console.error('Error fetching customer tickets:', error);
@@ -234,14 +264,35 @@ export const useCustomerStore = create<CustomerState>((set, get) => ({
 
     const unsubscribe = onSnapshot(ticketsQuery, async (snapshot) => {
       try {
-        // First, find all clients that match the customer's email
-        const clientsQuery = query(
-          collection(db, 'clients'),
-          where('email', '==', profile.email)
-        );
+        let clientIds: string[] = [];
 
-        const clientsSnapshot = await getDocs(clientsQuery);
-        const clientIds = clientsSnapshot.docs.map(doc => doc.id);
+        // First, check if customer is already linked to a specific client (from registration)
+        if (profile.linkedClientId) {
+          clientIds.push(profile.linkedClientId);
+        } else {
+          // Find all clients that match the customer's email OR phone
+          // Search by email
+          const emailQuery = query(
+            collection(db, 'clients'),
+            where('email', '==', profile.email)
+          );
+          const emailSnapshot = await getDocs(emailQuery);
+          const emailClientIds = emailSnapshot.docs.map(doc => doc.id);
+
+          // Search by phone (if provided)
+          let phoneClientIds: string[] = [];
+          if (profile.phoneNumber) {
+            const phoneQuery = query(
+              collection(db, 'clients'),
+              where('phone', '==', profile.phoneNumber)
+            );
+            const phoneSnapshot = await getDocs(phoneQuery);
+            phoneClientIds = phoneSnapshot.docs.map(doc => doc.id);
+          }
+
+          // Combine and deduplicate client IDs
+          clientIds = [...new Set([...emailClientIds, ...phoneClientIds])];
+        }
 
         if (clientIds.length === 0) {
           set({ tickets: [] });
