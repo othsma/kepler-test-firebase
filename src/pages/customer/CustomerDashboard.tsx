@@ -3,6 +3,7 @@ import { Clock, CheckCircle, Wrench, AlertCircle, Smartphone } from 'lucide-reac
 import { useThemeStore } from '../../lib/store';
 import { useCustomerStore } from '../../lib/customerStore';
 import { CustomerTicket } from '../../lib/customerStore';
+import PushNotificationBanner from '../../components/customer/PushNotificationBanner';
 
 export default function CustomerDashboard() {
   const isDarkMode = useThemeStore((state) => state.isDarkMode);
@@ -21,8 +22,11 @@ export default function CustomerDashboard() {
       fetchTickets();
       const unsubscribe = subscribeToTickets();
       return unsubscribe;
+    } else {
+      // Fetch profile if not available
+      fetchProfile();
     }
-  }, [profile, fetchTickets, subscribeToTickets]);
+  }, [profile, fetchProfile, fetchTickets, subscribeToTickets]);
 
   if (loading) {
     return (
@@ -114,6 +118,9 @@ export default function CustomerDashboard() {
           </div>
         </div>
       </div>
+
+      {/* Push Notification Banner */}
+      <PushNotificationBanner />
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

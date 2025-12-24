@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { User, Mail, Phone, Bell, Shield, Save } from 'lucide-react';
 import { useThemeStore } from '../../lib/store';
 import { useCustomerStore, CustomerProfile } from '../../lib/customerStore';
+import { pushManager } from '../../lib/pushManager';
 
 export default function CustomerProfilePage() {
   const isDarkMode = useThemeStore((state) => state.isDarkMode);
@@ -58,6 +59,15 @@ export default function CustomerProfilePage() {
 
     try {
       if (formData.notificationPreferences) {
+        // Check if push notifications are being disabled
+        const wasPushEnabled = profile?.notificationPreferences?.pushEnabled;
+        const willBePushEnabled = formData.notificationPreferences.pushEnabled;
+
+        if (wasPushEnabled && !willBePushEnabled && profile?.id) {
+          // User is disabling push notifications - unsubscribe
+          await pushManager.unsubscribeFromPush(profile.id);
+        }
+
         await updateNotificationPreferences(formData.notificationPreferences);
       }
 

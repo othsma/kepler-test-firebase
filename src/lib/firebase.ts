@@ -272,7 +272,7 @@ export const registerCustomer = async (email: string, password: string, fullName
         phoneNumber: phoneNumber || '',
         preferredLanguage: 'fr',
         notificationPreferences: {
-          pushEnabled: true,
+          pushEnabled: false,
           emailEnabled: true,
           smsEnabled: false,
         },
