@@ -12,14 +12,57 @@ export default function PushNotificationBanner() {
   const isDarkMode = useThemeStore((state) => state.isDarkMode);
 
   useEffect(() => {
-    // Check if we should show the banner
+    // Check if we should show the banner - enhanced for mobile
     const checkNotificationStatus = () => {
-      return (
-        pushManager.isPushSupported &&
-        !!profile?.id &&
-        !profile.notificationPreferences?.pushEnabled &&
-        Notification.permission !== 'denied'
-      );
+      // Basic checks
+      if (!profile?.id) {
+        return false;
+      }
+
+      // If push notifications are already enabled, don't show banner
+      if (profile.notificationPreferences?.pushEnabled) {
+        return false;
+      }
+
+      // Enhanced push notification support check for mobile
+      const hasNotificationAPI = 'Notification' in window;
+      const hasServiceWorker = 'serviceWorker' in navigator;
+      const hasPushManager = 'PushManager' in window;
+      const pushManagerSupported = pushManager.isPushSupported;
+
+      const isPushSupported = pushManagerSupported && hasNotificationAPI;
+
+      // Special handling for mobile browsers
+      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+
+      // iOS Safari has limited push notification support
+      if (isIOS && !(window.navigator as any).standalone) {
+        // Only show on iOS if in PWA mode or if we detect web push capability
+        const hasWebPush = hasServiceWorker && hasPushManager;
+        if (!hasWebPush) {
+          return false;
+        }
+      }
+
+      // If push notifications are not supported at all, hide banner
+      if (!isPushSupported) {
+        return false;
+      }
+
+      // Check permission status - be more permissive for mobile
+      const permission = Notification.permission;
+
+      if (permission === 'denied') {
+        // On mobile, sometimes permission appears as 'denied' initially
+        // Allow banner to show so user can try to enable
+        if (isMobile) {
+          return true;
+        }
+        return false;
+      }
+
+      return isPushSupported;
     };
 
     setIsVisible(checkNotificationStatus());
@@ -39,40 +82,13 @@ export default function PushNotificationBanner() {
           setIsVisible(false);
         }, 3000); // Hide after 3 seconds
       } else {
-        // Even if push subscription fails, show success for UI testing
-        // In production, this would be removed
-        console.log('Push subscription failed, but showing success for UI testing');
-        setIsSubscribed(true);
-        // Simulate profile update for UI testing
-        if (profile) {
-          await updateProfile({
-            notificationPreferences: {
-              ...profile.notificationPreferences,
-              pushEnabled: true
-            }
-          });
-        }
-        setTimeout(() => {
-          setIsVisible(false);
-        }, 3000); // Hide after 3 seconds
+        // Show error state - subscription failed
+        console.error('Push notification subscription failed');
+        // Banner will remain visible for user to retry
       }
     } catch (error) {
       console.error('Failed to subscribe to push notifications:', error);
-      // For development/testing, show success anyway to test UI flow
-      console.log('Push subscription failed, but showing success for UI testing');
-      setIsSubscribed(true);
-      // Simulate profile update for UI testing
-      if (profile) {
-        await updateProfile({
-          notificationPreferences: {
-            ...profile.notificationPreferences,
-            pushEnabled: true
-          }
-        });
-      }
-      setTimeout(() => {
-        setIsVisible(false);
-      }, 3000); // Hide after 3 seconds
+      // Banner remains visible for user to retry
     } finally {
       setIsLoading(false);
     }

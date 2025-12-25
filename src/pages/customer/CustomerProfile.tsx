@@ -59,11 +59,18 @@ export default function CustomerProfilePage() {
 
     try {
       if (formData.notificationPreferences) {
-        // Check if push notifications are being disabled
+        // Check if push notifications are being toggled
         const wasPushEnabled = profile?.notificationPreferences?.pushEnabled;
         const willBePushEnabled = formData.notificationPreferences.pushEnabled;
 
-        if (wasPushEnabled && !willBePushEnabled && profile?.id) {
+        if (!wasPushEnabled && willBePushEnabled && profile?.id) {
+          // User is enabling push notifications - subscribe
+          const pushSuccess = await pushManager.subscribeToPush(profile.id);
+
+          if (!pushSuccess) {
+            console.warn('Push notification subscription failed, but continuing with profile update');
+          }
+        } else if (wasPushEnabled && !willBePushEnabled && profile?.id) {
           // User is disabling push notifications - unsubscribe
           await pushManager.unsubscribeFromPush(profile.id);
         }
@@ -77,6 +84,7 @@ export default function CustomerProfilePage() {
       setSaveMessage('Profil mis à jour avec succès !');
       setTimeout(() => setSaveMessage(''), 3000);
     } catch (error) {
+      console.error('Error updating profile:', error);
       setSaveMessage('Erreur lors de la mise à jour du profil');
       setTimeout(() => setSaveMessage(''), 3000);
     } finally {
@@ -286,15 +294,19 @@ export default function CustomerProfilePage() {
                   type="checkbox"
                   checked={formData.notificationPreferences?.pushEnabled}
                   onChange={handleChange}
-                  className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                  disabled={!('Notification' in window)}
+                  className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed"
                 />
               </div>
               <div className="ml-3">
-                <label htmlFor="pushEnabled" className={`text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                <label htmlFor="pushEnabled" className={`text-sm font-medium ${!('Notification' in window) ? 'line-through' : ''} ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                   Notifications push
                 </label>
                 <p className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                  Recevoir des notifications en temps réel sur votre navigateur
+                  {!('Notification' in window)
+                    ? 'Non supporté sur ce navigateur (Safari iOS ne supporte pas les notifications push web)'
+                    : 'Recevoir des notifications en temps réel sur votre navigateur'
+                  }
                 </p>
               </div>
             </div>

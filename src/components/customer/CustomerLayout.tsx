@@ -4,6 +4,7 @@ import { Bell, User, LogOut, Smartphone } from 'lucide-react';
 import { useThemeStore } from '../../lib/store';
 import { useCustomerStore } from '../../lib/customerStore';
 import { logoutUser } from '../../lib/firebase';
+import { pushManager } from '../../lib/pushManager';
 
 export default function CustomerLayout() {
   const isDarkMode = useThemeStore((state) => state.isDarkMode);
@@ -31,6 +32,37 @@ export default function CustomerLayout() {
       return unsubscribe;
     }
   }, [profile, subscribeToTickets]);
+
+  // Phase 2C: Smart Auto-Generation - Check for FCM tokens on login
+  useEffect(() => {
+    const autoGenerateFCMToken = async () => {
+      if (!profile?.id) return;
+
+      // Check if push notifications are enabled but no FCM tokens exist
+      const hasPushEnabled = profile.notificationPreferences?.pushEnabled;
+      const hasFCMTokens = profile.fcmTokens && profile.fcmTokens.length > 0;
+
+      if (hasPushEnabled && !hasFCMTokens) {
+        try {
+          // Attempt silent FCM token generation (no user interaction)
+          const success = await pushManager.subscribeToPush(profile.id);
+          if (success) {
+            // Refresh profile to get updated FCM tokens
+            await fetchProfile();
+          }
+        } catch (error) {
+          // Don't show error to user - this is background operation
+        }
+      }
+    };
+
+    // Only run auto-generation after profile is fully loaded
+    if (profile && profile.id) {
+      // Small delay to ensure everything is initialized
+      const timer = setTimeout(autoGenerateFCMToken, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [profile, fetchProfile]);
 
   const handleLogout = async () => {
     try {

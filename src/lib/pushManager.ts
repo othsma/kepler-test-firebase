@@ -1,6 +1,6 @@
 import { getMessaging, getToken, onMessage, isSupported } from 'firebase/messaging';
 import { db } from './firebase';
-import { doc, updateDoc, arrayUnion, arrayRemove, setDoc } from 'firebase/firestore';
+import { doc, updateDoc, arrayUnion, arrayRemove, setDoc, getDoc } from 'firebase/firestore';
 
 export interface PushSubscriptionData {
   endpoint: string;
@@ -78,15 +78,35 @@ export class PushNotificationManager {
   }
 
   async subscribeToPush(customerId: string): Promise<boolean> {
-    if (!this.isSupported || !this.messaging) {
-      console.warn('Push notifications not supported');
+    // Check if running on HTTPS (required for push notifications)
+    if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
+      console.error('Push notifications require HTTPS. Current protocol:', location.protocol);
+      return false;
+    }
+
+    // For mobile browsers, try to initialize messaging even if Firebase says it's not supported
+    let messagingToUse = this.messaging;
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
+    if (isMobile && !this.messaging) {
+      try {
+        messagingToUse = getMessaging();
+      } catch (initError) {
+        console.error('Failed to initialize Firebase messaging for mobile:', initError);
+        return false;
+      }
+    }
+
+    if (!messagingToUse) {
+      console.warn('Push notifications not supported - no messaging instance');
       return false;
     }
 
     try {
       // Request permission first
-      const permission = await this.requestPermission();
+      const permission = await Notification.requestPermission();
       if (permission !== 'granted') {
+        console.log('Push notification permission denied');
         return false;
       }
 
@@ -110,12 +130,18 @@ export class PushNotificationManager {
       await new Promise(resolve => setTimeout(resolve, 1000));
 
       // Get FCM token - let Firebase handle service worker registration
-      const token = await getToken(this.messaging, {
+      const token = await getToken(messagingToUse, {
         vapidKey: import.meta.env.VITE_VAPID_PUBLIC_KEY || ''
       });
 
       if (!token) {
-        console.error('Failed to get FCM token');
+        console.error('Failed to get FCM token - token is null/empty');
+        return false;
+      }
+
+      // Validate token format (basic validation)
+      if (!this.isValidFCMToken(token)) {
+        console.error('Invalid FCM token format. Token:', token.substring(0, 50) + '...', 'Length:', token.length);
         return false;
       }
 
@@ -128,7 +154,7 @@ export class PushNotificationManager {
 
       return true;
     } catch (error) {
-      console.error('Error subscribing to push notifications:', error);
+      console.error('❌ Error subscribing to push notifications:', error);
       return false;
     }
   }
@@ -155,8 +181,46 @@ export class PushNotificationManager {
     }
   }
 
+  /**
+   * Validates FCM token format
+   */
+  private isValidFCMToken(token: string): boolean {
+    // FCM tokens are typically 100-300 characters and contain alphanumeric, hyphens, underscores, dots, and colons
+    if (!token || typeof token !== 'string') {
+      return false;
+    }
+
+    // Basic length check (FCM tokens vary in length)
+    if (token.length < 100 || token.length > 300) {
+      return false;
+    }
+
+    // Check for valid characters (FCM tokens can contain colons)
+    const validTokenRegex = /^[a-zA-Z0-9_.:-]+$/;
+    return validTokenRegex.test(token);
+  }
+
   get isPushSupported(): boolean {
-    return this.isSupported;
+    // Enhanced support check that's more permissive for mobile browsers
+    const hasNotificationAPI = 'Notification' in window;
+    const hasServiceWorker = 'serviceWorker' in navigator;
+    const hasPushManager = 'PushManager' in window;
+    const isHttps = location.protocol === 'https:' || location.hostname === 'localhost';
+
+    // Firebase's strict check
+    const firebaseSupported = this.isSupported;
+
+    // Mobile browsers may have basic support even if Firebase says no
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
+    // For mobile, be more permissive - check basic APIs
+    if (isMobile) {
+      const basicSupport = hasNotificationAPI && hasServiceWorker && hasPushManager && isHttps;
+      return basicSupport;
+    }
+
+    // For desktop, use Firebase's strict check
+    return firebaseSupported;
   }
 }
 
