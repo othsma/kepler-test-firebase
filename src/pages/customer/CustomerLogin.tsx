@@ -4,6 +4,7 @@ import { Eye, EyeOff, Smartphone, ArrowLeft } from 'lucide-react';
 import { useThemeStore } from '../../lib/store';
 import { useCustomerStore } from '../../lib/customerStore';
 import { loginCustomer } from '../../lib/firebase';
+import { checkUserRoleAndRedirect, getLoginRedirectMessage } from '../../lib/authHelpers';
 
 export default function CustomerLogin() {
   const isDarkMode = useThemeStore((state) => state.isDarkMode);
@@ -24,9 +25,20 @@ export default function CustomerLogin() {
     setLocalError('');
 
     try {
+      // Proceed with customer login first
       const result = await loginCustomer(formData.email, formData.password);
 
       if (result.success && result.user) {
+        // Check if user should be using staff login instead
+        const canProceed = await checkUserRoleAndRedirect(result.user.uid, 'customer');
+        if (!canProceed) {
+          // User was redirected to staff login
+          setLocalError(getLoginRedirectMessage('customer'));
+          setLoading(false);
+          return;
+        }
+
+        // User role is correct for customer login
         setUser(result.user);
         navigate('/customer');
       } else {

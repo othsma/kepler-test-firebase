@@ -107,29 +107,34 @@ function App() {
     allowedRoles?: string[] | null;
   }
 
-  const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ 
-    children, 
-    requiredRole = null, 
-    allowedRoles = null 
+  const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
+    children,
+    requiredRole = null,
+    allowedRoles = null
   }) => {
     if (loading) {
       return <LoadingScreen />;
     }
-    
+
     if (!user) {
       return <Navigate to="/login" />;
     }
-    
+
+    // SPECIAL CASE: If user is CUSTOMER, redirect to customer portal
+    if (userRole === ROLES.CUSTOMER) {
+      return <Navigate to="/customer" replace />;
+    }
+
     // Check if specific role is required
     if (requiredRole && userRole !== requiredRole) {
       return <AccessDenied />;
     }
-    
+
     // Check if user's role is in the allowed roles list
     if (allowedRoles && userRole && !allowedRoles.includes(userRole)) {
       return <AccessDenied />;
     }
-    
+
     return <>{children}</>;
   };
 
@@ -146,9 +151,9 @@ function App() {
           <Route path="/register" element={user ? <Navigate to="/" /> : <Register />} />
           <Route path="/forgot-password" element={user ? <Navigate to="/" /> : <ForgotPassword />} />
           
-          {/* Protected routes */}
+          {/* Protected routes - STAFF ONLY */}
           <Route path="/" element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={[ROLES.SUPER_ADMIN, ROLES.TECHNICIAN]}>
               <Layout />
             </ProtectedRoute>
           }>

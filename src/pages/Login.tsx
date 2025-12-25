@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useThemeStore, useAuthStore } from '../lib/store';
 import { loginUser } from '../lib/firebase';
+import { checkUserRoleAndRedirect, getLoginRedirectMessage } from '../lib/authHelpers';
 import { Wrench, Mail, Lock, AlertCircle } from 'lucide-react';
 
 export default function Login() {
@@ -19,11 +20,22 @@ export default function Login() {
     clearError();
     setLoginError('');
     setIsSubmitting(true);
-    
+
     try {
+      // Proceed with staff login first
       const result = await loginUser(email, password);
-      
-      if (result.success) {
+
+      if (result.success && result.user) {
+        // Check if user should be using customer login instead
+        const canProceed = await checkUserRoleAndRedirect(result.user.uid, 'staff');
+        if (!canProceed) {
+          // User was redirected to customer login - log them out
+          setLoginError(getLoginRedirectMessage('staff'));
+          setIsSubmitting(false);
+          return;
+        }
+
+        // User role is correct for staff login
         setUser(result.user);
         navigate('/');
       } else {
