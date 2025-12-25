@@ -31,7 +31,7 @@ export const ROLES = {
 };
 
 // Authentication functions
-export const registerUser = async (email: string, password: string, fullName: string, phoneNumber?: string) => {
+export const registerUser = async (email: string, password: string, fullName: string, role: string, phoneNumber?: string) => {
   let createdUser = null;
 
   try {
@@ -51,7 +51,7 @@ export const registerUser = async (email: string, password: string, fullName: st
         email,
         fullName,
         phoneNumber: phoneNumber || '',
-        role: ROLES.TECHNICIAN, // Default role
+        role: role, // Explicit role required
         createdAt: new Date().toISOString()
       });
 

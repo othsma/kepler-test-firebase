@@ -35,11 +35,13 @@ export default function UserManagement() {
       try {
         const usersCollection = collection(db, 'users');
         const usersSnapshot = await getDocs(usersCollection);
-        const usersList = usersSnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        }));
-        
+        const usersList = usersSnapshot.docs
+          .map(doc => ({
+            id: doc.id,
+            ...doc.data()
+          } as any))
+          .filter(user => user.role !== ROLES.CUSTOMER); // Exclude customers from admin user management
+
         setUsers(usersList);
       } catch (error) {
         console.error('Error fetching users:', error);
@@ -105,10 +107,12 @@ export default function UserManagement() {
         // Refresh the users list
         const usersCollection = collection(db, 'users');
         const usersSnapshot = await getDocs(usersCollection);
-        const usersList = usersSnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        }));
+        const usersList = usersSnapshot.docs
+          .map(doc => ({
+            id: doc.id,
+            ...doc.data()
+          } as any))
+          .filter(user => user.role !== ROLES.CUSTOMER); // Exclude customers from admin user management
 
         setUsers(usersList);
         setSuccess('Utilisateur créé avec succès');

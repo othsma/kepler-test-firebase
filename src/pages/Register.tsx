@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useThemeStore, useAuthStore } from '../lib/store';
-import { registerUser } from '../lib/firebase';
+import { registerUser, ROLES } from '../lib/firebase';
 import { Wrench, Mail, Lock, User, Phone, AlertCircle, Check, X } from 'lucide-react';
 
 export default function Register() {
@@ -15,6 +15,7 @@ export default function Register() {
     phone: '',
     password: '',
     confirmPassword: '',
+    role: ROLES.TECHNICIAN, // Default to technician for admin/staff registration
   });
   
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -28,7 +29,7 @@ export default function Register() {
   const passwordsMatch = formData.password === formData.confirmPassword;
   const isPasswordValid = passwordHasMinLength && passwordHasNumber && passwordHasSpecial;
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
   };
@@ -56,10 +57,11 @@ export default function Register() {
         formData.email,
         formData.password,
         formData.fullName,
+        formData.role,
         formData.phone
       );
       
-      if (result.success) {
+      if (result.success && result.user) {
         setUser(result.user);
         navigate('/');
       } else {
@@ -235,7 +237,27 @@ export default function Register() {
               <p className="mt-1 text-sm text-red-600">Les mots de passe ne correspondent pas</p>
             )}
           </div>
-          
+
+          <div>
+            <label htmlFor="role" className={`block text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+              Rôle *
+            </label>
+            <select
+              id="role"
+              name="role"
+              value={formData.role}
+              onChange={handleChange}
+              className="mt-1 block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+              required
+            >
+              <option value={ROLES.TECHNICIAN}>Technicien</option>
+              <option value={ROLES.SUPER_ADMIN}>Administrateur</option>
+            </select>
+            <p className={`mt-1 text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+              Sélectionnez le rôle approprié pour ce compte
+            </p>
+          </div>
+
           <div>
             <button
               type="submit"
