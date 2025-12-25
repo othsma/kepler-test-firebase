@@ -31,12 +31,11 @@ export const ROLES = {
 };
 
 // Authentication functions
-export const registerUser = async (email: string, password: string, fullName: string, role: string, phoneNumber?: string) => {
+export const registerUser = async (email: string, password: string, fullName: string, phoneNumber?: string) => {
   let createdUser = null;
 
   try {
     // Step 1: Create Firebase Auth user
-    console.log('Creating Firebase Auth user...');
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     createdUser = userCredential.user;
 
@@ -45,18 +44,16 @@ export const registerUser = async (email: string, password: string, fullName: st
 
     try {
       // Step 3: Create Firestore document
-      console.log('Creating Firestore document...');
       await setDoc(doc(db, 'users', createdUser.uid), {
         uid: createdUser.uid,
         email,
         fullName,
         phoneNumber: phoneNumber || '',
-        role: role, // Explicit role required
+        role: ROLES.TECHNICIAN, // Staff registration defaults to TECHNICIAN
         createdAt: new Date().toISOString()
       });
 
       // Step 4: Verify document exists
-      console.log('Verifying Firestore document...');
       const docSnap = await getDoc(doc(db, 'users', createdUser.uid));
 
       if (!docSnap.exists()) {
@@ -67,7 +64,6 @@ export const registerUser = async (email: string, password: string, fullName: st
 
     } catch (firestoreError: any) {
       // Rollback: Delete Auth user if Firestore fails
-      console.error('Firestore operation failed:', firestoreError);
       if (createdUser) {
         await createdUser.delete();
       }
@@ -171,10 +167,18 @@ export const updateUserPassword = async (currentPassword: string, newPassword: s
 
 export const getUserRole = async (uid: string) => {
   try {
+    // First check if user exists in the users collection (admin/staff)
     const userDoc = await getDoc(doc(db, 'users', uid));
     if (userDoc.exists()) {
       return userDoc.data().role;
     }
+
+    // If not found in users collection, check if they have a customer profile
+    const customerDoc = await getDoc(doc(db, 'customer_profiles', uid));
+    if (customerDoc.exists()) {
+      return ROLES.CUSTOMER;
+    }
+
     return null;
   } catch (error) {
     console.error('Error getting user role:', error);
@@ -221,11 +225,9 @@ export const registerCustomer = async (email: string, password: string, fullName
   try {
     // Step 1: Check for customer code first (highest priority)
     if (customerCode) {
-      console.log('Checking customer code...');
       linkedClient = await findClientByCode(customerCode);
 
       if (linkedClient) {
-        console.log(`Found client by code: ${linkedClient.id}`);
         // Pre-fill data from client record if available
         if (!email && linkedClient.email) email = linkedClient.email;
         if (!fullName && linkedClient.name) fullName = linkedClient.name;
@@ -235,36 +237,21 @@ export const registerCustomer = async (email: string, password: string, fullName
       }
     } else {
       // Step 2: Check for existing client with matching email/phone
-      console.log('Checking for existing client by email/phone...');
       linkedClient = await findClientByEmailOrPhone(email, phoneNumber);
-
-      if (linkedClient) {
-        console.log(`Found existing client: ${linkedClient.id} (${linkedClient.matchType} match)`);
-      }
     }
 
     // Step 2: Create Firebase Auth user
-    console.log('Creating customer Firebase Auth user...');
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     createdUser = userCredential.user;
 
     // Step 3: Update Auth profile
     await updateProfile(createdUser, { displayName: fullName });
 
-    try {
-      // Step 4: Create Firestore user document
-      console.log('Creating customer Firestore user document...');
-      await setDoc(doc(db, 'users', createdUser.uid), {
-        uid: createdUser.uid,
-        email,
-        fullName,
-        phoneNumber: phoneNumber || '',
-        role: ROLES.CUSTOMER,
-        createdAt: new Date().toISOString()
-      });
+    // NOTE: Customers don't get user documents in the 'users' collection
+    // They only get customer profiles for authentication to work properly
 
-      // Step 5: Create customer profile document
-      console.log('Creating customer profile document...');
+    try {
+      // Step 4: Create customer profile document
       const profileData: any = {
         id: createdUser.uid,
         email,
@@ -289,22 +276,18 @@ export const registerCustomer = async (email: string, password: string, fullName
 
       await setDoc(doc(db, 'customer_profiles', createdUser.uid), profileData);
 
-      // Step 6: Link client if found
+      // Step 5: Link client if found
       if (linkedClient) {
-        console.log('Linking existing client to new customer account...');
         await linkClientToCustomer(linkedClient.id, createdUser.uid);
       }
 
-      // Step 7: Verify documents exist
-      console.log('Verifying customer documents...');
-      const userDocSnap = await getDoc(doc(db, 'users', createdUser.uid));
+      // Step 6: Verify customer profile exists
       const profileDocSnap = await getDoc(doc(db, 'customer_profiles', createdUser.uid));
 
-      if (!userDocSnap.exists() || !profileDocSnap.exists()) {
-        throw new Error('Customer document verification failed');
+      if (!profileDocSnap.exists()) {
+        throw new Error('Customer profile document verification failed');
       }
 
-      console.log('Customer registration successful', linkedClient ? '(with client linking)' : '');
       return {
         success: true,
         user: createdUser,
@@ -313,7 +296,6 @@ export const registerCustomer = async (email: string, password: string, fullName
 
     } catch (firestoreError: any) {
       // Rollback: Delete Auth user if Firestore fails
-      console.error('Customer Firestore operation failed:', firestoreError);
       if (createdUser) {
         await createdUser.delete();
       }
@@ -392,7 +374,6 @@ export const linkClientToCustomer = async (clientId: string, customerId: string)
       linkedAt: new Date().toISOString()
     }, { merge: true });
 
-    console.log(`Linked client ${clientId} to customer ${customerId}`);
     return { success: true };
   } catch (error: any) {
     console.error('Error linking client to customer:', error);
@@ -438,24 +419,23 @@ export const findClientByCode = async (customerCode: string) => {
 export const initializeSuperAdmin = async () => {
   try {
     const superAdminEmail = 'othsma@gmail.com';
-    
+
     // Check if super admin already exists
     const usersRef = collection(db, 'users');
     const q = query(usersRef, where('email', '==', superAdminEmail));
     const querySnapshot = await getDocs(q);
-    
+
     if (querySnapshot.empty) {
-      console.log('Creating super admin account...');
       // Super admin doesn't exist, create it
       try {
         const userCredential = await createUserWithEmailAndPassword(auth, superAdminEmail, 'Egnirf999@');
         const user = userCredential.user;
-        
+
         // Update profile
         await updateProfile(user, {
           displayName: 'Othsma'
         });
-        
+
         // Store in Firestore
         await setDoc(doc(db, 'users', user.uid), {
           uid: user.uid,
@@ -465,17 +445,14 @@ export const initializeSuperAdmin = async () => {
           role: ROLES.SUPER_ADMIN,
           createdAt: new Date().toISOString()
         });
-        
-        console.log('Super admin created successfully');
       } catch (error: any) {
         // If the account already exists in Auth but not in Firestore
         if (error.code === 'auth/email-already-in-use') {
-          console.log('Super admin auth account exists, but not in Firestore. Attempting to sign in...');
           try {
             // Try to sign in
             const userCredential = await signInWithEmailAndPassword(auth, superAdminEmail, 'Egnirf999@');
             const user = userCredential.user;
-            
+
             // Create Firestore record
             await setDoc(doc(db, 'users', user.uid), {
               uid: user.uid,
@@ -485,8 +462,6 @@ export const initializeSuperAdmin = async () => {
               role: ROLES.SUPER_ADMIN,
               createdAt: new Date().toISOString()
             });
-            
-            console.log('Super admin Firestore record created');
           } catch (signInError) {
             console.error('Error signing in as super admin:', signInError);
           }
@@ -494,8 +469,6 @@ export const initializeSuperAdmin = async () => {
           console.error('Error creating super admin:', error);
         }
       }
-    } else {
-      console.log('Super admin already exists');
     }
   } catch (error) {
     console.error('Error initializing super admin:', error);
