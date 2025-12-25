@@ -145,13 +145,18 @@ export default function CustomerLayout() {
         for (const docSnap of snapshot.docs) {
           const data = docSnap.data();
 
+          // Only include unread notifications (those without readAt field)
+          if (data.readAt) {
+            continue; // Skip read notifications
+          }
+
           // Extract title and message from notification data
           let title = '';
           let message = '';
 
           if (data.type === 'status_change') {
             title = `Statut de réparation mis à jour`;
-            message = `Votre réparation ${data.metadata?.deviceInfo || 'appareil'} est maintenant ${data.metadata?.newStatus || 'mis à jour'}`;
+            message = `Votre ${data.metadata?.deviceInfo || 'appareil'} est maintenant ${data.metadata?.newStatus || 'mis à jour'}`;
           } else if (data.type === 'email') {
             title = `Notification par email`;
             message = `Mise à jour réparation - ${data.metadata?.deviceInfo || 'appareil'}`;
@@ -209,9 +214,19 @@ export default function CustomerLayout() {
 
   const markNotificationAsRead = async (notificationId: string) => {
     try {
+      // Update Firestore
       await updateDoc(doc(db, 'notification_history', notificationId), {
         readAt: new Date()
       });
+
+      // Immediately update local state for instant UI feedback
+      setNotifications(prev =>
+        prev.filter(notification => notification.id !== notificationId)
+      );
+
+      // Update the unread count
+      setUnreadNotificationCount(prev => Math.max(0, prev - 1));
+
     } catch (error) {
       console.error('Error marking notification as read:', error);
     }
