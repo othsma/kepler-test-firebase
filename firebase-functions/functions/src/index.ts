@@ -120,7 +120,7 @@ const emailTemplates = {
           <p>Notre équipe va examiner votre appareil et vous contacter sous 24-48h pour un devis détaillé.</p>
 
           <div style="text-align: center;">
-            <a href="https://kepler-omega-dd495.web.app/customer" class="button">📱 Suivre ma réparation</a>
+            <a href="https://kepleromega.netlify.app/customer" class="button">📱 Suivre ma réparation</a>
           </div>
 
           <p>Vous recevrez des notifications par email à chaque étape de la réparation.</p>
@@ -176,7 +176,7 @@ const emailTemplates = {
           </div>` : ''}
 
           <div style="text-align: center;">
-            <a href="https://kepler-omega-dd495.web.app/customer" class="button">👀 Voir les détails</a>
+            <a href="https://kepleromega.netlify.app/customer" class="button">👀 Voir les détails</a>
           </div>
 
           <p>Vous serez informé par email de chaque évolution importante de votre réparation.</p>
@@ -186,7 +186,7 @@ const emailTemplates = {
           <p>📞 01 23 45 67 89<br>📧 contact@omegaservices.com</p>
         </div>
         <div class="footer">
-          <p>Si vous souhaitez modifier vos préférences de notification, connectez-vous à votre <a href="https://kepler-omega-dd495.web.app/customer/profile">espace client</a>.</p>
+          <p>Si vous souhaitez modifier vos préférences de notification, connectez-vous à votre <a href="https://kepleromega.netlify.app/customer/profile">espace client</a>.</p>
         </div>
       </div>
     </body>
@@ -236,7 +236,7 @@ const emailTemplates = {
 
           <div style="text-align: center;">
             <a href="tel:+33123456789" class="button">📞 Appeler pour récupérer</a>
-            <a href="https://kepler-omega-dd495.web.app/customer" class="button secondary-button">📱 Voir les détails</a>
+            <a href="https://kepleromega.netlify.app/customer" class="button secondary-button">📱 Voir les détails</a>
           </div>
 
           <p>Nous espérons que vous êtes satisfait du service. N'hésitez pas à nous contacter pour toute question.</p>
@@ -319,7 +319,7 @@ async function sendEmailNotification(customerId: string, notification: {
       html: emailHtml,
       // Add unsubscribe link in footer
       headers: {
-        'List-Unsubscribe': `<https://kepler-omega-dd495.web.app/customer/profile>`
+        'List-Unsubscribe': `<https://kepleromega.netlify.app/customer/profile>`
       }
     };
 
