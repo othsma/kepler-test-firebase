@@ -29,6 +29,7 @@ const CustomerLogin = lazy(() => import('./pages/customer/CustomerLogin'));
 const CustomerRegister = lazy(() => import('./pages/customer/CustomerRegister'));
 const CustomerDashboard = lazy(() => import('./pages/customer/CustomerDashboard'));
 const CustomerProfile = lazy(() => import('./pages/customer/CustomerProfile'));
+const NotificationHistory = lazy(() => import('./pages/customer/NotificationHistory'));
 
 function App() {
   const {
@@ -215,6 +216,7 @@ function App() {
           <Route path="/customer" element={<CustomerLayout />}>
             <Route index element={<CustomerDashboard />} />
             <Route path="profile" element={<CustomerProfile />} />
+            <Route path="notifications" element={<NotificationHistory />} />
           </Route>
 
           {/* Customer Auth Routes */}
