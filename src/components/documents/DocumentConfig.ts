@@ -135,7 +135,7 @@ export const VAT_CONFIG = {
 // Company information
 export const COMPANY_CONFIG = {
   name: "O'MEGA SERVICES",
-  address: '400 Rue nationale, 69400 Villefranche Sur/Saône',
+  address: '400 Rue nationale, 69400 Villefranche-Sur-Saône',
   phone: '0986608980',
   email: 'contact@omegaservices.fr',
   taxId: 'FR123456789',
