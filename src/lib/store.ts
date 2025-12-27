@@ -883,6 +883,11 @@ interface ProductsState {
   updateProduct: (id: string, product: Partial<Product>) => Promise<void>;
   deleteProduct: (id: string) => Promise<void>;
   updateStock: (id: string, quantity: number) => Promise<void>;
+  // Category management
+  addCategory: (name: string) => Promise<void>;
+  updateCategory: (oldName: string, newName: string) => Promise<void>;
+  deleteCategory: (name: string, force?: boolean) => Promise<void>;
+  getCategoryUsage: (name: string) => number;
 }
 
 const useProductsStore = create<ProductsState>((set, get) => ({
@@ -1008,14 +1013,14 @@ const useProductsStore = create<ProductsState>((set, get) => ({
     try {
       const productRef = doc(db, 'products', id);
       const product = get().products.find(p => p.id === id);
-      
+
       if (product) {
         const newStock = product.stock + quantity;
         await updateDoc(productRef, { stock: newStock });
-        
+
         // Update the product in the local state
         set(state => ({
-          products: state.products.map(p => 
+          products: state.products.map(p =>
             p.id === id ? { ...p, stock: newStock } : p
           ),
           loading: false
@@ -1025,6 +1030,148 @@ const useProductsStore = create<ProductsState>((set, get) => ({
       console.error('Error updating stock:', error);
       set({ error: 'Failed to update stock', loading: false });
     }
+  },
+
+  // Category management methods
+  addCategory: async (name: string) => {
+    // Validate input
+    const trimmedName = name.trim();
+    if (!trimmedName) {
+      throw new Error('Le nom de la catégorie ne peut pas être vide');
+    }
+
+    // Check for duplicates
+    const { categories } = get();
+    if (categories.some(cat => cat.toLowerCase() === trimmedName.toLowerCase())) {
+      throw new Error('Une catégorie avec ce nom existe déjà');
+    }
+
+    set({ loading: true, error: null });
+    try {
+      // Optimistically update local state first
+      set(state => ({
+        categories: [...state.categories, trimmedName],
+        loading: false
+      }));
+
+      // Then perform Firestore operation
+      await addDoc(collection(db, 'categories'), { name: trimmedName });
+    } catch (error: any) {
+      console.error('Error adding category:', error);
+
+      // Rollback local state on error
+      set(state => ({
+        categories: state.categories.filter(cat => cat !== trimmedName),
+        error: error.message || 'Erreur lors de l\'ajout de la catégorie',
+        loading: false
+      }));
+      throw error;
+    }
+  },
+
+  updateCategory: async (oldName: string, newName: string) => {
+    // Validate input
+    const trimmedNewName = newName.trim();
+    if (!trimmedNewName) {
+      throw new Error('Le nom de la catégorie ne peut pas être vide');
+    }
+
+    // Check for duplicates (excluding the current category)
+    const { categories, products } = get();
+    if (categories.some(cat => cat.toLowerCase() === trimmedNewName.toLowerCase() && cat !== oldName)) {
+      throw new Error('Une catégorie avec ce nom existe déjà');
+    }
+
+    set({ loading: true, error: null });
+    try {
+      // Find the category document to update
+      const categoriesRef = collection(db, 'categories');
+      const q = query(categoriesRef, where('name', '==', oldName));
+      const querySnapshot = await getDocs(q);
+
+      if (querySnapshot.empty) {
+        throw new Error('Catégorie introuvable');
+      }
+
+      // Update the category document
+      const categoryDoc = querySnapshot.docs[0];
+      await updateDoc(doc(db, 'categories', categoryDoc.id), { name: trimmedNewName });
+
+      // Update all products that use this category
+      const productsToUpdate = products.filter(product => product.category === oldName);
+      const updatePromises = productsToUpdate.map(product =>
+        updateDoc(doc(db, 'products', product.id), { category: trimmedNewName })
+      );
+      await Promise.all(updatePromises);
+
+      // Update local state
+      set(state => ({
+        categories: state.categories.map(cat => cat === oldName ? trimmedNewName : cat),
+        products: state.products.map(product =>
+          product.category === oldName ? { ...product, category: trimmedNewName } : product
+        ),
+        loading: false
+      }));
+    } catch (error: any) {
+      console.error('Error updating category:', error);
+      set({
+        error: error.message || 'Erreur lors de la mise à jour de la catégorie',
+        loading: false
+      });
+      throw error;
+    }
+  },
+
+  deleteCategory: async (name: string, force: boolean = false) => {
+    const { products } = get();
+    const productsUsingCategory = products.filter(product => product.category === name);
+
+    // If category has products and force is not true, prevent deletion
+    if (productsUsingCategory.length > 0 && !force) {
+      throw new Error(`Impossible de supprimer cette catégorie car ${productsUsingCategory.length} produit(s) l'utilisent. Utilisez l'option "Forcer la suppression" pour réaffecter ces produits à "Aucune catégorie".`);
+    }
+
+    set({ loading: true, error: null });
+    try {
+      // Find and delete the category document
+      const categoriesRef = collection(db, 'categories');
+      const q = query(categoriesRef, where('name', '==', name));
+      const querySnapshot = await getDocs(q);
+
+      if (!querySnapshot.empty) {
+        const categoryDoc = querySnapshot.docs[0];
+        await deleteDoc(doc(db, 'categories', categoryDoc.id));
+      }
+
+      // If force is true, update all products to have no category
+      if (force && productsUsingCategory.length > 0) {
+        const updatePromises = productsUsingCategory.map(product =>
+          updateDoc(doc(db, 'products', product.id), { category: '' })
+        );
+        await Promise.all(updatePromises);
+      }
+
+      // Update local state
+      set(state => ({
+        categories: state.categories.filter(cat => cat !== name),
+        products: force ? state.products.map(product =>
+          product.category === name ? { ...product, category: '' } : product
+        ) : state.products,
+        loading: false
+      }));
+    } catch (error: any) {
+      console.error('Error deleting category:', error);
+      set({
+        error: error.message || 'Erreur lors de la suppression de la catégorie',
+        loading: false
+      });
+      throw error;
+    }
+  },
+
+  getCategoryUsage: (name: string): number => {
+    const { products } = get();
+    return products.filter(product => product.category === name).length;
   }
 }));
 
