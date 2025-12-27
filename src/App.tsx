@@ -149,7 +149,8 @@ function App() {
         <Routes>
           {/* Auth routes */}
           <Route path="/login" element={user ? <Navigate to="/" /> : <Login />} />
-          <Route path="/register" element={user ? <Navigate to="/" /> : <Register />} />
+          {/* Staff registration disabled - redirect to login with message */}
+          <Route path="/register" element={<Navigate to="/login" state={{ message: "L'inscription du personnel nécessite une approbation de l'administrateur. Si vous êtes un client, vous pouvez vous inscrire sur notre portail client.", customerLink: true }} />} />
           <Route path="/forgot-password" element={user ? <Navigate to="/" /> : <ForgotPassword />} />
           
           {/* Protected routes - STAFF ONLY */}

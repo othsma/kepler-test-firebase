@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useThemeStore, useAuthStore } from '../lib/store';
 import { loginUser } from '../lib/firebase';
 import { checkUserRoleAndRedirect, getLoginRedirectMessage } from '../lib/authHelpers';
@@ -9,11 +9,20 @@ export default function Login() {
   const isDarkMode = useThemeStore((state) => state.isDarkMode);
   const { setUser, setLoading, setError, clearError } = useAuthStore();
   const navigate = useNavigate();
-  
+  const location = useLocation();
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [loginError, setLoginError] = useState('');
+  const [redirectMessage, setRedirectMessage] = useState('');
+
+  // Check for redirect message from disabled registration
+  useEffect(() => {
+    if (location.state?.message) {
+      setRedirectMessage(location.state.message);
+    }
+  }, [location.state]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -66,6 +75,34 @@ export default function Login() {
           <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded flex items-center">
             <AlertCircle className="h-5 w-5 mr-2" />
             <span>{loginError}</span>
+          </div>
+        )}
+
+        {redirectMessage && (
+          <div className="mb-4 space-y-3">
+            {/* First banner - Staff registration info */}
+            <div className="p-3 bg-amber-100 border border-amber-400 text-amber-700 rounded flex items-center">
+              <AlertCircle className="h-5 w-5 mr-2 flex-shrink-0" />
+              <span>L'inscription du personnel nécessite une approbation de l'administrateur.</span>
+            </div>
+
+            {/* Second banner - Customer registration link */}
+            {location.state?.customerLink && (
+              <div className="p-3 bg-blue-100 border border-blue-400 text-blue-700 rounded">
+                <div className="flex items-start">
+                  <AlertCircle className="h-5 w-5 mr-2 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <p className="mb-2">Si vous êtes un client, vous pouvez vous inscrire sur notre portail client.</p>
+                    <Link
+                      to="/customer/register"
+                      className="inline-flex items-center px-3 py-1 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 transition-colors"
+                    >
+                      Accéder au portail client
+                    </Link>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
         
