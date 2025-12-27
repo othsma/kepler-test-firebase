@@ -129,7 +129,7 @@ const emailTemplates = {
             <p><strong>Description:</strong> ${data.description || 'Réparation standard'}</p>
           </div>
 
-          <p>Notre équipe va examiner votre appareil et vous contacter sous 24-48h pour un devis détaillé.</p>
+          <p>Notre équipe va examiner votre appareil et vous contacter sous 24-48h pour vous communiquer l'état d'avancement de votre réparation.</p>
 
           <div style="text-align: center;">
             <a href="https://kepleromega.netlify.app/customer" class="button">📱 Suivre ma réparation</a>
@@ -139,7 +139,7 @@ const emailTemplates = {
 
           <br>
           <p>Cordialement,<br><strong>L'équipe O'MEGA Services</strong></p>
-          <p>📞 01 23 45 67 89<br>📧 contact@omegaservices.com</p>
+          <p>📞 09 86 60 89 80<br>📧 contact@omegaservices.fr</p>
         </div>
         <div class="footer">
           <p>Si vous n'êtes pas à l'origine de cette demande, veuillez ignorer cet email.</p>
@@ -194,7 +194,7 @@ const emailTemplates = {
 
           <br>
           <p>Cordialement,<br><strong>L'équipe O'MEGA Services</strong></p>
-          <p>📞 01 23 45 67 89<br>📧 contact@omegaservices.com</p>
+          <p>📞 09 86 60 89 80<br>📧 contact@omegaservices.fr</p>
         </div>
         <div class="footer">
           <p>Si vous souhaitez modifier vos préférences de notification, connectez-vous à votre <a href="https://kepleromega.netlify.app/customer/profile">espace client</a>.</p>
@@ -245,7 +245,7 @@ const emailTemplates = {
           </div>` : ''}
 
           <div style="text-align: center;">
-            <a href="tel:+33123456789" class="button">📞 Appeler pour récupérer</a>
+            <a href="tel:+33986608980" class="button">📞 Appeler pour récupérer</a>
             <a href="https://kepleromega.netlify.app/customer" class="button secondary-button">📱 Voir les détails</a>
           </div>
 
@@ -253,7 +253,7 @@ const emailTemplates = {
 
           <br>
           <p>Cordialement,<br><strong>L'équipe O'MEGA Services</strong></p>
-          <p>📞 01 23 45 67 89<br>📧 contact@omegaservices.com</p>
+          <p>📞 09 86 60 89 80<br>📧 contact@omegaservices.fr</p>
         </div>
         <div class="footer">
           <p>Merci d'avoir choisi O'MEGA Services pour vos réparations ! ⭐⭐⭐⭐⭐</p>
@@ -490,30 +490,38 @@ exports.onTicketStatusChange = functions.firestore
     if (preferences === null || preferences === void 0 ? void 0 : preferences.emailEnabled) {
         // Get customer name
         const customerName = (customerData === null || customerData === void 0 ? void 0 : customerData.fullName) || '';
-        // Determine status colors and next steps
-        let statusColor = '#e8f5e8';
-        let statusBorder = '#4caf50';
-        let nextSteps = '';
-        switch (after === null || after === void 0 ? void 0 : after.status) {
-            case 'in-progress':
-                statusColor = '#fff3cd';
-                statusBorder = '#ffc107';
-                nextSteps = 'Notre technicien va examiner votre appareil et vous contacter pour un devis détaillé.';
-                break;
-            case 'completed':
-                statusColor = '#e8f5e8';
-                statusBorder = '#4caf50';
-                nextSteps = 'Votre appareil est prêt à être récupéré. Contactez-nous pour organiser la récupération.';
-                break;
-            default:
-                statusColor = '#e3f2fd';
-                statusBorder = '#2196f3';
-                nextSteps = 'Nous allons examiner votre demande et vous contacter sous 24h.';
+        // Choose template based on new status
+        let emailTemplate = 'statusUpdate'; // Default for pending → in-progress
+        let templateData = {};
+        if ((after === null || after === void 0 ? void 0 : after.status) === 'completed') {
+            // Use completion template for completed repairs
+            emailTemplate = 'completion';
+            templateData = {
+                customerName,
+                deviceInfo,
+                ticketNumber: (after === null || after === void 0 ? void 0 : after.ticketNumber) || ticketId,
+                completionDate: new Date().toLocaleDateString('fr-FR'),
+                estimatedCost: 'À confirmer', // Could be populated from ticket data
+                repairDetails: (after === null || after === void 0 ? void 0 : after.repairNotes) || null // Could be populated from ticket data
+            };
         }
-        await sendEmailNotification(customerId, {
-            subject: `Mise à jour réparation - ${deviceInfo}`,
-            template: 'statusUpdate',
-            templateData: {
+        else {
+            // Use statusUpdate template for other transitions (pending → in-progress)
+            let statusColor = '#e8f5e8';
+            let statusBorder = '#4caf50';
+            let nextSteps = '';
+            switch (after === null || after === void 0 ? void 0 : after.status) {
+                case 'in-progress':
+                    statusColor = '#fff3cd';
+                    statusBorder = '#ffc107';
+                    nextSteps = 'Notre technicien va examiner votre appareil et procéder à la réparation de votre appareil.';
+                    break;
+                default:
+                    statusColor = '#e3f2fd';
+                    statusBorder = '#2196f3';
+                    nextSteps = 'Nous allons examiner votre demande et vous contacter sous 24h.';
+            }
+            templateData = {
                 customerName,
                 deviceInfo,
                 newStatus,
@@ -522,7 +530,12 @@ exports.onTicketStatusChange = functions.firestore
                 statusColor,
                 statusBorder,
                 nextSteps
-            },
+            };
+        }
+        await sendEmailNotification(customerId, {
+            subject: (after === null || after === void 0 ? void 0 : after.status) === 'completed' ? `Réparation terminée - ${deviceInfo}` : `Mise à jour réparation - ${deviceInfo}`,
+            template: emailTemplate,
+            templateData,
             ticketId
         });
     }
@@ -549,20 +562,74 @@ exports.onTicketCreated = functions.firestore
     .onCreate(async (snapshot, context) => {
     const ticket = snapshot.data();
     const ticketId = context.params.ticketId;
-    const customerId = ticket === null || ticket === void 0 ? void 0 : ticket.clientId;
-    if (!customerId) {
-        console.log(`No customer ID found for new ticket ${ticketId}`);
+    const clientId = ticket === null || ticket === void 0 ? void 0 : ticket.clientId; // This is the client ID from tickets collection
+    if (!clientId) {
+        console.log(`No client ID found for new ticket ${ticketId}`);
         return;
     }
-    // Get customer notification preferences
-    const customerDoc = await db.collection('customer_profiles').doc(customerId).get();
-    if (!customerDoc.exists) {
-        console.log(`Customer profile not found for ${customerId}`);
-        return;
+    // Find customer profile - use same logic as onTicketStatusChange
+    let customerDoc = null;
+    let customerId = null;
+    let customerData = null;
+    // First, try to find by linkedClientId (for customers registered with customer code)
+    const linkedQuery = await db.collection('customer_profiles')
+        .where('linkedClientId', '==', clientId)
+        .limit(1)
+        .get();
+    if (!linkedQuery.empty) {
+        customerDoc = linkedQuery.docs[0];
+        customerId = customerDoc.id;
+        customerData = customerDoc.data();
+        console.log(`Found customer ${customerId} via linkedClientId for client ${clientId}`);
     }
-    const customerData = customerDoc.data();
+    else {
+        // If not found by linkedClientId, get the client data to find customers by email/phone
+        const clientDoc = await db.collection('clients').doc(clientId).get();
+        if (!clientDoc.exists) {
+            console.log(`Client ${clientId} not found`);
+            return;
+        }
+        const clientData = clientDoc.data();
+        const clientEmail = clientData === null || clientData === void 0 ? void 0 : clientData.email;
+        const clientPhone = clientData === null || clientData === void 0 ? void 0 : clientData.phone;
+        // Try to find customer by email first
+        if (clientEmail) {
+            const emailQuery = await db.collection('customer_profiles')
+                .where('email', '==', clientEmail)
+                .limit(1)
+                .get();
+            if (!emailQuery.empty) {
+                customerDoc = emailQuery.docs[0];
+                customerId = customerDoc.id;
+                customerData = customerDoc.data();
+                console.log(`Found customer ${customerId} via email ${clientEmail}`);
+            }
+        }
+        // If not found by email, try by phone
+        if (!customerDoc && clientPhone) {
+            const phoneQuery = await db.collection('customer_profiles')
+                .where('phoneNumber', '==', clientPhone)
+                .limit(1)
+                .get();
+            if (!phoneQuery.empty) {
+                customerDoc = phoneQuery.docs[0];
+                customerId = customerDoc.id;
+                customerData = customerDoc.data();
+                console.log(`Found customer ${customerId} via phone ${clientPhone}`);
+            }
+        }
+        if (!customerDoc) {
+            console.log(`No customer profile found for client ${clientId} (tried linkedClientId, email, and phone)`);
+            return;
+        }
+    }
     const preferences = customerData === null || customerData === void 0 ? void 0 : customerData.notificationPreferences;
     const deviceInfo = `${(ticket === null || ticket === void 0 ? void 0 : ticket.deviceType) || 'Appareil'} ${(ticket === null || ticket === void 0 ? void 0 : ticket.brand) || ''} ${(ticket === null || ticket === void 0 ? void 0 : ticket.model) || ''}`.trim();
+    // Ensure we have a valid customer ID before proceeding
+    if (!customerId) {
+        console.log(`No valid customer ID found for ticket ${ticketId}`);
+        return;
+    }
     // Send welcome notification
     if (preferences === null || preferences === void 0 ? void 0 : preferences.pushEnabled) {
         await sendPushNotification(customerId, {
@@ -574,23 +641,34 @@ exports.onTicketCreated = functions.firestore
         });
     }
     if (preferences === null || preferences === void 0 ? void 0 : preferences.emailEnabled) {
+        // Get customer name
+        const customerName = (customerData === null || customerData === void 0 ? void 0 : customerData.fullName) || '';
         await sendEmailNotification(customerId, {
             subject: `Réparation créée - ${deviceInfo}`,
-            html: `
-          <h2>Votre réparation a été créée</h2>
-          <p>Bonjour,</p>
-          <p>Nous avons bien reçu votre ${deviceInfo} pour réparation.</p>
-          <p><strong>Numéro de réparation:</strong> ${(ticket === null || ticket === void 0 ? void 0 : ticket.ticketNumber) || ticketId}</p>
-          <p><strong>Statut actuel:</strong> En attente</p>
-          <p><strong>Date de création:</strong> ${new Date().toLocaleDateString('fr-FR')}</p>
-          <br>
-          <p>Vous pouvez suivre l'évolution de votre réparation sur votre <a href="https://app.omegaservices.com/customer">espace client</a>.</p>
-          <br>
-          <p>Cordialement,<br>L'équipe O'MEGA Services</p>
-        `,
+            template: 'welcome', // Use the fancy welcome template
+            templateData: {
+                customerName,
+                deviceInfo,
+                ticketNumber: (ticket === null || ticket === void 0 ? void 0 : ticket.ticketNumber) || ticketId,
+                createdDate: new Date().toLocaleDateString('fr-FR'),
+                description: (ticket === null || ticket === void 0 ? void 0 : ticket.description) || 'Réparation standard'
+            },
             ticketId
         });
     }
+    // Log notification in history
+    await db.collection('notification_history').add({
+        customerId,
+        ticketId,
+        type: 'ticket_created',
+        channel: (preferences === null || preferences === void 0 ? void 0 : preferences.emailEnabled) ? 'email' : ((preferences === null || preferences === void 0 ? void 0 : preferences.pushEnabled) ? 'push' : 'none'),
+        status: 'sent',
+        sentAt: admin.firestore.FieldValue.serverTimestamp(),
+        metadata: {
+            deviceInfo,
+            ticketNumber: (ticket === null || ticket === void 0 ? void 0 : ticket.ticketNumber) || ticketId
+        }
+    });
     console.log(`New ticket notification sent for ticket ${ticketId} to customer ${customerId}`);
 });
 // Cloud Function: Clean up expired FCM tokens
