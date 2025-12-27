@@ -1,3 +1,10 @@
 node_modules
 .env*
 *.log
+test-sendgrid.js
+*-sendgrid.js
+*-secret.js
+*-key.js
+*-config.js
+.firebase/
+firebase-debug.log

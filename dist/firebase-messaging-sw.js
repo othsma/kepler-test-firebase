@@ -23,13 +23,12 @@ const messaging = firebase.messaging();
 
 // Handle background messages
 messaging.onBackgroundMessage((payload) => {
-  console.log('Received background message:', payload);
 
   const notificationTitle = payload.notification?.title || 'O\'MEGA Services';
   const notificationOptions = {
     body: payload.notification?.body || 'Vous avez une nouvelle notification',
-    icon: '/omegalogo.png',
-    badge: '/omegalogo.png',
+    icon: payload.data?.icon || '/omegalogo.png',
+    badge: payload.data?.badge || '/omegalogo.png',
     data: payload.data,
     tag: payload.data?.tag || 'repair-notification',
     requireInteraction: true,
@@ -45,5 +44,13 @@ messaging.onBackgroundMessage((payload) => {
     ]
   };
 
-  self.registration.showNotification(notificationTitle, notificationOptions);
+  console.log('🔥 Showing notification:', notificationTitle, notificationOptions);
+
+  return self.registration.showNotification(notificationTitle, notificationOptions)
+    .then(() => {
+      console.log('✅ Background notification displayed successfully');
+    })
+    .catch((error) => {
+      console.error('❌ Failed to show background notification:', error);
+    });
 });

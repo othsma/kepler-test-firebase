@@ -5,15 +5,8 @@ import sgMail from '@sendgrid/mail';
 // Initialize Firebase Admin
 admin.initializeApp();
 
-// Initialize SendGrid
-const sendgridApiKey = functions.config().sendgrid?.api_key ||
-                      process.env.SENDGRID_API_KEY;
-
-if (sendgridApiKey) {
-  sgMail.setApiKey(sendgridApiKey);
-} else {
-  console.warn('SendGrid API key not configured. Email notifications will not work.');
-}
+// SendGrid initialization status
+let sendgridInitialized = false;
 
 // Firestore reference
 const db = admin.firestore();
@@ -127,7 +120,7 @@ const emailTemplates = {
 
           <br>
           <p>Cordialement,<br><strong>L'équipe O'MEGA Services</strong></p>
-          <p>📞 01 23 45 67 89<br>📧 contact@omegaservices.com</p>
+          <p>📞 09 86 60 89 80<br>📧 contact@omegaservices.com</p>
         </div>
         <div class="footer">
           <p>Si vous n'êtes pas à l'origine de cette demande, veuillez ignorer cet email.</p>
@@ -183,7 +176,7 @@ const emailTemplates = {
 
           <br>
           <p>Cordialement,<br><strong>L'équipe O'MEGA Services</strong></p>
-          <p>📞 01 23 45 67 89<br>📧 contact@omegaservices.com</p>
+          <p>📞 09 86 60 89 80<br>📧 contact@omegaservices.com</p>
         </div>
         <div class="footer">
           <p>Si vous souhaitez modifier vos préférences de notification, connectez-vous à votre <a href="https://kepleromega.netlify.app/customer/profile">espace client</a>.</p>
@@ -243,7 +236,7 @@ const emailTemplates = {
 
           <br>
           <p>Cordialement,<br><strong>L'équipe O'MEGA Services</strong></p>
-          <p>📞 01 23 45 67 89<br>📧 contact@omegaservices.com</p>
+          <p>📞 09 86 60 89 80<br>📧 contact@omegaservices.com</p>
         </div>
         <div class="footer">
           <p>Merci d'avoir choisi O'MEGA Services pour vos réparations ! ⭐⭐⭐⭐⭐</p>
@@ -263,10 +256,23 @@ async function sendEmailNotification(customerId: string, notification: {
   templateData?: any;
 }) {
   try {
-    // Check if SendGrid is configured
-    if (!sendgridApiKey) {
-      console.warn('SendGrid not configured, skipping email notification');
-      return;
+    // Initialize SendGrid if not already done
+    if (!sendgridInitialized) {
+      try {
+        const sendgridApiKey = (functions as any).config().sendgrid?.api_key || process.env.SENDGRID_API_KEY;
+
+        if (sendgridApiKey) {
+          sgMail.setApiKey(sendgridApiKey);
+          sendgridInitialized = true;
+          console.log('✅ SendGrid initialized successfully');
+        } else {
+          console.warn('SendGrid API key not configured. Email notifications will not work.');
+          return;
+        }
+      } catch (error) {
+        console.error('Failed to initialize SendGrid:', error);
+        return;
+      }
     }
 
     // Get customer email and preferences
@@ -312,7 +318,7 @@ async function sendEmailNotification(customerId: string, notification: {
     const msg = {
       to: email,
       from: {
-        email: 'noreply@omegaservices.com',
+        email: 'noreply@omegaservices.fr',
         name: "O'MEGA Services"
       },
       subject: emailSubject,
@@ -323,11 +329,34 @@ async function sendEmailNotification(customerId: string, notification: {
       }
     };
 
-    console.log(`Sending email to ${email} via SendGrid: ${emailSubject}`);
+    console.log(`🔍 DEBUG - Email payload:`, {
+      to: email,
+      from: msg.from,
+      subject: emailSubject,
+      htmlLength: emailHtml.length,
+      hasHtml: !!emailHtml
+    });
 
-    const result = await sgMail.send(msg);
+    console.log(`📧 Sending email to ${email} via SendGrid: ${emailSubject}`);
 
-    console.log(`Email sent successfully to ${email}`, result);
+    let sendResult = null;
+    try {
+      sendResult = await sgMail.send(msg);
+      console.log(`✅ Email sent successfully to ${email}`, {
+        messageId: sendResult[0]?.headers?.['x-message-id'],
+        statusCode: sendResult[0]?.statusCode
+      });
+    } catch (sendGridError: any) {
+      console.error(`❌ SendGrid API Error Details:`, {
+        message: sendGridError.message,
+        code: sendGridError.code,
+        response: sendGridError.response?.data || sendGridError.response,
+        status: sendGridError.response?.status,
+        headers: sendGridError.response?.headers,
+        sendGridErrors: sendGridError.response?.body?.errors ? JSON.stringify(sendGridError.response.body.errors, null, 2) : 'No errors array'
+      });
+      throw sendGridError;
+    }
 
     // Log email in notification history
     await db.collection('notification_history').add({
@@ -340,7 +369,7 @@ async function sendEmailNotification(customerId: string, notification: {
       subject: emailSubject,
       metadata: {
         template: notification.template,
-        sendgridMessageId: result[0]?.headers?.['x-message-id']
+        sendgridMessageId: sendResult ? sendResult[0]?.headers?.['x-message-id'] : null
       }
     });
 
@@ -366,7 +395,7 @@ async function sendEmailNotification(customerId: string, notification: {
 // Cloud Function: Trigger when ticket status changes
 export const onTicketStatusChange = functions.firestore
   .document('tickets/{ticketId}')
-  .onUpdate(async (change, context) => {
+  .onUpdate(async (change: any, context: any) => {
     const before = change.before.data();
     const after = change.after.data();
 
@@ -543,7 +572,7 @@ export const onTicketStatusChange = functions.firestore
 // Cloud Function: Trigger when new ticket is created
 export const onTicketCreated = functions.firestore
   .document('tickets/{ticketId}')
-  .onCreate(async (snapshot, context) => {
+  .onCreate(async (snapshot: any, context: any) => {
     const ticket = snapshot.data();
     const ticketId = context.params.ticketId;
     const customerId = ticket?.clientId;
@@ -600,55 +629,50 @@ export const onTicketCreated = functions.firestore
   });
 
 // Cloud Function: Clean up expired FCM tokens
-export const cleanupExpiredTokens = functions.pubsub
-  .schedule('0 2 * * *') // Run daily at 2 AM
-  .timeZone('Europe/Paris')
-  .onRun(async () => {
-    console.log('Starting FCM token cleanup...');
+export const cleanupExpiredTokens = functions.pubsub.schedule('0 2 * * *').timeZone('Europe/Paris').onRun(async () => {
+  console.log('Starting FCM token cleanup...');
 
-    try {
-      const customersRef = db.collection('customer_profiles');
-      const snapshot = await customersRef.get();
+  try {
+    const customersRef = db.collection('customer_profiles');
+    const snapshot = await customersRef.get();
 
-      let cleanedCount = 0;
+    let cleanedCount = 0;
 
-      for (const doc of snapshot.docs) {
-        const customerData = doc.data();
-        const fcmTokens = customerData?.fcmTokens || [];
+    for (const doc of snapshot.docs) {
+      const customerData = doc.data();
+      const fcmTokens = customerData?.fcmTokens || [];
 
-        if (fcmTokens.length > 0) {
-          // Test each token by sending a test message
-          const testResults = await Promise.allSettled(
-            fcmTokens.map((token: string) =>
-              admin.messaging().send({
-                token,
-                data: { test: 'cleanup' }
-              }, true) // dryRun = true
-            )
-          );
+      if (fcmTokens.length > 0) {
+        // Test each token by sending a test message
+        const testResults = await Promise.allSettled(
+          fcmTokens.map((token: string) =>
+            admin.messaging().send({
+              token,
+              data: { test: 'cleanup' }
+            }, true) // dryRun = true
+          )
+        );
 
-          // Filter out invalid tokens
-          const validTokens = fcmTokens.filter((token: string, index: number) =>
-            testResults[index].status === 'fulfilled'
-          );
+        // Filter out invalid tokens
+        const validTokens = fcmTokens.filter((token: string, index: number) =>
+          testResults[index].status === 'fulfilled'
+        );
 
-          if (validTokens.length !== fcmTokens.length) {
-            // Update document with only valid tokens
-            await doc.ref.update({
-              fcmTokens: validTokens,
-              lastTokenCleanup: admin.firestore.FieldValue.serverTimestamp()
-            });
+        if (validTokens.length !== fcmTokens.length) {
+          // Update document with only valid tokens
+          await doc.ref.update({
+            fcmTokens: validTokens,
+            lastTokenCleanup: admin.firestore.FieldValue.serverTimestamp()
+          });
 
-            cleanedCount += (fcmTokens.length - validTokens.length);
-          }
+          cleanedCount += (fcmTokens.length - validTokens.length);
         }
       }
-
-      console.log(`FCM token cleanup completed. Removed ${cleanedCount} invalid tokens.`);
-      return null;
-
-    } catch (error) {
-      console.error('Error during FCM token cleanup:', error);
-      return null;
     }
-  });
+
+    console.log(`FCM token cleanup completed. Removed ${cleanedCount} invalid tokens.`);
+
+  } catch (error) {
+    console.error('Error during FCM token cleanup:', error);
+  }
+});
