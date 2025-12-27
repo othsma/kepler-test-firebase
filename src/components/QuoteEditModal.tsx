@@ -26,11 +26,11 @@ export default function QuoteEditModal({ quote, clients, onClose, onSave }: Quot
   const [showClientDropdown, setShowClientDropdown] = useState(false);
   const [notes, setNotes] = useState(quote.notes || '');
 
-  // Calculate totals when items change
-  const subtotal = editedQuote.items?.reduce((sum: number, item: QuoteItem) => sum + (item.price * item.quantity), 0) || 0;
+  // Calculate totals when items change (prices are TTC - tax inclusive)
+  const total = editedQuote.items?.reduce((sum: number, item: QuoteItem) => sum + (item.price * item.quantity), 0) || 0;
   const VAT_RATE = 0.20;
-  const vatAmount = subtotal * (VAT_RATE / (1 + VAT_RATE));
-  const total = subtotal - vatAmount;
+  const vatAmount = total * (VAT_RATE / (1 + VAT_RATE));
+  const subtotal = total - vatAmount;
 
   // Update editedQuote when items change
   useEffect(() => {
