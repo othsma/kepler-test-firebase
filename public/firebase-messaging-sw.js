@@ -16,23 +16,13 @@ const firebaseConfig = {
 };
 
 // Initialize Firebase
-console.log('🔥 SERVICE WORKER: Initializing Firebase...');
 firebase.initializeApp(firebaseConfig);
 
 // Initialize Firebase Messaging
-console.log('🔥 SERVICE WORKER: Initializing Firebase Messaging...');
 const messaging = firebase.messaging();
-
-console.log('🔥 SERVICE WORKER: Firebase Messaging initialized, setting up background handler...');
 
 // Handle background messages
 messaging.onBackgroundMessage((payload) => {
-  console.log('🔥 BACKGROUND MESSAGE RECEIVED:', payload);
-  console.log('🔥 Notification data:', payload.notification);
-  console.log('🔥 Custom data:', payload.data);
-  console.log('🔥 BACKGROUND MESSAGE RECEIVED:', payload);
-  console.log('🔥 Notification data:', payload.notification);
-  console.log('🔥 Custom data:', payload.data);
 
   const notificationTitle = payload.notification?.title || 'O\'MEGA Services';
   const notificationOptions = {

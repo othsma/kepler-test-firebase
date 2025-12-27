@@ -147,23 +147,7 @@ export default function PushNotificationBanner() {
                       'Activer'
                     )}
                   </button>
-                  {/* Debug button for testing */}
-                  <button
-                    onClick={() => {
-                      console.log('🔍 DEBUG: Manual push notification test triggered');
-                      console.log('🔍 DEBUG: Push supported:', pushManager.isPushSupported);
-                      console.log('🔍 DEBUG: Notification permission:', Notification.permission);
-                      console.log('🔍 DEBUG: Service worker support:', 'serviceWorker' in navigator);
-                      if ('serviceWorker' in navigator) {
-                        navigator.serviceWorker.getRegistrations().then(regs => {
-                          console.log('🔍 DEBUG: Service workers:', regs.map(r => ({ scope: r.scope, active: r.active?.state })));
-                        });
-                      }
-                    }}
-                    className="ml-2 inline-flex items-center px-2 py-1.5 border border-gray-300 text-xs font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                  >
-                    Debug
-                  </button>
+
                   <button
                     onClick={handleDismiss}
                     className={`inline-flex items-center px-2 py-1.5 border border-transparent text-xs font-medium rounded-md ${

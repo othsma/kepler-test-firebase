@@ -56,21 +56,17 @@ else {
 const db = admin.firestore();
 // Send push notification to customer
 async function sendPushNotification(customerId, notification) {
-    console.log(`🔔 PUSH NOTIFICATION: Starting for customer ${customerId}`);
-    console.log(`🔔 PUSH NOTIFICATION: Title: ${notification.title}`);
-    console.log(`🔔 PUSH NOTIFICATION: Body: ${notification.body}`);
     try {
         // Get customer profile to find FCM tokens
         const customerDoc = await db.collection('customer_profiles').doc(customerId).get();
         if (!customerDoc.exists) {
-            console.log(`❌ Customer ${customerId} not found`);
+            console.log(`Customer ${customerId} not found`);
             return;
         }
         const customerData = customerDoc.data();
         const fcmTokens = (customerData === null || customerData === void 0 ? void 0 : customerData.fcmTokens) || [];
-        console.log(`🔔 Found ${fcmTokens.length} FCM tokens for customer ${customerId}`);
         if (fcmTokens.length === 0) {
-            console.log(`❌ No FCM tokens found for customer ${customerId}`);
+            console.log(`No FCM tokens found for customer ${customerId}`);
             return;
         }
         // Prepare notification payload - FCM only supports title and body in notification
@@ -368,18 +364,12 @@ async function sendEmailNotification(customerId, notification) {
 exports.onTicketStatusChange = functions.firestore
     .document('tickets/{ticketId}')
     .onUpdate(async (change, context) => {
-    console.log('🎫 TICKET STATUS CHANGE TRIGGERED');
-    console.log('🎫 Ticket ID:', context.params.ticketId);
     const before = change.before.data();
     const after = change.after.data();
-    console.log('🎫 Before status:', before === null || before === void 0 ? void 0 : before.status);
-    console.log('🎫 After status:', after === null || after === void 0 ? void 0 : after.status);
     // Check if status actually changed
     if ((before === null || before === void 0 ? void 0 : before.status) === (after === null || after === void 0 ? void 0 : after.status)) {
-        console.log('🎫 Status did not change, exiting');
         return;
     }
-    console.log('🎫 Status changed from', before === null || before === void 0 ? void 0 : before.status, 'to', after === null || after === void 0 ? void 0 : after.status);
     const ticketId = context.params.ticketId;
     const clientId = after === null || after === void 0 ? void 0 : after.clientId; // This is the client ID from tickets collection
     if (!clientId) {

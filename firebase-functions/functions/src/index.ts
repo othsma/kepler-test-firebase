@@ -26,26 +26,20 @@ async function sendPushNotification(customerId: string, notification: {
   type?: string;
   url?: string;
 }) {
-  console.log(`🔔 PUSH NOTIFICATION: Starting for customer ${customerId}`);
-  console.log(`🔔 PUSH NOTIFICATION: Title: ${notification.title}`);
-  console.log(`🔔 PUSH NOTIFICATION: Body: ${notification.body}`);
-
   try {
     // Get customer profile to find FCM tokens
     const customerDoc = await db.collection('customer_profiles').doc(customerId).get();
 
     if (!customerDoc.exists) {
-      console.log(`❌ Customer ${customerId} not found`);
+      console.log(`Customer ${customerId} not found`);
       return;
     }
 
     const customerData = customerDoc.data();
     const fcmTokens = customerData?.fcmTokens || [];
 
-    console.log(`🔔 Found ${fcmTokens.length} FCM tokens for customer ${customerId}`);
-
     if (fcmTokens.length === 0) {
-      console.log(`❌ No FCM tokens found for customer ${customerId}`);
+      console.log(`No FCM tokens found for customer ${customerId}`);
       return;
     }
 
@@ -373,22 +367,13 @@ async function sendEmailNotification(customerId: string, notification: {
 export const onTicketStatusChange = functions.firestore
   .document('tickets/{ticketId}')
   .onUpdate(async (change, context) => {
-    console.log('🎫 TICKET STATUS CHANGE TRIGGERED');
-    console.log('🎫 Ticket ID:', context.params.ticketId);
-
     const before = change.before.data();
     const after = change.after.data();
 
-    console.log('🎫 Before status:', before?.status);
-    console.log('🎫 After status:', after?.status);
-
     // Check if status actually changed
     if (before?.status === after?.status) {
-      console.log('🎫 Status did not change, exiting');
       return;
     }
-
-    console.log('🎫 Status changed from', before?.status, 'to', after?.status);
 
     const ticketId = context.params.ticketId;
     const clientId = after?.clientId; // This is the client ID from tickets collection

@@ -26,22 +26,17 @@ export class PushNotificationManager {
         this.messaging = getMessaging();
 
         // Register Firebase messaging service worker explicitly
-        console.log('🔥 Initializing Firebase messaging service worker...');
         if ('serviceWorker' in navigator) {
           try {
-            const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js', {
+            await navigator.serviceWorker.register('/firebase-messaging-sw.js', {
               scope: '/'
             });
-            console.log('🔥 Firebase messaging service worker registered:', registration.scope);
           } catch (error) {
-            console.error('🔥 Failed to register Firebase messaging service worker:', error);
+            console.error('Failed to register Firebase messaging service worker:', error);
           }
         }
 
         this.setupMessageListener();
-        console.log('🔥 Firebase messaging initialized successfully');
-      } else {
-        console.warn('🔥 Firebase messaging not supported in this browser');
       }
     } catch (error) {
       console.error('Failed to initialize push notifications:', error);
@@ -96,15 +91,11 @@ export class PushNotificationManager {
   }
 
   async subscribeToPush(customerId: string): Promise<boolean> {
-    console.log('🔍 DEBUG: Starting subscribeToPush for customer:', customerId);
-
     // Check if running on HTTPS (required for push notifications)
     if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
       console.error('Push notifications require HTTPS. Current protocol:', location.protocol);
       return false;
     }
-
-    console.log('🔍 DEBUG: HTTPS/Localhost check passed');
 
     // For mobile browsers, try to initialize messaging even if Firebase says it's not supported
     let messagingToUse = this.messaging;
@@ -113,7 +104,6 @@ export class PushNotificationManager {
     if (isMobile && !this.messaging) {
       try {
         messagingToUse = getMessaging();
-        console.log('🔍 DEBUG: Initialized messaging for mobile browser');
       } catch (initError) {
         console.error('Failed to initialize Firebase messaging for mobile:', initError);
         return false;
@@ -125,55 +115,23 @@ export class PushNotificationManager {
       return false;
     }
 
-    console.log('🔍 DEBUG: Firebase messaging instance available');
-
     try {
       // Request permission first
       const permission = await Notification.requestPermission();
       if (permission !== 'granted') {
-        console.log('Push notification permission denied');
         return false;
       }
 
-      // Firebase will handle service worker registration automatically
-      // We don't need to manually register it - Firebase does this during getToken()
-      console.log('🔍 DEBUG: Firebase will handle service worker registration automatically');
-
       // Wait for service worker to be fully activated
-      console.log('🔍 DEBUG: Waiting for service worker to activate...');
-      const registration = await navigator.serviceWorker.ready;
-      console.log('🔍 DEBUG: Service worker is ready:', {
-        scope: registration.scope,
-        active: !!registration.active,
-        state: registration.active?.state
-      });
-
-      // Check all registered service workers
-      const allRegistrations = await navigator.serviceWorker.getRegistrations();
-      console.log('🔍 DEBUG: All service worker registrations:');
-      allRegistrations.forEach((reg, index) => {
-        console.log(`🔍 DEBUG: SW ${index}:`, {
-          scope: reg.scope,
-          active: !!reg.active,
-          state: reg.active?.state,
-          installing: !!reg.installing,
-          waiting: !!reg.waiting
-        });
-      });
+      await navigator.serviceWorker.ready;
 
       // Get FCM token - let Firebase handle service worker registration
       const vapidKey = import.meta.env.VITE_VAPID_PUBLIC_KEY || '';
-      console.log('🔍 DEBUG: VAPID key available:', vapidKey ? 'YES (' + vapidKey.substring(0, 20) + '...)' : 'NO');
-
-      // Configure service worker for Firebase messaging
-      console.log('🔍 DEBUG: Configuring service worker for Firebase messaging...');
 
       const token = await getToken(messagingToUse, {
         vapidKey: vapidKey,
         serviceWorkerRegistration: await navigator.serviceWorker.ready
       });
-
-      console.log('🔍 DEBUG: FCM token retrieved:', token ? 'YES (' + token.substring(0, 50) + '...)' : 'NO');
 
       if (!token) {
         console.error('Failed to get FCM token - token is null/empty');
