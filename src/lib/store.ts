@@ -1238,6 +1238,7 @@ interface Invoice {
   total: number;
   paymentStatus: 'paid'; // Always paid for generated invoices
   paymentMethod?: string;
+  note?: string; // Optional note field
   sourceType: 'ticket'; // Distinguish from POS invoices
   // Ticket-specific fields
   deviceType?: string;

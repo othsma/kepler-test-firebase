@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useThemeStore, useTicketsStore, useClientsStore, useAuthStore, useInvoicesStore, TaskWithPrice } from '../lib/store';
-import { Search, Plus, Calendar, User, Edit, FileText as FileIcon, Trash2, ArrowUpDown, FileText } from 'lucide-react';
+import { Search, Plus, Calendar, User, Edit, FileText as FileIcon, Trash2, ArrowUpDown, FileText, ReceiptEuro, Eye, Handshake } from 'lucide-react';
 import { format } from 'date-fns';
 import ClientForm from '../components/ClientForm';
 import UnifiedDocument from '../components/documents/UnifiedDocument';
-import { convertTicketToDocument, convertEngagementToDocument } from '../components/documents/DocumentConverter';
+import { convertTicketToDocument, convertEngagementToDocument } from '../components/documents/DocumentConverter'
 import { getAllTechnicians, ROLES } from '../lib/firebase';
 
 export default function SimpleTickets() {
@@ -189,6 +189,7 @@ export default function SimpleTickets() {
   // Add new state variables for sorting and filtering
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [searchField, setSearchField] = useState<'all' | 'tasks' | 'client' | 'ticket'>('all');
+  const [invoiceSortDirection, setInvoiceSortDirection] = useState<'asc' | 'desc'>('desc');
 
   // Tab navigation state
   const [currentView, setCurrentView] = useState<'create' | 'all' | 'invoices'>('all');
@@ -455,6 +456,21 @@ export default function SimpleTickets() {
     }
   };
 
+  // Handle invoice deletion
+  const handleDeleteInvoice = async (invoiceId: string | undefined) => {
+    if (!invoiceId) return;
+    if (window.confirm('Êtes-vous sûr de vouloir supprimer cette facture ?')) {
+      try {
+        const { deleteInvoice } = useInvoicesStore.getState();
+        await deleteInvoice(invoiceId);
+        alert('Facture supprimée avec succès.');
+      } catch (error) {
+        console.error("Error deleting invoice:", error);
+        alert("Une erreur s'est produite lors de la suppression de la facture.");
+      }
+    }
+  };
+
   // Handle invoice generation from ticket
   const generateInvoiceFromTicket = async (ticket: any) => {
     try {
@@ -519,7 +535,7 @@ export default function SimpleTickets() {
         brand: invoice.brand,
         model: invoice.model,
         imeiSerial: invoice.imeiSerial,
-        note: invoice.note
+        note: invoice.note || undefined
       };
 
       setSelectedInvoice(documentData);
@@ -1454,10 +1470,10 @@ export default function SimpleTickets() {
                           {ticket.paymentStatus === 'fully_paid' && !ticket.invoiceGenerated && (
                             <button
                               onClick={() => generateInvoiceFromTicket(ticket)}
-                              className="text-green-600 hover:text-green-800"
-                              title="Generate Invoice"
+                              className="text-blue-600 hover:text-blue-800"
+                              title="Générer Facture"
                             >
-                              💰
+                              <ReceiptEuro className="h-5 w-5" />
                             </button>
                           )}
 
@@ -1466,9 +1482,9 @@ export default function SimpleTickets() {
                             <button
                               onClick={() => viewInvoice(ticket.invoiceId)}
                               className="text-green-600 hover:text-green-800"
-                              title="View Invoice"
+                              title="Voir Facture"
                             >
-                              📄
+                              <Eye className="h-5 w-5" />
                             </button>
                           )}
 
@@ -1499,9 +1515,9 @@ export default function SimpleTickets() {
                               setShowEngagement(true);
                             }}
                             className="text-purple-600 hover:text-purple-800"
-                            title="Generate Engagement Contract"
+                            title="Générer Contrat d'Engagement"
                           >
-                            📄
+                            <Handshake className="h-5 w-5" />
                           </button>
                           
                           {/* Delete button - only for super admin */}
@@ -1540,15 +1556,26 @@ export default function SimpleTickets() {
             <h2 className={`text-xl font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
               Toutes les factures de réparation
             </h2>
-            <button
-              onClick={() => {
-                // Refresh invoices - for now just show loading state briefly
-                setTimeout(() => {}, 500);
-              }}
-              className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700"
-            >
-              Actualiser
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setInvoiceSortDirection(prev => prev === 'asc' ? 'desc' : 'asc')}
+                className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
+                title="Trier par date"
+              >
+                <Calendar className="h-4 w-4" />
+                <ArrowUpDown className="h-4 w-4" />
+                <span className="hidden sm:inline">{invoiceSortDirection === 'asc' ? 'Plus ancien d\'abord' : 'Plus récent d\'abord'}</span>
+              </button>
+              <button
+                onClick={() => {
+                  // Refresh invoices - for now just show loading state briefly
+                  setTimeout(() => {}, 500);
+                }}
+                className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700"
+              >
+                Actualiser
+              </button>
+            </div>
           </div>
 
           {/* Invoice Generation Notice */}
@@ -1614,55 +1641,73 @@ export default function SimpleTickets() {
                   </tr>
                 </thead>
                 <tbody className={`divide-y divide-gray-200 dark:divide-gray-700 ${isDarkMode ? 'bg-gray-800' : 'bg-white'}`}>
-                  {invoices.map((invoice) => {
-                    const ticket = tickets.find(t => t.id === invoice.ticketId);
-                    const client = clients.find(c => c.id === invoice.clientId);
+                  {invoices
+                    .sort((a, b) => {
+                      // Sort by date
+                      const dateA = new Date(a.date).getTime();
+                      const dateB = new Date(b.date).getTime();
+                      return invoiceSortDirection === 'asc' ? dateA - dateB : dateB - dateA;
+                    })
+                    .map((invoice) => {
+                      const ticket = tickets.find(t => t.id === invoice.ticketId);
+                      const client = clients.find(c => c.id === invoice.clientId);
 
-                    return (
-                      <tr key={invoice.id} className={`hover:${isDarkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
-                          {invoice.invoiceNumber}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
-                          #{invoice.ticketNumber}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
-                          {client?.name || 'Client inconnu'}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
-                          {invoice.deviceType && invoice.brand ?
-                            `${invoice.deviceType} - ${invoice.brand}${invoice.model ? ` ${invoice.model}` : ''}` :
-                            'N/A'
-                          }
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">
-                            Payé
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
-                          €{invoice.total.toFixed(2)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
-                          <div className="flex items-center">
-                            <Calendar className="h-4 w-4 mr-2 text-gray-400" />
-                            {format(new Date(invoice.date), 'MMM d, yyyy')}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
-                          <div className="flex justify-center space-x-2">
-                            <button
-                              onClick={() => viewInvoice(invoice.id)}
-                              className="text-indigo-600 hover:text-indigo-800"
-                              title="Voir la facture"
-                            >
-                              <FileText className="h-5 w-5" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
+                      return (
+                        <tr key={invoice.id} className={`hover:${isDarkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
+                            {invoice.invoiceNumber}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
+                            #{invoice.ticketNumber}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
+                            {client?.name || 'Client inconnu'}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
+                            {invoice.deviceType && invoice.brand ?
+                              `${invoice.deviceType} - ${invoice.brand}${invoice.model ? ` ${invoice.model}` : ''}` :
+                              'N/A'
+                            }
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">
+                              Payé
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
+                            €{invoice.total.toFixed(2)}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
+                            <div className="flex items-center">
+                              <Calendar className="h-4 w-4 mr-2 text-gray-400" />
+                              {format(new Date(invoice.date), 'MMM d, yyyy')}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
+                            <div className="flex justify-center space-x-2">
+                              <button
+                                onClick={() => viewInvoice(invoice.id)}
+                                className="text-indigo-600 hover:text-indigo-800"
+                                title="Voir la facture"
+                              >
+                                <FileText className="h-5 w-5" />
+                              </button>
+
+                              {/* Delete button - only for super admin */}
+                              {userRole === ROLES.SUPER_ADMIN && (
+                                <button
+                                  onClick={() => handleDeleteInvoice(invoice.id)}
+                                  className="text-red-600 hover:text-red-800"
+                                  title="Supprimer la facture"
+                                >
+                                  <Trash2 className="h-5 w-5" />
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
                 </tbody>
               </table>
             </div>
