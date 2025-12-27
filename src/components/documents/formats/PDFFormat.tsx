@@ -78,7 +78,8 @@ const getPaymentStatusText = (status: string) => {
       return 'Partiellement payé';
     case 'fully_paid':
     case 'Paid':
-      return ' Payé ';
+    case 'paid':
+      return 'Payé';
     default:
       return status;
   }
@@ -153,8 +154,8 @@ export default function PDFFormat({ data }: PDFFormatProps) {
           )}
         </View>
 
-        {/* Device information for tickets */}
-        {data.type === 'ticket' && data.deviceType && (
+        {/* Device information for tickets and repair invoices */}
+        {(data.type === 'ticket' || (data.type === 'invoice' && data.sourceType === 'ticket')) && data.deviceType && (
           <View style={styles.section}>
             <Text style={styles.bold}>Caractéristiques de l'appareil:</Text>
             <View style={styles.flexRow}>

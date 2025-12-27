@@ -188,6 +188,76 @@ export function convertQuoteToDocument(quote: any): DocumentData {
 }
 
 /**
+ * Convert a ticket to a proper invoice document format
+ */
+export function convertTicketToInvoice(ticket: any, client: any, technicianName?: string): DocumentData {
+  // Calculate VAT from total cost (assuming ticket.cost is TTC)
+  const total = ticket.cost || 0;
+  const taxRate = 0.20; // 20% VAT
+  const taxAmount = total * (taxRate / (1 + taxRate)); // Extract VAT from inclusive total
+  const subtotal = total - taxAmount; // Net amount (excluding VAT)
+
+  // Create detailed items from ticket tasks with descriptions
+  const items: DocumentItem[] = [];
+
+  if (ticket.taskPrices && Array.isArray(ticket.taskPrices)) {
+    // Use detailed task prices if available
+    ticket.taskPrices.forEach((task: any) => {
+      items.push({
+        id: `task-${Math.random().toString(36).substring(2, 9)}`,
+        name: task.name,
+        quantity: 1,
+        price: task.price,
+       
+      });
+    });
+  } else if (ticket.tasks && Array.isArray(ticket.tasks)) {
+    // Distribute cost evenly among tasks if no detailed pricing
+    const taskCount = ticket.tasks.length;
+    const pricePerTask = taskCount > 0 ? subtotal / taskCount : 0;
+
+    ticket.tasks.forEach((task: string) => {
+      items.push({
+        id: `task-${Math.random().toString(36).substring(2, 9)}`,
+        name: task,
+        quantity: 1,
+        price: pricePerTask,
+      
+      });
+    });
+  }
+
+  return {
+    id: `invoice-${ticket.id || Math.random().toString(36).substring(2, 9)}`,
+    number: ticket.invoiceNumber || `TICKET-${ticket.ticketNumber}`,
+    date: ticket.createdAt || new Date().toISOString(),
+    customer: client ? {
+      id: client.id || `customer-${Math.random().toString(36).substring(2, 9)}`,
+      name: client.name || '',
+      email: client.email || '',
+      phone: client.phone || '',
+      address: client.address || '',
+      taxId: client.taxId // Include tax ID if available
+    } : undefined,
+    items,
+    subtotal,
+    tax: taxAmount,
+    total,
+    paymentStatus: ticket.paymentStatus === 'fully_paid' ? 'paid' : ticket.paymentStatus,
+    paymentMethod: ticket.paymentMethod || 'cash',
+    amountPaid: total,
+    status: ticket.paymentStatus === 'fully_paid' ? 'paid' : ticket.paymentStatus,
+    type: 'invoice',
+    deviceType: ticket.deviceType,
+    brand: ticket.brand,
+    model: ticket.model,
+    imeiSerial: ticket.imeiSerial,
+    sourceType: 'ticket',
+    sourceId: ticket.id,
+  };
+}
+
+/**
  * Convert a ticket to an engagement contract document format
  */
 export function convertEngagementToDocument(ticket: any, client: any): DocumentData {

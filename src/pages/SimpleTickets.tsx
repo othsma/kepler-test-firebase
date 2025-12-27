@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useThemeStore, useTicketsStore, useClientsStore, useAuthStore, TaskWithPrice } from '../lib/store';
-import { Search, Plus, Calendar, User, Edit, FileText as FileIcon, Trash2, ArrowUpDown } from 'lucide-react';
+import { useThemeStore, useTicketsStore, useClientsStore, useAuthStore, useInvoicesStore, TaskWithPrice } from '../lib/store';
+import { Search, Plus, Calendar, User, Edit, FileText as FileIcon, Trash2, ArrowUpDown, FileText } from 'lucide-react';
 import { format } from 'date-fns';
 import ClientForm from '../components/ClientForm';
 import UnifiedDocument from '../components/documents/UnifiedDocument';
@@ -12,6 +12,7 @@ export default function SimpleTickets() {
   const { tickets, updateTicket, deleteTicket, loading, error, filterStatus, setFilterStatus } = useTicketsStore();
   const { clients } = useClientsStore();
   const { user, userRole } = useAuthStore();
+  const { createInvoiceFromTicket, invoices, fetchInvoices } = useInvoicesStore();
 
   // Check if this is a fresh page load or component re-mount during session
   const isFreshLoad = useRef(!sessionStorage.getItem('ticketSessionActive'));
@@ -55,7 +56,9 @@ export default function SimpleTickets() {
   });
   const [showInvoice, setShowInvoice] = useState(false);
   const [showEngagement, setShowEngagement] = useState(false);
+  const [showInvoiceDocument, setShowInvoiceDocument] = useState(false);
   const [selectedTicket, setSelectedTicket] = useState<any>(null);
+  const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
   const [newTicketNumber, setNewTicketNumber] = useState('');
   const [isAddingClient, setIsAddingClient] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -188,7 +191,14 @@ export default function SimpleTickets() {
   const [searchField, setSearchField] = useState<'all' | 'tasks' | 'client' | 'ticket'>('all');
 
   // Tab navigation state
-  const [currentView, setCurrentView] = useState<'create' | 'all'>('all');
+  const [currentView, setCurrentView] = useState<'create' | 'all' | 'invoices'>('all');
+
+  // Load invoices when invoices tab is selected
+  useEffect(() => {
+    if (currentView === 'invoices') {
+      fetchInvoices();
+    }
+  }, [currentView, fetchInvoices]);
 
   // Fetch technicians for super admin
   useEffect(() => {
@@ -445,6 +455,81 @@ export default function SimpleTickets() {
     }
   };
 
+  // Handle invoice generation from ticket
+  const generateInvoiceFromTicket = async (ticket: any) => {
+    try {
+      const invoiceId = await createInvoiceFromTicket(ticket.id);
+      alert(`Facture générée avec succès! ID: ${invoiceId}`);
+    } catch (error: any) {
+      console.error("Error generating invoice from ticket:", error);
+      alert(`Erreur lors de la génération de la facture: ${error.message}`);
+    }
+  };
+
+  // Handle viewing invoice
+  const viewInvoice = async (invoiceId: string) => {
+    try {
+      // Find the invoice in the local state
+      const invoice = invoices.find(inv => inv.id === invoiceId);
+
+      if (!invoice) {
+        alert('Facture introuvable. Veuillez réessayer.');
+        return;
+      }
+
+      // Get client information for the invoice
+      const client = clients.find(c => c.id === invoice.clientId);
+
+      // Convert invoice data to document format for display
+      const documentData = {
+        id: invoice.id,
+        number: invoice.invoiceNumber,
+        date: invoice.date,
+        customer: client ? {
+          id: client.id,
+          name: client.name || '',
+          email: client.email || '',
+          phone: client.phone || '',
+          address: client.address || '',
+          taxId: client.taxId
+        } : {
+          id: invoice.clientId,
+          name: 'Client inconnu',
+          email: '',
+          phone: '',
+          address: ''
+        },
+        items: invoice.items.map(item => ({
+          id: item.id || `item-${Math.random().toString(36).substring(2, 9)}`,
+          name: item.name,
+          quantity: item.quantity || 1,
+          price: item.price,
+          description: item.description
+        })),
+        subtotal: invoice.subtotal,
+        tax: invoice.tax,
+        total: invoice.total,
+        paymentStatus: invoice.paymentStatus,
+        paymentMethod: invoice.paymentMethod,
+        amountPaid: invoice.total, // Since it's paid
+        type: 'invoice' as const,
+        sourceType: 'ticket' as const,
+        sourceId: invoice.ticketId,
+        deviceType: invoice.deviceType,
+        brand: invoice.brand,
+        model: invoice.model,
+        imeiSerial: invoice.imeiSerial,
+        note: invoice.note
+      };
+
+      setSelectedInvoice(documentData);
+      setShowInvoiceDocument(true);
+    } catch (error) {
+      console.error('Error viewing invoice:', error);
+      alert('Erreur lors de l\'affichage de la facture. Veuillez réessayer.');
+    }
+  };
+
   // Fixed brand selection handler
   const handleBrandSelect = (selectedBrand: string) => {
     setBrand(selectedBrand);
@@ -545,6 +630,17 @@ export default function SimpleTickets() {
             }`}
           >
             Tous les tickets
+          </button>
+          <button
+            onClick={() => setCurrentView('invoices')}
+            className={`py-2 px-1 border-b-2 font-medium text-sm ${
+              currentView === 'invoices'
+                ? 'border-indigo-500 text-indigo-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            <FileText className="h-4 w-4 inline mr-1" />
+            Toutes les factures
           </button>
         </nav>
       </div>
@@ -1354,6 +1450,28 @@ export default function SimpleTickets() {
                             </button>
                           )}
                           
+                          {/* Invoice Generation button - only for fully paid tickets */}
+                          {ticket.paymentStatus === 'fully_paid' && !ticket.invoiceGenerated && (
+                            <button
+                              onClick={() => generateInvoiceFromTicket(ticket)}
+                              className="text-green-600 hover:text-green-800"
+                              title="Generate Invoice"
+                            >
+                              💰
+                            </button>
+                          )}
+
+                          {/* View Invoice button - for tickets with generated invoices */}
+                          {ticket.invoiceGenerated && ticket.invoiceId && (
+                            <button
+                              onClick={() => viewInvoice(ticket.invoiceId)}
+                              className="text-green-600 hover:text-green-800"
+                              title="View Invoice"
+                            >
+                              📄
+                            </button>
+                          )}
+
                           {/* Document button - handles both thermal and A4 formats */}
                           <button
                             onClick={() => {
@@ -1415,6 +1533,143 @@ export default function SimpleTickets() {
       </>
       )}
 
+      {/* Invoices Tab Content */}
+      {currentView === 'invoices' && (
+        <div className={`rounded-lg ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow p-6`}>
+          <div className="flex justify-between items-center mb-6">
+            <h2 className={`text-xl font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+              Toutes les factures de réparation
+            </h2>
+            <button
+              onClick={() => {
+                // Refresh invoices - for now just show loading state briefly
+                setTimeout(() => {}, 500);
+              }}
+              className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700"
+            >
+              Actualiser
+            </button>
+          </div>
+
+          {/* Invoice Generation Notice */}
+          <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg">
+            <div className="flex items-start">
+              <div className="flex-shrink-0">
+                💡
+              </div>
+              <div className="ml-3">
+                <h3 className={`text-sm font-medium ${isDarkMode ? 'text-blue-200' : 'text-blue-800'}`}>
+                  Comment générer des factures
+                </h3>
+                <div className={`mt-2 text-sm ${isDarkMode ? 'text-blue-300' : 'text-blue-700'}`}>
+                  <p>
+                    Les factures sont générées automatiquement à partir des tickets de réparation payés intégralement.
+                    Allez dans l'onglet "Tous les tickets", trouvez un ticket avec le statut "Payé" et cliquez sur le bouton 💰 pour générer sa facture.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Invoices Table */}
+          {invoices.length === 0 ? (
+            <div className="text-center py-8">
+              <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+              <p className={`text-lg ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                Aucune facture générée
+              </p>
+              <p className="text-sm text-gray-400 mt-2">
+                Les factures apparaîtront ici une fois générées à partir des tickets payés
+              </p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                <thead className={isDarkMode ? 'bg-gray-700' : 'bg-gray-50'}>
+                  <tr>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                      Facture #
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                      Ticket #
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                      Client
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                      Appareil
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                      Statut
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                      Total
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                      Date
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className={`divide-y divide-gray-200 dark:divide-gray-700 ${isDarkMode ? 'bg-gray-800' : 'bg-white'}`}>
+                  {invoices.map((invoice) => {
+                    const ticket = tickets.find(t => t.id === invoice.ticketId);
+                    const client = clients.find(c => c.id === invoice.clientId);
+
+                    return (
+                      <tr key={invoice.id} className={`hover:${isDarkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
+                          {invoice.invoiceNumber}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
+                          #{invoice.ticketNumber}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
+                          {client?.name || 'Client inconnu'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
+                          {invoice.deviceType && invoice.brand ?
+                            `${invoice.deviceType} - ${invoice.brand}${invoice.model ? ` ${invoice.model}` : ''}` :
+                            'N/A'
+                          }
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">
+                            Payé
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
+                          €{invoice.total.toFixed(2)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
+                          <div className="flex items-center">
+                            <Calendar className="h-4 w-4 mr-2 text-gray-400" />
+                            {format(new Date(invoice.date), 'MMM d, yyyy')}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
+                          <div className="flex justify-center space-x-2">
+                            <button
+                              onClick={() => viewInvoice(invoice.id)}
+                              className="text-indigo-600 hover:text-indigo-800"
+                              title="Voir la facture"
+                            >
+                              <FileText className="h-5 w-5" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Document Modal - handles both thermal and A4 formats */}
       {showInvoice && newTicketNumber && (
         <UnifiedDocument
@@ -1424,6 +1679,18 @@ export default function SimpleTickets() {
             clients.find(c => c.id === selectedClientId)
           )}
           onClose={() => setShowInvoice(false)}
+          initialFormat="a4"
+        />
+      )}
+
+      {/* Invoice Document Modal */}
+      {showInvoiceDocument && selectedInvoice && (
+        <UnifiedDocument
+          data={selectedInvoice}
+          onClose={() => {
+            setShowInvoiceDocument(false);
+            setSelectedInvoice(null);
+          }}
           initialFormat="a4"
         />
       )}

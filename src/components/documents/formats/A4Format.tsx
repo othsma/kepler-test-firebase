@@ -16,7 +16,8 @@ const getPaymentStatusText = (status: string) => {
       return 'Partiellement payé';
     case 'fully_paid':
     case 'Paid':
-      return ' Payé ';
+    case 'paid':
+      return 'Payé';
     default:
       return status;
   }
@@ -109,8 +110,8 @@ export default function A4Format({ data }: A4FormatProps) {
           )}
         </div>
 
-        {/* Device information for tickets */}
-        {data.type === 'ticket' && data.deviceType && (
+        {/* Device information for tickets and repair invoices */}
+        {(data.type === 'ticket' || (data.type === 'invoice' && data.sourceType === 'ticket')) && data.deviceType && (
           <div className="mb-6">
             <h3 className="font-bold mb-2 text-gray-900">Caractéristiques de l'appareil:</h3>
             <table className="w-full mb-4">

@@ -16,7 +16,8 @@ const getPaymentStatusText = (status: string) => {
       return 'Partiellement payé';
     case 'fully_paid':
     case 'Paid':
-      return ' Payé ';
+    case 'paid':
+      return 'Payé';
     default:
       return status;
   }
@@ -92,6 +93,17 @@ export default function ThermalFormat({ data }: ThermalFormatProps) {
           {data.customer.phone && <p className="text-xs">Tel: {data.customer.phone}</p>}
           {data.customer.email && <p className="text-xs">{data.customer.email}</p>}
           {data.customer.address && <p className="text-xs">{data.customer.address}</p>}
+        </div>
+      )}
+
+      {/* Device information for tickets and repair invoices */}
+      {(data.type === 'ticket' || (data.type === 'invoice' && data.sourceType === 'ticket')) && data.deviceType && (
+        <div className="my-2">
+          <p className="font-bold text-xs mb-1">Appareil:</p>
+          <p className="text-xs">{data.deviceType}</p>
+          {data.brand && <p className="text-xs">{data.brand}</p>}
+          {data.model && <p className="text-xs">{data.model}</p>}
+          {data.imeiSerial && <p className="text-xs">IMEI: {data.imeiSerial}</p>}
         </div>
       )}
 

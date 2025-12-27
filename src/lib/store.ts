@@ -11,8 +11,10 @@ import {
   serverTimestamp
 } from 'firebase/firestore';
 import { db, initializeSuperAdmin, ROLES } from './firebase';
-import { User } from 'firebase/auth';
+import { User as FirebaseUser } from 'firebase/auth';
 import { format } from 'date-fns';
+import { DocumentItem } from '../components/documents/DocumentTypes';
+import { convertTicketToDocument, convertTicketToInvoice } from '../components/documents/DocumentConverter';
 
 interface QuoteItem {
   productId: string;
@@ -70,11 +72,20 @@ const useThemeStore = create<ThemeState>((set: any) => ({
   toggleDarkMode: () => set((state: ThemeState) => ({ isDarkMode: !state.isDarkMode })),
 }));
 
+interface TechnicianUser {
+  id: string;
+  email: string;
+  fullName: string;
+  role: string;
+}
+
 interface UserState {
   language: 'en' | 'es' | 'fr';
   setLanguage: (language: 'en' | 'es' | 'fr') => void;
   sidebarCollapsed: boolean;
   toggleSidebar: () => void;
+  technicians: TechnicianUser[];
+  setTechnicians: (technicians: TechnicianUser[]) => void;
 }
 
 const useUserStore = create<UserState>((set: any) => ({
@@ -82,6 +93,8 @@ const useUserStore = create<UserState>((set: any) => ({
   setLanguage: (language: 'en' | 'es' | 'fr') => set({ language }),
   sidebarCollapsed: false,
   toggleSidebar: () => set((state: UserState) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
+  technicians: [],
+  setTechnicians: (technicians: TechnicianUser[]) => set({ technicians }),
 }));
 
 interface AuthState {
@@ -127,6 +140,7 @@ interface Client {
   customerCode?: string;
   linkedCustomerId?: string;
   linkedAt?: string;
+  taxId?: string;
   createdAt: string;
 }
 
@@ -268,7 +282,10 @@ interface Ticket {
   passcode?: string;
   imeiSerial?: string;
   paymentStatus?: 'not_paid' | 'partially_paid' | 'fully_paid';
+  paymentMethod?: string; // Payment method used
   amountPaid?: number;
+  invoiceGenerated?: boolean; // Track if invoice was generated from this ticket
+  invoiceId?: string; // Reference to generated invoice
   createdAt: string;
   updatedAt: string;
 }
@@ -330,10 +347,10 @@ const useTicketsStore = create<TicketsState>((set, get) => ({
       let ticketsCollection;
       
       // If user is a technician, only fetch their assigned tickets
-      if (userRole === ROLES.TECHNICIAN && user) {
+      if (userRole === ROLES.TECHNICIAN && user && (user as FirebaseUser).uid) {
         ticketsCollection = query(
           collection(db, 'tickets'),
-          where('technicianId', '==', user.uid)
+          where('technicianId', '==', (user as FirebaseUser).uid)
         );
       } else {
         // Super admin can see all tickets
@@ -1208,6 +1225,30 @@ interface Sale {
   createdAt: string;
 }
 
+interface Invoice {
+  id: string;
+  invoiceNumber: string;
+  clientId: string;
+  ticketId: string; // Reference to source ticket
+  ticketNumber: string; // For display purposes
+  date: string;
+  items: DocumentItem[];
+  subtotal: number;
+  tax: number;
+  total: number;
+  paymentStatus: 'paid'; // Always paid for generated invoices
+  paymentMethod?: string;
+  sourceType: 'ticket'; // Distinguish from POS invoices
+  // Ticket-specific fields
+  deviceType?: string;
+  brand?: string;
+  model?: string;
+  imeiSerial?: string;
+  technicianId?: string;
+  status: 'paid';
+  createdAt: string;
+}
+
 interface SalesState {
   sales: Sale[];
   loading: boolean;
@@ -1215,6 +1256,15 @@ interface SalesState {
   fetchSales: () => Promise<void>;
   createSale: (saleData: Omit<Sale, 'id' | 'createdAt'>) => Promise<string>;
   deleteSale: (id: string) => Promise<void>;
+}
+
+interface InvoicesState {
+  invoices: Invoice[];
+  loading: boolean;
+  error: string | null;
+  fetchInvoices: () => Promise<void>;
+  createInvoiceFromTicket: (ticketId: string) => Promise<string>;
+  deleteInvoice: (id: string) => Promise<void>;
 }
 
 
@@ -1323,6 +1373,135 @@ const useSalesStore = create<SalesState>((set) => ({
     } catch (error) {
       console.error('Error deleting sale:', error);
       set({ error: 'Failed to delete sale', loading: false });
+    }
+  }
+}));
+
+const useInvoicesStore = create<InvoicesState>((set) => ({
+  invoices: [],
+  loading: false,
+  error: null,
+
+  fetchInvoices: async () => {
+    set({ loading: true, error: null });
+    try {
+      const invoicesCollection = collection(db, 'INVOICES');
+      const invoicesSnapshot = await getDocs(invoicesCollection);
+      const invoicesList = invoicesSnapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          ...data,
+          createdAt: data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : data.createdAt
+        } as Invoice;
+      });
+
+      set({ invoices: invoicesList, loading: false });
+    } catch (error) {
+      console.error('Error fetching invoices:', error);
+      set({ error: 'Failed to fetch invoices', loading: false });
+    }
+  },
+
+  createInvoiceFromTicket: async (ticketId: string) => {
+    set({ loading: true, error: null });
+    try {
+      // Get ticket data
+      const { tickets } = useTicketsStore.getState();
+      const { clients } = useClientsStore.getState();
+      const ticket = tickets.find(t => t.id === ticketId);
+
+      if (!ticket) {
+        throw new Error('Ticket not found');
+      }
+
+      if (ticket.paymentStatus !== 'fully_paid') {
+        throw new Error('Ticket must be fully paid to generate invoice');
+      }
+
+      // Get client data for the invoice
+      const client = clients.find(c => c.id === ticket.clientId);
+
+      // Get technician name for the invoice
+      const { technicians } = useUserStore.getState();
+      const technician = technicians?.find((t: any) => t.id === ticket.technicianId);
+      const technicianName = technician ? technician.fullName : 'notre équipe technique';
+
+      // Use the new proper invoice converter
+      const invoiceData = convertTicketToInvoice(ticket, client, technicianName);
+
+      // Add the invoice number to the document
+      const prefix = 'REP';
+      const date = format(new Date(), 'yyMMdd');
+      const random = Math.floor(1000 + Math.random() * 9000);
+      const invoiceNumber = `${prefix}-${date}-${random}`;
+
+      // Create the final invoice document without the id (Firestore will generate it)
+      const invoiceDoc = {
+        invoiceNumber,
+        clientId: ticket.clientId,
+        ticketId: ticket.id,
+        ticketNumber: ticket.ticketNumber,
+        date: new Date().toISOString(),
+        items: invoiceData.items,
+        subtotal: invoiceData.subtotal,
+        tax: invoiceData.tax,
+        total: invoiceData.total,
+        paymentStatus: 'paid' as const,
+        paymentMethod: ticket.paymentMethod || 'cash',
+        sourceType: 'ticket' as const,
+        deviceType: ticket.deviceType,
+        brand: ticket.brand,
+        model: ticket.model,
+        imeiSerial: ticket.imeiSerial,
+        technicianId: ticket.technicianId,
+        status: 'paid' as const,
+        createdAt: new Date()
+      };
+
+      console.log('Creating invoice from ticket:', invoiceDoc);
+      const docRef = await addDoc(collection(db, 'INVOICES'), invoiceDoc);
+      console.log('Invoice created with ID:', docRef.id);
+
+      // Update ticket to mark invoice as generated
+      const { updateTicket } = useTicketsStore.getState();
+      await updateTicket(ticketId, {
+        invoiceGenerated: true,
+        invoiceId: docRef.id
+      });
+
+      // Add to local state
+      const newInvoice = {
+        id: docRef.id,
+        ...invoiceDoc,
+        createdAt: new Date().toISOString()
+      };
+
+      set(state => ({
+        invoices: [...state.invoices, newInvoice],
+        loading: false
+      }));
+
+      return docRef.id;
+    } catch (error: any) {
+      console.error('Error creating invoice from ticket:', error);
+      set({ error: error.message || 'Failed to create invoice', loading: false });
+      throw error;
+    }
+  },
+
+  deleteInvoice: async (id: string) => {
+    set({ loading: true, error: null });
+    try {
+      await deleteDoc(doc(db, 'INVOICES', id));
+
+      set(state => ({
+        invoices: state.invoices.filter(invoice => invoice.id !== id),
+        loading: false
+      }));
+    } catch (error) {
+      console.error('Error deleting invoice:', error);
+      set({ error: 'Failed to delete invoice', loading: false });
     }
   }
 }));
@@ -1602,6 +1781,7 @@ export {
   useTicketsStore,
   useProductsStore,
   useSalesStore,
+  useInvoicesStore,
   usePosStore,
   useQuotesStore
 };
