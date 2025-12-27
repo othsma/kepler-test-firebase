@@ -1386,14 +1386,15 @@ const useInvoicesStore = create<InvoicesState>((set) => ({
   fetchInvoices: async () => {
     set({ loading: true, error: null });
     try {
-      const invoicesCollection = collection(db, 'INVOICES');
+      const invoicesCollection = collection(db, 'invoices');
       const invoicesSnapshot = await getDocs(invoicesCollection);
       const invoicesList = invoicesSnapshot.docs.map(doc => {
         const data = doc.data();
         return {
           id: doc.id,
           ...data,
-          createdAt: data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : data.createdAt
+          createdAt: data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : data.createdAt,
+          date: data.date?.toDate ? data.date.toDate().toISOString() : data.date
         } as Invoice;
       });
 
@@ -1461,7 +1462,7 @@ const useInvoicesStore = create<InvoicesState>((set) => ({
       };
 
       console.log('Creating invoice from ticket:', invoiceDoc);
-      const docRef = await addDoc(collection(db, 'INVOICES'), invoiceDoc);
+      const docRef = await addDoc(collection(db, 'invoices'), invoiceDoc);
       console.log('Invoice created with ID:', docRef.id);
 
       // Update ticket to mark invoice as generated
@@ -1494,7 +1495,7 @@ const useInvoicesStore = create<InvoicesState>((set) => ({
   deleteInvoice: async (id: string) => {
     set({ loading: true, error: null });
     try {
-      await deleteDoc(doc(db, 'INVOICES', id));
+      await deleteDoc(doc(db, 'invoices', id));
 
       set(state => ({
         invoices: state.invoices.filter(invoice => invoice.id !== id),
