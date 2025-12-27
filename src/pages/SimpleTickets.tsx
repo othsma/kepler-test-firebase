@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useThemeStore, useTicketsStore, useClientsStore, useAuthStore, useInvoicesStore, TaskWithPrice } from '../lib/store';
 import { Search, Plus, Calendar, User, Edit, FileText as FileIcon, Trash2, ArrowUpDown, FileText, ReceiptEuro, Eye, Handshake } from 'lucide-react';
 import { format } from 'date-fns';
+import { deleteField } from 'firebase/firestore';
 import ClientForm from '../components/ClientForm';
 import UnifiedDocument from '../components/documents/UnifiedDocument';
 import { convertTicketToDocument, convertEngagementToDocument } from '../components/documents/DocumentConverter'
@@ -463,6 +464,30 @@ export default function SimpleTickets() {
       try {
         const { deleteInvoice } = useInvoicesStore.getState();
         await deleteInvoice(invoiceId);
+
+        // Find and update the corresponding ticket to reset invoice generation status
+        const { tickets } = useTicketsStore.getState();
+        const ticket = tickets.find(t => t.invoiceId === invoiceId);
+        if (ticket) {
+          // Use updateDoc directly since updateTicket doesn't accept FieldValue
+          const { updateDoc, doc } = await import('firebase/firestore');
+          const { db } = await import('../lib/firebase');
+          const ticketRef = doc(db, 'tickets', ticket.id);
+          await updateDoc(ticketRef, {
+            invoiceGenerated: false,
+            invoiceId: deleteField()
+          });
+
+          // Update local state manually
+          useTicketsStore.setState(state => ({
+            tickets: state.tickets.map(t =>
+              t.id === ticket.id
+                ? { ...t, invoiceGenerated: false, invoiceId: undefined }
+                : t
+            )
+          }));
+        }
+
         alert('Facture supprimée avec succès.');
       } catch (error) {
         console.error("Error deleting invoice:", error);
@@ -1694,7 +1719,7 @@ export default function SimpleTickets() {
                               </button>
 
                               {/* Delete button - only for super admin */}
-                              {userRole === ROLES.SUPER_ADMIN && (
+                              {userRole === ROLES.SUPER_ADMIN && invoice.id && (
                                 <button
                                   onClick={() => handleDeleteInvoice(invoice.id)}
                                   className="text-red-600 hover:text-red-800"
