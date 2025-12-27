@@ -27,6 +27,7 @@ const UserManagement = lazy(() => import('./pages/UserManagement'));
 // Customer pages
 const CustomerLogin = lazy(() => import('./pages/customer/CustomerLogin'));
 const CustomerRegister = lazy(() => import('./pages/customer/CustomerRegister'));
+const CustomerForgotPassword = lazy(() => import('./pages/customer/CustomerForgotPassword'));
 const CustomerDashboard = lazy(() => import('./pages/customer/CustomerDashboard'));
 const CustomerProfile = lazy(() => import('./pages/customer/CustomerProfile'));
 const NotificationHistory = lazy(() => import('./pages/customer/NotificationHistory'));
@@ -226,6 +227,9 @@ function App() {
           } />
           <Route path="/customer/register" element={
             user && userRole === ROLES.CUSTOMER ? <Navigate to="/customer" /> : <CustomerRegister />
+          } />
+          <Route path="/customer/forgot-password" element={
+            user && userRole === ROLES.CUSTOMER ? <Navigate to="/customer" /> : <CustomerForgotPassword />
           } />
         </Routes>
       </Suspense>

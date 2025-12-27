@@ -167,6 +167,11 @@ export default function CustomerLogin() {
                 S'inscrire
               </Link>
             </p>
+            <p className={`text-sm mt-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+              <Link to="/customer/forgot-password" className="font-medium text-indigo-600 hover:text-indigo-500">
+                Mot de passe oublié ?
+              </Link>
+            </p>
           </div>
         </form>
       </div>
