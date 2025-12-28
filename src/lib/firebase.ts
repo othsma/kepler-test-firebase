@@ -218,7 +218,19 @@ export const updateUserRole = async (uid: string, newRole: string) => {
 };
 
 // Customer-specific authentication functions
-export const registerCustomer = async (email: string, password: string, fullName: string, phoneNumber?: string, customerCode?: string) => {
+export const registerCustomer = async (
+  email: string,
+  password: string,
+  fullName: string,
+  phoneNumber?: string,
+  customerCode?: string,
+  notificationPreferences?: {
+    emailEnabled?: boolean;
+    whatsappEnabled?: boolean;
+    smsEnabled?: boolean;
+    pushEnabled?: boolean;
+  }
+) => {
   let createdUser = null;
   let linkedClient = null;
 
@@ -259,9 +271,10 @@ export const registerCustomer = async (email: string, password: string, fullName
         phoneNumber: phoneNumber || '',
         preferredLanguage: 'fr',
         notificationPreferences: {
-          pushEnabled: false,
-          emailEnabled: true,
-          smsEnabled: false,
+          pushEnabled: notificationPreferences?.pushEnabled ?? true, // Default: true (from form)
+          emailEnabled: notificationPreferences?.emailEnabled ?? true, // Default: true (from form)
+          whatsappEnabled: notificationPreferences?.whatsappEnabled ?? true, // Default: true (high engagement)
+          smsEnabled: notificationPreferences?.smsEnabled ?? false, // Default: false (opt-in)
         },
         fcmTokens: [],
         createdAt: new Date().toISOString(),

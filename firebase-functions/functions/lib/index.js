@@ -40,12 +40,16 @@ exports.cleanupExpiredTokens = exports.getClientForRegistration = exports.onTick
 const functions = __importStar(require("firebase-functions"));
 const admin = __importStar(require("firebase-admin"));
 const mail_1 = __importDefault(require("@sendgrid/mail"));
+const twilio_1 = __importDefault(require("twilio"));
 // Import HttpsError for proper typing
 const { HttpsError } = functions.https;
 // Initialize Firebase Admin
 admin.initializeApp();
 // SendGrid initialization status
 let sendgridInitialized = false;
+// Twilio initialization status
+let twilioInitialized = false;
+let twilioClient = null;
 // Firestore reference
 const db = admin.firestore();
 // Helper function to format date and time in French locale
@@ -433,6 +437,202 @@ async function sendEmailNotification(customerId, notification) {
         });
     }
 }
+// Send SMS notification using Twilio
+async function sendSmsNotification(phoneNumber, message, options) {
+    var _a, _b, _c, _d;
+    try {
+        // Initialize Twilio if not already done
+        if (!twilioInitialized) {
+            try {
+                const twilioSid = ((_a = functions.config().twilio) === null || _a === void 0 ? void 0 : _a.sid) || process.env.TWILIO_SID;
+                const twilioToken = ((_b = functions.config().twilio) === null || _b === void 0 ? void 0 : _b.token) || process.env.TWILIO_TOKEN;
+                const twilioFrom = ((_c = functions.config().twilio) === null || _c === void 0 ? void 0 : _c.from) || process.env.TWILIO_FROM_NUMBER;
+                if (twilioSid && twilioToken && twilioFrom) {
+                    twilioClient = (0, twilio_1.default)(twilioSid, twilioToken);
+                    twilioInitialized = true;
+                    console.log('✅ Twilio initialized successfully');
+                }
+                else {
+                    console.warn('Twilio credentials not configured. SMS notifications will not work.');
+                    return;
+                }
+            }
+            catch (error) {
+                console.error('Failed to initialize Twilio:', error);
+                return;
+            }
+        }
+        // Validate and format phone number
+        const formattedPhone = formatFrenchPhoneNumber(phoneNumber);
+        if (!formattedPhone) {
+            console.error('Invalid phone number format:', phoneNumber);
+            return;
+        }
+        console.log(`📱 Sending SMS to ${formattedPhone}: ${message.substring(0, 50)}...`);
+        // Send SMS via Twilio
+        const smsResult = await twilioClient.messages.create({
+            body: message,
+            from: ((_d = functions.config().twilio) === null || _d === void 0 ? void 0 : _d.from) || process.env.TWILIO_FROM_NUMBER,
+            to: formattedPhone
+        });
+        console.log(`✅ SMS sent successfully to ${formattedPhone}`, {
+            messageId: smsResult.sid,
+            status: smsResult.status,
+            segments: smsResult.numSegments
+        });
+        // Log SMS in notification history
+        await db.collection('notification_history').add({
+            customerId: (options === null || options === void 0 ? void 0 : options.customerId) || null,
+            ticketId: (options === null || options === void 0 ? void 0 : options.ticketId) || null,
+            type: 'sms',
+            channel: 'sms',
+            status: 'sent',
+            sentAt: admin.firestore.FieldValue.serverTimestamp(),
+            metadata: {
+                twilioMessageId: smsResult.sid,
+                cost: smsResult.price ? parseFloat(smsResult.price) : null,
+                segments: smsResult.numSegments,
+                phoneNumber: formattedPhone,
+                messageLength: message.length
+            }
+        });
+    }
+    catch (error) {
+        console.error('Error sending SMS notification:', error);
+        // Log failed SMS attempt
+        await db.collection('notification_history').add({
+            customerId: (options === null || options === void 0 ? void 0 : options.customerId) || null,
+            ticketId: (options === null || options === void 0 ? void 0 : options.ticketId) || null,
+            type: 'sms',
+            channel: 'sms',
+            status: 'failed',
+            sentAt: admin.firestore.FieldValue.serverTimestamp(),
+            error: error instanceof Error ? error.message : 'Unknown error',
+            metadata: {
+                phoneNumber: phoneNumber,
+                messageLength: message.length
+            }
+        });
+    }
+}
+// French phone number validation and formatting
+function formatFrenchPhoneNumber(phoneNumber) {
+    if (!phoneNumber)
+        return null;
+    // Remove all non-digit characters
+    const cleaned = phoneNumber.replace(/\D/g, '');
+    // Handle different French phone number formats
+    if (cleaned.startsWith('33') && cleaned.length === 11) {
+        // Already in +33 format without +
+        return `+${cleaned}`;
+    }
+    else if (cleaned.startsWith('0') && cleaned.length === 10) {
+        // French mobile: 06XXXXXXXX or 07XXXXXXXX → +336XXXXXXXX or +337XXXXXXXX
+        return `+33${cleaned.substring(1)}`;
+    }
+    else if (cleaned.length === 9 && (cleaned.startsWith('6') || cleaned.startsWith('7'))) {
+        // Just 6XXXXXXXX or 7XXXXXXXX → +336XXXXXXXX or +337XXXXXXXX
+        return `+33${cleaned}`;
+    }
+    // If already in correct format, return as-is
+    if (cleaned.startsWith('+33') && cleaned.length === 12) {
+        return cleaned;
+    }
+    // Invalid format
+    console.warn('Invalid French phone number format:', phoneNumber);
+    return null;
+}
+// SMS Templates
+const smsTemplates = {
+    repairCompleted: "🛠️ O'MEGA Services: Votre réparation est terminée! Prêt à récupérer.",
+    statusUpdate: "📱 Statut mis à jour: Votre appareil est maintenant en réparation.",
+    pickupReminder: "⏰ RAPPEL: Votre appareil vous attend pour récupération.",
+    welcome: "👋 Bienvenue chez O'MEGA Services! Suivez vos réparations facilement.",
+    paymentReminder: "💳 PAIEMENT: Votre réparation est prête. Total estimé: {amount}€"
+};
+// Customer Phone Number Extraction and Validation
+async function findCustomerPhoneForSms(clientId) {
+    var _a, _b, _c;
+    try {
+        // Step 1: Try to find registered customer first (preferred)
+        const linkedQuery = await db.collection('customer_profiles')
+            .where('linkedClientId', '==', clientId)
+            .limit(1)
+            .get();
+        if (!linkedQuery.empty) {
+            const customerDoc = linkedQuery.docs[0];
+            const customerData = customerDoc.data();
+            const phoneNumber = customerData === null || customerData === void 0 ? void 0 : customerData.phoneNumber;
+            if (phoneNumber && formatFrenchPhoneNumber(phoneNumber)) {
+                return {
+                    phoneNumber: formatFrenchPhoneNumber(phoneNumber),
+                    customerId: customerDoc.id,
+                    smsEnabled: ((_a = customerData === null || customerData === void 0 ? void 0 : customerData.notificationPreferences) === null || _a === void 0 ? void 0 : _a.smsEnabled) || false,
+                    source: 'customer_profile_linked'
+                };
+            }
+        }
+        // Step 2: Try email/phone matching for existing customers
+        const clientDoc = await db.collection('clients').doc(clientId).get();
+        if (!clientDoc.exists) {
+            return null;
+        }
+        const clientData = clientDoc.data();
+        const clientEmail = clientData === null || clientData === void 0 ? void 0 : clientData.email;
+        const clientPhone = clientData === null || clientData === void 0 ? void 0 : clientData.phone;
+        // Try to find customer by email first
+        if (clientEmail) {
+            const emailQuery = await db.collection('customer_profiles')
+                .where('email', '==', clientEmail)
+                .limit(1)
+                .get();
+            if (!emailQuery.empty) {
+                const customerDoc = emailQuery.docs[0];
+                const customerData = customerDoc.data();
+                const phoneNumber = (customerData === null || customerData === void 0 ? void 0 : customerData.phoneNumber) || clientPhone;
+                if (phoneNumber && formatFrenchPhoneNumber(phoneNumber)) {
+                    return {
+                        phoneNumber: formatFrenchPhoneNumber(phoneNumber),
+                        customerId: customerDoc.id,
+                        smsEnabled: ((_b = customerData === null || customerData === void 0 ? void 0 : customerData.notificationPreferences) === null || _b === void 0 ? void 0 : _b.smsEnabled) || false,
+                        source: 'customer_profile_email_match'
+                    };
+                }
+            }
+        }
+        // Try to find customer by phone number
+        if (clientPhone && formatFrenchPhoneNumber(clientPhone)) {
+            const phoneQuery = await db.collection('customer_profiles')
+                .where('phoneNumber', '==', clientPhone)
+                .limit(1)
+                .get();
+            if (!phoneQuery.empty) {
+                const customerDoc = phoneQuery.docs[0];
+                const customerData = customerDoc.data();
+                return {
+                    phoneNumber: formatFrenchPhoneNumber(clientPhone),
+                    customerId: customerDoc.id,
+                    smsEnabled: ((_c = customerData === null || customerData === void 0 ? void 0 : customerData.notificationPreferences) === null || _c === void 0 ? void 0 : _c.smsEnabled) || false,
+                    source: 'customer_profile_phone_match'
+                };
+            }
+        }
+        // Step 3: Fallback to client phone for walk-in customers (SMS enabled by default for critical updates)
+        if (clientPhone && formatFrenchPhoneNumber(clientPhone)) {
+            return {
+                phoneNumber: formatFrenchPhoneNumber(clientPhone),
+                customerId: null, // Walk-in customer
+                smsEnabled: true, // Default to true for walk-in customers (they provided phone)
+                source: 'client_walkin'
+            };
+        }
+        return null;
+    }
+    catch (error) {
+        console.error('Error finding customer phone for SMS:', error);
+        return null;
+    }
+}
 // Cloud Function: Trigger when ticket status changes
 exports.onTicketStatusChange = functions.firestore
     .document('tickets/{ticketId}')
@@ -529,9 +729,11 @@ exports.onTicketStatusChange = functions.firestore
             url: '/customer'
         });
     }
-    // Send email notification if enabled
+    // SMART NOTIFICATION CASCADE: Email → SMS → Skip
+    let notificationSent = false;
+    // Try email first (preferred channel)
     if (preferences === null || preferences === void 0 ? void 0 : preferences.emailEnabled) {
-        // Get customer name
+        console.log(`📧 Sending email notification to customer ${customerId}`);
         const customerName = (customerData === null || customerData === void 0 ? void 0 : customerData.fullName) || '';
         // Choose template based on new status
         let emailTemplate = 'statusUpdate'; // Default for pending → in-progress
@@ -581,6 +783,36 @@ exports.onTicketStatusChange = functions.firestore
             templateData,
             ticketId
         });
+        notificationSent = true;
+    }
+    // SMS FALLBACK: If no email sent and critical status, try SMS
+    if (!notificationSent) {
+        console.log(`📱 Email not available, trying SMS fallback for customer ${customerId}`);
+        // Find phone number for SMS
+        const smsTarget = await findCustomerPhoneForSms(clientId);
+        if ((smsTarget === null || smsTarget === void 0 ? void 0 : smsTarget.phoneNumber) && smsTarget.smsEnabled) {
+            console.log(`📱 Sending SMS to ${smsTarget.phoneNumber} (${smsTarget.source})`);
+            // Choose SMS template based on status
+            let smsMessage = '';
+            if ((after === null || after === void 0 ? void 0 : after.status) === 'completed') {
+                smsMessage = smsTemplates.repairCompleted;
+            }
+            else if ((after === null || after === void 0 ? void 0 : after.status) === 'in-progress') {
+                smsMessage = smsTemplates.statusUpdate;
+            }
+            else {
+                smsMessage = `📱 Statut de votre ${deviceInfo}: ${newStatus}`;
+            }
+            await sendSmsNotification(smsTarget.phoneNumber, smsMessage, {
+                ticketId,
+                customerId: smsTarget.customerId || customerId,
+                type: 'status_change'
+            });
+            notificationSent = true;
+        }
+        else {
+            console.log(`❌ No valid SMS target found for client ${clientId}`);
+        }
     }
     // Log notification in history
     await db.collection('notification_history').add({
@@ -662,38 +894,58 @@ exports.onTicketCreated = functions.firestore
                 console.log(`Found customer ${customerId} via phone ${clientPhone}`);
             }
         }
-        // ANTI-SPAM: If no existing customer profile found, send walk-in welcome email
-        if (!customerDoc && clientEmail && isValidEmail(clientEmail)) {
-            console.log(`Sending welcome email to walk-in customer: ${clientEmail}`);
-            await sendEmailNotification(null, {
-                to: clientEmail,
-                subject: `Bienvenue chez O'MEGA Services - Réparation ${(ticket === null || ticket === void 0 ? void 0 : ticket.ticketNumber) || ticketId}`,
-                template: 'welcome',
-                templateData: {
-                    customerName: (clientData === null || clientData === void 0 ? void 0 : clientData.name) || 'Cher client',
-                    deviceInfo: `${(ticket === null || ticket === void 0 ? void 0 : ticket.deviceType) || 'Appareil'} ${(ticket === null || ticket === void 0 ? void 0 : ticket.brand) || ''} ${(ticket === null || ticket === void 0 ? void 0 : ticket.model) || ''}`.trim(),
-                    ticketNumber: (ticket === null || ticket === void 0 ? void 0 : ticket.ticketNumber) || ticketId,
-                    createdDateTime: formatDateTime(new Date()),
-                    description: (ticket === null || ticket === void 0 ? void 0 : ticket.issue) || 'Réparation standard',
-                    registrationLink: `https://kepleromega.netlify.app/customer/register?ticket=${ticketId}&email=${encodeURIComponent(clientEmail)}`
-                },
-                ticketId
-            });
-            // Log the welcome email
-            await db.collection('notification_history').add({
-                ticketId,
-                channel: 'email',
-                type: 'ticket_created_walkin',
-                status: 'sent',
-                sentAt: admin.firestore.FieldValue.serverTimestamp(),
-                recipientEmail: clientEmail,
-                metadata: {
-                    isWalkInCustomer: true,
-                    clientId: clientId,
-                    registrationLinkIncluded: true
-                }
-            });
-            console.log(`Walk-in welcome email sent for ticket ${ticketId}`);
+        // ANTI-SPAM: If no existing customer profile found, send walk-in welcome notifications
+        if (!customerDoc) {
+            const notificationsSent = [];
+            // Send welcome EMAIL if email available
+            if (clientEmail && isValidEmail(clientEmail)) {
+                console.log(`Sending welcome email to walk-in customer: ${clientEmail}`);
+                await sendEmailNotification(null, {
+                    to: clientEmail,
+                    subject: `Bienvenue chez O'MEGA Services - Réparation ${(ticket === null || ticket === void 0 ? void 0 : ticket.ticketNumber) || ticketId}`,
+                    template: 'welcome',
+                    templateData: {
+                        customerName: (clientData === null || clientData === void 0 ? void 0 : clientData.name) || 'Cher client',
+                        deviceInfo: `${(ticket === null || ticket === void 0 ? void 0 : ticket.deviceType) || 'Appareil'} ${(ticket === null || ticket === void 0 ? void 0 : ticket.brand) || ''} ${(ticket === null || ticket === void 0 ? void 0 : ticket.model) || ''}`.trim(),
+                        ticketNumber: (ticket === null || ticket === void 0 ? void 0 : ticket.ticketNumber) || ticketId,
+                        createdDateTime: formatDateTime(new Date()),
+                        description: (ticket === null || ticket === void 0 ? void 0 : ticket.issue) || 'Réparation standard',
+                        registrationLink: `https://kepleromega.netlify.app/customer/register?ticket=${ticketId}&email=${encodeURIComponent(clientEmail)}`
+                    },
+                    ticketId
+                });
+                notificationsSent.push('email');
+            }
+            // Send welcome SMS if phone available (regardless of email)
+            if (clientPhone && formatFrenchPhoneNumber(clientPhone)) {
+                console.log(`Sending welcome SMS to walk-in customer: ${formatFrenchPhoneNumber(clientPhone)}`);
+                const smsMessage = `🛠️ O'MEGA Services\n\nBonjour${(clientData === null || clientData === void 0 ? void 0 : clientData.name) ? ` ${clientData.name}` : ''}!\n\nVotre réparation #${(ticket === null || ticket === void 0 ? void 0 : ticket.ticketNumber) || ticketId} a été enregistrée.\n\nSuivez l'évolution et créez votre compte:\n${`https://kepleromega.netlify.app/customer/register?ticket=${ticketId}${clientEmail ? `&email=${encodeURIComponent(clientEmail)}` : ''}`}\n\nPour toute question, contactez-nous:\n09 86 60 89 80`;
+                await sendSmsNotification(formatFrenchPhoneNumber(clientPhone), smsMessage, {
+                    ticketId,
+                    customerId: null, // Walk-in customer
+                    type: 'ticket_created_walkin'
+                });
+                notificationsSent.push('sms');
+            }
+            // Log the welcome notifications
+            if (notificationsSent.length > 0) {
+                await db.collection('notification_history').add({
+                    ticketId,
+                    channel: notificationsSent.join('+'), // 'email', 'sms', or 'email+sms'
+                    type: 'ticket_created_walkin',
+                    status: 'sent',
+                    sentAt: admin.firestore.FieldValue.serverTimestamp(),
+                    recipientEmail: clientEmail || null,
+                    metadata: {
+                        isWalkInCustomer: true,
+                        clientId: clientId,
+                        registrationLinkIncluded: true,
+                        notificationsSent: notificationsSent,
+                        phoneNumber: clientPhone ? formatFrenchPhoneNumber(clientPhone) : null
+                    }
+                });
+                console.log(`Walk-in welcome notifications sent for ticket ${ticketId}: ${notificationsSent.join(' + ')}`);
+            }
             return; // Don't continue with regular customer notifications
         }
         if (!customerDoc) {
@@ -751,51 +1003,33 @@ exports.onTicketCreated = functions.firestore
 });
 // Cloud Function: Get client data for registration pre-filling
 exports.getClientForRegistration = functions.https.onCall(async (data, context) => {
-    console.log('🔍 REGISTRATION CF: Starting getClientForRegistration call');
     const { ticketId } = data;
     if (!ticketId) {
-        console.error('❌ REGISTRATION CF: No ticketId provided');
         throw new HttpsError('invalid-argument', 'Ticket ID is required');
     }
-    console.log('🔍 REGISTRATION CF: Validating ticket ID:', ticketId);
     try {
         // Validate ticket exists and get client ID
         const ticketRef = admin.firestore().doc(`tickets/${ticketId}`);
         const ticketSnap = await ticketRef.get();
-        console.log('🔍 REGISTRATION CF: Ticket query result:', {
-            exists: ticketSnap.exists,
-            data: ticketSnap.exists ? ticketSnap.data() : null
-        });
         if (!ticketSnap.exists) {
-            console.error('❌ REGISTRATION CF: Ticket document does not exist for ID:', ticketId);
             throw new HttpsError('not-found', 'Ticket not found');
         }
         const ticketData = ticketSnap.data();
         const clientId = ticketData === null || ticketData === void 0 ? void 0 : ticketData.clientId;
-        console.log('🔍 REGISTRATION CF: Client ID from ticket:', clientId);
         if (!clientId) {
-            console.error('❌ REGISTRATION CF: No clientId found in ticket data');
             throw new HttpsError('failed-precondition', 'No client linked to this ticket');
         }
-        console.log('🔍 REGISTRATION CF: Fetching client data for ID:', clientId);
         // Fetch client data
         const clientRef = admin.firestore().doc(`clients/${clientId}`);
         const clientSnap = await clientRef.get();
-        console.log('🔍 REGISTRATION CF: Client query result:', {
-            exists: clientSnap.exists,
-            data: clientSnap.exists ? clientSnap.data() : null
-        });
         if (!clientSnap.exists) {
-            console.error('❌ REGISTRATION CF: Client document does not exist for ID:', clientId);
             throw new HttpsError('not-found', 'Client data not found');
         }
         const clientData = clientSnap.data();
-        console.log('🔍 REGISTRATION CF: Returning client data:', clientData);
         // Return the client data (Firestore security rules will be bypassed since this runs with admin privileges)
         return Object.assign({ id: clientSnap.id }, clientData);
     }
     catch (error) {
-        console.error('❌ REGISTRATION CF: Error in getClientForRegistration:', error);
         if (error instanceof HttpsError) {
             throw error;
         }

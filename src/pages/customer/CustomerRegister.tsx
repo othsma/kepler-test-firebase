@@ -18,7 +18,11 @@ export default function CustomerRegister() {
     phoneNumber: '',
     password: '',
     confirmPassword: '',
-    customerCode: ''
+    customerCode: '',
+    smsEnabled: true, // SMS enabled by default (free to receive)
+    emailEnabled: true, // Email notifications (default enabled)
+    pushEnabled: true,   // Push notifications (default enabled)
+    whatsappEnabled: true // WhatsApp enabled by default (high engagement)
   });
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -59,7 +63,11 @@ export default function CustomerRegister() {
                   phoneNumber: clientData?.phone || '',
                   customerCode: clientData?.customerCode || '',
                   password: '', // Keep password empty
-                  confirmPassword: '' // Keep confirm password empty
+                  confirmPassword: '', // Keep confirm password empty
+                  smsEnabled: true, // Keep defaults
+                  emailEnabled: true,
+                  pushEnabled: true,
+                  whatsappEnabled: true
                 };
 
                 setFormData(newFormData);
@@ -113,7 +121,13 @@ export default function CustomerRegister() {
         formData.password,
         formData.fullName,
         formData.phoneNumber,
-        formData.customerCode || undefined
+        formData.customerCode || undefined,
+        {
+          emailEnabled: formData.emailEnabled,
+          whatsappEnabled: formData.whatsappEnabled,
+          smsEnabled: formData.smsEnabled,
+          pushEnabled: formData.pushEnabled
+        }
       );
 
       if (result.success && result.user) {
@@ -328,6 +342,108 @@ export default function CustomerRegister() {
                   )}
                 </button>
               </div>
+            </div>
+          </div>
+
+          {/* Notification Preferences Section */}
+          <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
+            <h3 className={`text-lg font-medium mb-4 ${isDarkMode ? 'text-gray-200' : 'text-gray-900'}`}>
+              Préférences de notification
+            </h3>
+
+            <div className="space-y-4">
+              <div className="flex items-start">
+                <div className="flex items-center h-5">
+                  <input
+                    id="emailEnabled"
+                    name="emailEnabled"
+                    type="checkbox"
+                    checked={formData.emailEnabled}
+                    onChange={(e) => setFormData(prev => ({ ...prev, emailEnabled: e.target.checked }))}
+                    className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                  />
+                </div>
+                <div className="ml-3">
+                  <label htmlFor="emailEnabled" className={`text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                    Notifications par email
+                  </label>
+                  <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                    Recevoir les mises à jour importantes par email (recommandé)
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-start">
+                <div className="flex items-center h-5">
+                  <input
+                    id="whatsappEnabled"
+                    name="whatsappEnabled"
+                    type="checkbox"
+                    checked={formData.whatsappEnabled}
+                    onChange={(e) => setFormData(prev => ({ ...prev, whatsappEnabled: e.target.checked }))}
+                    className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                  />
+                </div>
+                <div className="ml-3">
+                  <label htmlFor="whatsappEnabled" className={`text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                    Notifications WhatsApp
+                  </label>
+                  <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                    Recevoir les mises à jour importantes par WhatsApp (haute engagement)
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-start">
+                <div className="flex items-center h-5">
+                  <input
+                    id="smsEnabled"
+                    name="smsEnabled"
+                    type="checkbox"
+                    checked={formData.smsEnabled}
+                    onChange={(e) => setFormData(prev => ({ ...prev, smsEnabled: e.target.checked }))}
+                    className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                  />
+                </div>
+                <div className="ml-3">
+                  <label htmlFor="smsEnabled" className={`text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                    Notifications par SMS
+                  </label>
+                  <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                    Recevoir les mises à jour importantes par SMS (gratuit pour vous)
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-start">
+                <div className="flex items-center h-5">
+                  <input
+                    id="pushEnabled"
+                    name="pushEnabled"
+                    type="checkbox"
+                    checked={formData.pushEnabled}
+                    onChange={(e) => setFormData(prev => ({ ...prev, pushEnabled: e.target.checked }))}
+                    className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                  />
+                </div>
+                <div className="ml-3">
+                  <label htmlFor="pushEnabled" className={`text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                    Notifications push
+                  </label>
+                  <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                    Recevoir les notifications push dans le navigateur (gratuit)
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* CNIL Compliance Notice */}
+            <div className={`mt-4 p-3 rounded-md ${isDarkMode ? 'bg-blue-900/20 border border-blue-700' : 'bg-blue-50 border border-blue-200'}`}>
+              <p className={`text-xs ${isDarkMode ? 'text-blue-300' : 'text-blue-700'}`}>
+                <strong>Conformément au RGPD :</strong> Vos préférences de notification sont stockées de manière sécurisée.
+                Vous pouvez modifier ces paramètres à tout moment dans votre profil client.
+                Les SMS sont envoyés uniquement pour les mises à jour importantes de vos réparations.
+              </p>
             </div>
           </div>
 
