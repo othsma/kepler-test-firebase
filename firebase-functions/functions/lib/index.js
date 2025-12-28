@@ -511,7 +511,7 @@ exports.onTicketStatusChange = functions.firestore
                 deviceInfo,
                 ticketNumber: (after === null || after === void 0 ? void 0 : after.ticketNumber) || ticketId,
                 completionDateTime: formatDateTime(new Date()),
-                estimatedCost: (after === null || after === void 0 ? void 0 : after.total) ? `${after.total.toFixed(2)}€ TTC` : 'À confirmer',
+                estimatedCost: (after === null || after === void 0 ? void 0 : after.cost) ? `${after.cost.toFixed(2)}€ TTC` : 'À confirmer',
                 repairDetails: (after === null || after === void 0 ? void 0 : after.repairNotes) || null
             };
         }
@@ -524,7 +524,7 @@ exports.onTicketStatusChange = functions.firestore
                 case 'in-progress':
                     statusColor = '#fff3cd';
                     statusBorder = '#ffc107';
-                    nextSteps = 'Notre technicien va examiner votre appareil et procéder à la réparation de votre appareil.';
+                    nextSteps = 'Notre technicien va examiner votre appareil et procéder à sa réparation.';
                     break;
                 default:
                     statusColor = '#e3f2fd';
@@ -661,7 +661,7 @@ exports.onTicketCreated = functions.firestore
                 deviceInfo,
                 ticketNumber: (ticket === null || ticket === void 0 ? void 0 : ticket.ticketNumber) || ticketId,
                 createdDateTime: formatDateTime(new Date()),
-                description: (ticket === null || ticket === void 0 ? void 0 : ticket.description) || 'Réparation standard'
+                description: (ticket === null || ticket === void 0 ? void 0 : ticket.issue) || 'Réparation standard'
             },
             ticketId
         });

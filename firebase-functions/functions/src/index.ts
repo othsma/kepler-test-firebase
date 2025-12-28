@@ -534,7 +534,7 @@ export const onTicketStatusChange = functions.firestore
           deviceInfo,
           ticketNumber: after?.ticketNumber || ticketId,
           completionDateTime: formatDateTime(new Date()),
-          estimatedCost: after?.total ? `${after.total.toFixed(2)}€ TTC` : 'À confirmer',
+          estimatedCost: after?.cost ? `${after.cost.toFixed(2)}€ TTC` : 'À confirmer',
           repairDetails: after?.repairNotes || null
         };
       } else {
@@ -547,7 +547,7 @@ export const onTicketStatusChange = functions.firestore
           case 'in-progress':
             statusColor = '#fff3cd';
             statusBorder = '#ffc107';
-            nextSteps = 'Notre technicien va examiner votre appareil et procéder à la réparation de votre appareil.';
+            nextSteps = 'Notre technicien va examiner votre appareil et procéder à sa réparation.';
             break;
           default:
             statusColor = '#e3f2fd';
@@ -704,7 +704,7 @@ export const onTicketCreated = functions.firestore
           deviceInfo,
           ticketNumber: ticket?.ticketNumber || ticketId,
           createdDateTime: formatDateTime(new Date()),
-          description: ticket?.description || 'Réparation standard'
+          description: ticket?.issue || 'Réparation standard'
         },
         ticketId
       });
