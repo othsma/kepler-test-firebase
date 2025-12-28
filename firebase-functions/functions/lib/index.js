@@ -46,6 +46,16 @@ admin.initializeApp();
 let sendgridInitialized = false;
 // Firestore reference
 const db = admin.firestore();
+// Helper function to format date and time in French locale
+const formatDateTime = (date) => {
+    return date.toLocaleString('fr-FR', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+};
 // Send push notification to customer
 async function sendPushNotification(customerId, notification) {
     try {
@@ -125,7 +135,7 @@ const emailTemplates = {
             <h3>📋 Détails de votre réparation:</h3>
             <p><strong>Numéro de réparation:</strong> ${data.ticketNumber}</p>
             <p><strong>Statut actuel:</strong> En attente</p>
-            <p><strong>Date de création:</strong> ${data.createdDate}</p>
+            <p><strong>Date et heure de création:</strong> ${data.createdDateTime}</p>
             <p><strong>Description:</strong> ${data.description || 'Réparation standard'}</p>
           </div>
 
@@ -178,7 +188,7 @@ const emailTemplates = {
             <h3>📱 Statut mis à jour pour votre ${data.deviceInfo}</h3>
             <p><strong>Nouveau statut:</strong> <span style="font-size: 18px; font-weight: bold;">${data.newStatus}</span></p>
             <p><strong>Numéro de réparation:</strong> ${data.ticketNumber}</p>
-            <p><strong>Date de mise à jour:</strong> ${data.updateDate}</p>
+            <p><strong>Date et heure de mise à jour:</strong> ${data.updateDateTime}</p>
           </div>
 
           ${data.nextSteps ? `<div style="background: #fff3cd; padding: 15px; border-radius: 5px; margin: 20px 0;">
@@ -233,7 +243,7 @@ const emailTemplates = {
           <div class="completion-box">
             <h3>🎉 Votre ${data.deviceInfo} est prêt !</h3>
             <p><strong>Numéro de réparation:</strong> ${data.ticketNumber}</p>
-            <p><strong>Date de completion:</strong> ${data.completionDate}</p>
+            <p><strong>Date et heure d'exécution:</strong> ${data.completionDateTime}</p>
             <p><strong>Total estimé:</strong> ${data.estimatedCost || 'À confirmer'}</p>
           </div>
 
@@ -500,9 +510,9 @@ exports.onTicketStatusChange = functions.firestore
                 customerName,
                 deviceInfo,
                 ticketNumber: (after === null || after === void 0 ? void 0 : after.ticketNumber) || ticketId,
-                completionDate: new Date().toLocaleDateString('fr-FR'),
-                estimatedCost: 'À confirmer', // Could be populated from ticket data
-                repairDetails: (after === null || after === void 0 ? void 0 : after.repairNotes) || null // Could be populated from ticket data
+                completionDateTime: formatDateTime(new Date()),
+                estimatedCost: (after === null || after === void 0 ? void 0 : after.total) ? `${after.total.toFixed(2)}€ TTC` : 'À confirmer',
+                repairDetails: (after === null || after === void 0 ? void 0 : after.repairNotes) || null
             };
         }
         else {
@@ -526,7 +536,7 @@ exports.onTicketStatusChange = functions.firestore
                 deviceInfo,
                 newStatus,
                 ticketNumber: (after === null || after === void 0 ? void 0 : after.ticketNumber) || ticketId,
-                updateDate: new Date().toLocaleDateString('fr-FR'),
+                updateDateTime: formatDateTime(new Date()),
                 statusColor,
                 statusBorder,
                 nextSteps
@@ -650,7 +660,7 @@ exports.onTicketCreated = functions.firestore
                 customerName,
                 deviceInfo,
                 ticketNumber: (ticket === null || ticket === void 0 ? void 0 : ticket.ticketNumber) || ticketId,
-                createdDate: new Date().toLocaleDateString('fr-FR'),
+                createdDateTime: formatDateTime(new Date()),
                 description: (ticket === null || ticket === void 0 ? void 0 : ticket.description) || 'Réparation standard'
             },
             ticketId
