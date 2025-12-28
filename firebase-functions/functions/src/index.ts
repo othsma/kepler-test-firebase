@@ -2,6 +2,9 @@ import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
 import sgMail from '@sendgrid/mail';
 
+// Import HttpsError for proper typing
+const { HttpsError } = functions.https;
+
 // Initialize Firebase Admin
 admin.initializeApp();
 
@@ -21,6 +24,12 @@ const formatDateTime = (date: Date) => {
     minute: '2-digit'
   });
 };
+
+// Helper function for email validation
+function isValidEmail(email: string): boolean {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email);
+}
 
 // Send push notification to customer
 async function sendPushNotification(customerId: string, notification: {
@@ -113,15 +122,28 @@ const emailTemplates = {
           <p>Bonjour ${data.customerName || ''},</p>
           <p>Nous avons bien reçu votre <strong>${data.deviceInfo}</strong> pour réparation.</p>
 
-          <div style="background: #f0f8ff; padding: 20px; border-radius: 5px; margin: 20px 0;">
-            <h3>📋 Détails de votre réparation:</h3>
-            <p><strong>Numéro de réparation:</strong> ${data.ticketNumber}</p>
-            <p><strong>Statut actuel:</strong> En attente</p>
-            <p><strong>Date et heure de création:</strong> ${data.createdDateTime}</p>
-            <p><strong>Description:</strong> ${data.description || 'Réparation standard'}</p>
-          </div>
+        <div style="background: #f0f8ff; padding: 20px; border-radius: 5px; margin: 20px 0;">
+          <h3>📋 Détails de votre réparation:</h3>
+          <p><strong>Numéro de réparation:</strong> ${data.ticketNumber}</p>
+          <p><strong>Statut actuel:</strong> En attente</p>
+          <p><strong>Date et heure de création:</strong> ${data.createdDateTime}</p>
+          <p><strong>Description:</strong> ${data.description || 'Réparation standard'}</p>
+        </div>
 
-          <p>Notre équipe va examiner votre appareil et vous contacter sous 24-48h pour vous communiquer l'état d'avancement de votre réparation.</p>
+        ${data.registrationLink ? `
+        <div style="background: #e8f4f8; padding: 20px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #667eea;">
+          <h3>🔐 Créez votre compte client</h3>
+          <p>Pour suivre l'évolution de votre réparation et recevoir toutes les notifications, créez votre compte client gratuit :</p>
+          <div style="text-align: center; margin: 20px 0;">
+            <a href="${data.registrationLink}" style="display: inline-block; background: #667eea; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px;">Créer mon compte</a>
+          </div>
+          <p style="font-size: 12px; color: #666;">
+            Votre email sera pré-rempli et vos informations de réparation déjà enregistrées.
+          </p>
+        </div>
+        ` : ''}
+
+        <p>Notre équipe va examiner votre appareil et vous contacter sous 24-48h pour vous communiquer l'état d'avancement de votre réparation.</p>
 
           <div style="text-align: center;">
             <a href="https://kepleromega.netlify.app/customer" class="button">📱 Suivre ma réparation</a>
@@ -259,12 +281,13 @@ const emailTemplates = {
 };
 
 // Send email notification using SendGrid
-async function sendEmailNotification(customerId: string, notification: {
+async function sendEmailNotification(customerId: string | null, notification: {
   subject: string;
   html?: string;
   ticketId?: string;
   template?: string;
   templateData?: any;
+  to?: string; // For walk-in customers who don't have a customer profile
 }) {
   try {
     // Initialize SendGrid if not already done
@@ -286,27 +309,41 @@ async function sendEmailNotification(customerId: string, notification: {
       }
     }
 
-    // Get customer email and preferences
-    const customerDoc = await db.collection('customer_profiles').doc(customerId).get();
+    // Handle walk-in customers vs registered customers
+    let email: string;
 
-    if (!customerDoc.exists) {
-      console.log(`Customer ${customerId} not found`);
-      return;
-    }
+    if (notification.to) {
+      // Walk-in customer - use the provided email directly
+      email = notification.to;
+      console.log(`Sending to walk-in customer email: ${email}`);
+    } else {
+      // Registered customer - look up profile
+      if (!customerId) {
+        console.error('No customerId provided for registered customer');
+        return;
+      }
 
-    const customerData = customerDoc.data();
-    const email = customerData?.email;
+      const customerDoc = await db.collection('customer_profiles').doc(customerId).get();
 
-    if (!email) {
-      console.log(`No email found for customer ${customerId}`);
-      return;
-    }
+      if (!customerDoc.exists) {
+        console.log(`Customer ${customerId} not found`);
+        return;
+      }
 
-    // Check if customer has email notifications enabled
-    const preferences = customerData?.notificationPreferences;
-    if (!preferences?.emailEnabled) {
-      console.log(`Email notifications disabled for customer ${customerId}`);
-      return;
+      const customerData = customerDoc.data();
+      email = customerData?.email;
+
+      if (!email) {
+        console.log(`No email found for customer ${customerId}`);
+        return;
+      }
+
+      // Check if customer has email notifications enabled
+      const preferences = customerData?.notificationPreferences;
+      if (!preferences?.emailEnabled) {
+        console.log(`Email notifications disabled for customer ${customerId}`);
+        return;
+      }
     }
 
     // Prepare email content
@@ -452,6 +489,8 @@ export const onTicketStatusChange = functions.firestore
       const clientEmail = clientData?.email;
       const clientPhone = clientData?.phone;
 
+
+
       // Try to find customer by email first
       if (clientEmail) {
         const emailQuery = await db.collection('customer_profiles')
@@ -482,6 +521,8 @@ export const onTicketStatusChange = functions.firestore
         }
       }
 
+
+
       if (!customerDoc) {
         console.log(`No customer profile found for client ${clientId} (tried linkedClientId, email, and phone)`);
         return;
@@ -499,6 +540,8 @@ export const onTicketStatusChange = functions.firestore
 
     const deviceInfo = `${after?.deviceType || 'Appareil'} ${after?.brand || ''} ${after?.model || ''}`.trim();
     const newStatus = statusLabels[after?.status as keyof typeof statusLabels] || after?.status;
+
+
 
     // Ensure we have a valid customer ID before proceeding
     if (!customerId) {
@@ -636,6 +679,7 @@ export const onTicketCreated = functions.firestore
       const clientEmail = clientData?.email;
       const clientPhone = clientData?.phone;
 
+      // ANTI-SPAM LOGIC: Check for existing customer profile FIRST
       // Try to find customer by email first
       if (clientEmail) {
         const emailQuery = await db.collection('customer_profiles')
@@ -664,6 +708,44 @@ export const onTicketCreated = functions.firestore
           customerData = customerDoc.data();
           console.log(`Found customer ${customerId} via phone ${clientPhone}`);
         }
+      }
+
+      // ANTI-SPAM: If no existing customer profile found, send walk-in welcome email
+      if (!customerDoc && clientEmail && isValidEmail(clientEmail)) {
+        console.log(`Sending welcome email to walk-in customer: ${clientEmail}`);
+
+        await sendEmailNotification(null, { // No customerId for walk-in
+          to: clientEmail,
+          subject: `Bienvenue chez O'MEGA Services - Réparation ${ticket?.ticketNumber || ticketId}`,
+          template: 'welcome',
+          templateData: {
+            customerName: clientData?.name || 'Cher client',
+            deviceInfo: `${ticket?.deviceType || 'Appareil'} ${ticket?.brand || ''} ${ticket?.model || ''}`.trim(),
+            ticketNumber: ticket?.ticketNumber || ticketId,
+            createdDateTime: formatDateTime(new Date()),
+            description: ticket?.issue || 'Réparation standard',
+            registrationLink: `https://kepleromega.netlify.app/customer/register?ticket=${ticketId}&email=${encodeURIComponent(clientEmail)}`
+          },
+          ticketId
+        });
+
+        // Log the welcome email
+        await db.collection('notification_history').add({
+          ticketId,
+          channel: 'email',
+          type: 'ticket_created_walkin',
+          status: 'sent',
+          sentAt: admin.firestore.FieldValue.serverTimestamp(),
+          recipientEmail: clientEmail,
+          metadata: {
+            isWalkInCustomer: true,
+            clientId: clientId,
+            registrationLinkIncluded: true
+          }
+        });
+
+        console.log(`Walk-in welcome email sent for ticket ${ticketId}`);
+        return; // Don't continue with regular customer notifications
       }
 
       if (!customerDoc) {
@@ -726,6 +808,54 @@ export const onTicketCreated = functions.firestore
 
     console.log(`New ticket notification sent for ticket ${ticketId} to customer ${customerId}`);
   });
+
+// Cloud Function: Get client data for registration pre-filling
+export const getClientForRegistration = functions.https.onCall(async (data, context) => {
+  const { ticketId } = data;
+
+  if (!ticketId) {
+    throw new HttpsError('invalid-argument', 'Ticket ID is required');
+  }
+
+  try {
+    // Validate ticket exists and get client ID
+    const ticketRef = admin.firestore().doc(`tickets/${ticketId}`);
+    const ticketSnap = await ticketRef.get();
+
+    if (!ticketSnap.exists) {
+      throw new HttpsError('not-found', 'Ticket not found');
+    }
+
+    const ticketData = ticketSnap.data();
+    const clientId = ticketData?.clientId;
+
+    if (!clientId) {
+      throw new HttpsError('failed-precondition', 'No client linked to this ticket');
+    }
+
+    // Fetch client data
+    const clientRef = admin.firestore().doc(`clients/${clientId}`);
+    const clientSnap = await clientRef.get();
+
+    if (!clientSnap.exists) {
+      throw new HttpsError('not-found', 'Client data not found');
+    }
+
+    const clientData = clientSnap.data();
+
+    // Return the client data (Firestore security rules will be bypassed since this runs with admin privileges)
+    return {
+      id: clientSnap.id,
+      ...clientData
+    };
+
+  } catch (error) {
+    if (error instanceof HttpsError) {
+      throw error;
+    }
+    throw new HttpsError('internal', 'Failed to fetch client data');
+  }
+});
 
 // Cloud Function: Clean up expired FCM tokens
 export const cleanupExpiredTokens = functions.pubsub.schedule('0 2 * * *').timeZone('Europe/Paris').onRun(async () => {

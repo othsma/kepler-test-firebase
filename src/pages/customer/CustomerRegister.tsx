@@ -1,9 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, Smartphone, ArrowLeft } from 'lucide-react';
 import { useThemeStore } from '../../lib/store';
 import { useCustomerStore } from '../../lib/customerStore';
-import { registerCustomer } from '../../lib/firebase';
+import { registerCustomer, db } from '../../lib/firebase';
+import { getFunctions, httpsCallable } from 'firebase/functions';
+import { doc, getDoc } from 'firebase/firestore';
 
 export default function CustomerRegister() {
   const isDarkMode = useThemeStore((state) => state.isDarkMode);
@@ -22,6 +24,70 @@ export default function CustomerRegister() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setLocalError] = useState('');
+  const [ticketInfo, setTicketInfo] = useState<any>(null);
+
+  // Pre-fill form with URL parameters and client data
+  useEffect(() => {
+    const prefillForm = async () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const ticketId = urlParams.get('ticket');
+      const emailParam = urlParams.get('email');
+
+      if (ticketId) {
+        try {
+          // Fetch ticket data to get client information
+          const ticketRef = doc(db, 'tickets', ticketId);
+          const ticketSnap = await getDoc(ticketRef);
+
+          if (ticketSnap.exists()) {
+            const ticketData = ticketSnap.data();
+            const clientId = ticketData?.clientId;
+
+            if (clientId) {
+              try {
+                // Use Cloud Function to get client data securely
+                const functions = getFunctions();
+                const getClientForRegistration = httpsCallable(functions, 'getClientForRegistration');
+
+                const result = await getClientForRegistration({ ticketId });
+                const clientData = result.data as any;
+
+                // Pre-fill form with client data
+                const newFormData = {
+                  fullName: clientData?.name || '',
+                  email: emailParam || clientData?.email || '',
+                  phoneNumber: clientData?.phone || '',
+                  customerCode: clientData?.customerCode || '',
+                  password: '', // Keep password empty
+                  confirmPassword: '' // Keep confirm password empty
+                };
+
+                setFormData(newFormData);
+              } catch (cloudFunctionError: any) {
+                // Fallback: pre-fill with email only if Cloud Function fails
+                if (emailParam) {
+                  setFormData(prev => ({
+                    ...prev,
+                    email: emailParam
+                  }));
+                }
+              }
+            }
+          }
+        } catch (error) {
+          // Silent error handling - don't expose internal errors to users
+        }
+      } else if (emailParam) {
+        // If no ticket ID but email provided, just pre-fill email
+        setFormData(prev => ({
+          ...prev,
+          email: emailParam
+        }));
+      }
+    };
+
+    prefillForm();
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
