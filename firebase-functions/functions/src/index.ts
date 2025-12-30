@@ -826,12 +826,13 @@ export const onTicketStatusChange = functions.firestore
       return;
     }
 
-    // Find customer profile - try multiple approaches
+    // Find customer profile - ONLY check linkedClientId for registered status
+    // Email/phone matching is for different purposes, not for determining registered status
     let customerDoc = null;
     let customerId = null;
     let customerData = null;
 
-    // First, try to find by linkedClientId (for customers registered with customer code)
+    // Only customers with linkedClientId matching this client are considered "registered"
     const linkedQuery = await db.collection('customer_profiles')
       .where('linkedClientId', '==', clientId)
       .limit(1)
@@ -841,59 +842,9 @@ export const onTicketStatusChange = functions.firestore
       customerDoc = linkedQuery.docs[0];
       customerId = customerDoc.id;
       customerData = customerDoc.data();
-      console.log(`Found customer ${customerId} via linkedClientId for client ${clientId}`);
+      console.log(`Found registered customer ${customerId} for client ${clientId} via linkedClientId`);
     } else {
-      // If not found by linkedClientId, get the client data to find customers by email/phone
-      const clientDoc = await db.collection('clients').doc(clientId).get();
-
-      if (!clientDoc.exists) {
-        console.log(`Client ${clientId} not found`);
-        return;
-      }
-
-      const clientData = clientDoc.data();
-      const clientEmail = clientData?.email;
-      const clientPhone = clientData?.phone;
-
-
-
-      // Try to find customer by email first
-      if (clientEmail) {
-        const emailQuery = await db.collection('customer_profiles')
-          .where('email', '==', clientEmail)
-          .limit(1)
-          .get();
-
-        if (!emailQuery.empty) {
-          customerDoc = emailQuery.docs[0];
-          customerId = customerDoc.id;
-          customerData = customerDoc.data();
-          console.log(`Found customer ${customerId} via email ${clientEmail}`);
-        }
-      }
-
-      // If not found by email, try by phone
-      if (!customerDoc && clientPhone) {
-        const phoneQuery = await db.collection('customer_profiles')
-          .where('phoneNumber', '==', clientPhone)
-          .limit(1)
-          .get();
-
-        if (!phoneQuery.empty) {
-          customerDoc = phoneQuery.docs[0];
-          customerId = customerDoc.id;
-          customerData = customerDoc.data();
-          console.log(`Found customer ${customerId} via phone ${clientPhone}`);
-        }
-      }
-
-
-
-      // ANTI-SPAM: If no customer profile found, handle as unregistered customer
-      // Instead of returning early, we'll send basic notifications using client data
-      if (!customerDoc) {
-        console.log(`No customer profile found for client ${clientId} - treating as unregistered customer`);
-      }
+      console.log(`No registered customer profile found for client ${clientId} - treating as unregistered customer`);
     }
 
     const preferences = customerData?.notificationPreferences;
