@@ -36,7 +36,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.cleanupExpiredTokens = exports.getClientForRegistration = exports.onTicketCreated = exports.onTicketStatusChange = void 0;
+exports.cleanupExpiredTokens = exports.whatsappWebhook = exports.getClientForRegistration = exports.onTicketCreated = exports.onTicketStatusChange = void 0;
 const functions = __importStar(require("firebase-functions"));
 const admin = __importStar(require("firebase-admin"));
 const mail_1 = __importDefault(require("@sendgrid/mail"));
@@ -515,6 +515,94 @@ async function sendSmsNotification(phoneNumber, message, options) {
         });
     }
 }
+// Send WhatsApp notification using Twilio
+async function sendWhatsAppMessage(phoneNumber, message, options) {
+    var _a, _b, _c, _d;
+    try {
+        // Initialize Twilio if not already done
+        if (!twilioInitialized) {
+            try {
+                const twilioSid = ((_a = functions.config().twilio) === null || _a === void 0 ? void 0 : _a.sid) || process.env.TWILIO_SID;
+                const twilioToken = ((_b = functions.config().twilio) === null || _b === void 0 ? void 0 : _b.token) || process.env.TWILIO_TOKEN;
+                const whatsappFrom = ((_c = functions.config().twilio) === null || _c === void 0 ? void 0 : _c.whatsapp_from) || process.env.TWILIO_WHATSAPP_FROM;
+                if (twilioSid && twilioToken && whatsappFrom) {
+                    twilioClient = (0, twilio_1.default)(twilioSid, twilioToken);
+                    twilioInitialized = true;
+                    console.log('✅ Twilio initialized successfully for WhatsApp');
+                }
+                else {
+                    console.warn('Twilio WhatsApp credentials not configured. WhatsApp notifications will not work.');
+                    return;
+                }
+            }
+            catch (error) {
+                console.error('Failed to initialize Twilio for WhatsApp:', error);
+                return;
+            }
+        }
+        // Validate and format phone number
+        const formattedPhone = formatFrenchPhoneNumber(phoneNumber);
+        if (!formattedPhone) {
+            console.error('Invalid phone number format for WhatsApp:', phoneNumber);
+            return;
+        }
+        // Format for WhatsApp: whatsapp:+336XXXXXXXX
+        const whatsappTo = `whatsapp:${formattedPhone}`;
+        console.log(`💬 Sending WhatsApp to ${whatsappTo}: ${message.substring(0, 50)}...`);
+        // Ensure whatsappTo is not null (TypeScript safety)
+        if (!whatsappTo || whatsappTo === 'whatsapp:') {
+            console.error('Invalid WhatsApp recipient format');
+            return;
+        }
+        // Send WhatsApp via Twilio
+        const whatsappFromNumber = ((_d = functions.config().twilio) === null || _d === void 0 ? void 0 : _d.whatsapp_from) || process.env.TWILIO_WHATSAPP_FROM;
+        if (!whatsappFromNumber) {
+            console.error('WhatsApp from number not configured');
+            return;
+        }
+        const whatsappResult = await twilioClient.messages.create({
+            body: message,
+            from: `whatsapp:${whatsappFromNumber}`,
+            to: whatsappTo
+        });
+        console.log(`✅ WhatsApp sent successfully to ${formattedPhone}`, {
+            messageId: whatsappResult.sid,
+            status: whatsappResult.status
+        });
+        // Log WhatsApp in notification history
+        await db.collection('notification_history').add({
+            customerId: (options === null || options === void 0 ? void 0 : options.customerId) || null,
+            ticketId: (options === null || options === void 0 ? void 0 : options.ticketId) || null,
+            type: 'whatsapp',
+            channel: 'whatsapp',
+            status: 'sent',
+            sentAt: admin.firestore.FieldValue.serverTimestamp(),
+            metadata: {
+                twilioMessageId: whatsappResult.sid,
+                cost: whatsappResult.price ? parseFloat(whatsappResult.price) : null,
+                phoneNumber: formattedPhone,
+                messageLength: message.length
+            }
+        });
+    }
+    catch (error) {
+        console.error('Error sending WhatsApp notification:', error);
+        // Log failed WhatsApp attempt
+        await db.collection('notification_history').add({
+            customerId: (options === null || options === void 0 ? void 0 : options.customerId) || null,
+            ticketId: (options === null || options === void 0 ? void 0 : options.ticketId) || null,
+            type: 'whatsapp',
+            channel: 'whatsapp',
+            status: 'failed',
+            sentAt: admin.firestore.FieldValue.serverTimestamp(),
+            error: error instanceof Error ? error.message : 'Unknown error',
+            metadata: {
+                phoneNumber: phoneNumber || null,
+                messageLength: (message === null || message === void 0 ? void 0 : message.length) || 0
+            }
+        });
+    }
+}
 // French phone number validation and formatting
 function formatFrenchPhoneNumber(phoneNumber) {
     if (!phoneNumber)
@@ -550,7 +638,40 @@ const smsTemplates = {
     welcome: "👋 Bienvenue chez O'MEGA Services! Suivez vos réparations facilement.",
     paymentReminder: "💳 PAIEMENT: Votre réparation est prête. Total estimé: {amount}€"
 };
+// WhatsApp Templates
+const whatsappTemplates = {
+    welcome: (data) => `🛠️ *O'MEGA Services*
+
+Bonjour${data.customerName ? ` ${data.customerName}` : ''}! 👋
+
+Votre réparation #${data.ticketNumber} a été enregistrée.
+
+📱 *Suivez l'évolution et créez votre compte:*
+${data.registrationLink}
+
+📞 Questions? Écrivez-nous ici ou appelez le 09 86 60 89 80
+
+_Nous vous tiendrons informé de chaque étape!_`,
+    statusUpdate: (data) => `🔄 *MISE À JOUR*
+
+Votre ${data.deviceInfo} est maintenant *${data.newStatus}*.
+
+📞 Notre équipe vous contactera sous 24-48h pour la suite.
+
+Merci de votre patience! 🙏`,
+    completion: (data) => `✅ *RÉPARATION TERMINÉE*
+
+Votre ${data.deviceInfo} est *prêt à récupérer*!
+
+🏪 *Adresse:* 123 Rue de la Réparation, Paris
+🕐 *Horaires:* Lundi-Vendredi 9h-18h
+
+📞 Appelez-nous au 09 86 60 89 80 pour confirmer votre passage.
+
+Merci d'avoir choisi O'MEGA Services! ⭐`
+};
 // Customer Phone Number Extraction and Validation
+// @ts-expect-error - Function kept for future SMS implementation
 async function findCustomerPhoneForSms(clientId) {
     var _a, _b, _c;
     try {
@@ -700,9 +821,10 @@ exports.onTicketStatusChange = functions.firestore
                 console.log(`Found customer ${customerId} via phone ${clientPhone}`);
             }
         }
+        // ANTI-SPAM: If no customer profile found, handle as unregistered customer
+        // Instead of returning early, we'll send basic notifications using client data
         if (!customerDoc) {
-            console.log(`No customer profile found for client ${clientId} (tried linkedClientId, email, and phone)`);
-            return;
+            console.log(`No customer profile found for client ${clientId} - treating as unregistered customer`);
         }
     }
     const preferences = customerData === null || customerData === void 0 ? void 0 : customerData.notificationPreferences;
@@ -714,11 +836,103 @@ exports.onTicketStatusChange = functions.firestore
     };
     const deviceInfo = `${(after === null || after === void 0 ? void 0 : after.deviceType) || 'Appareil'} ${(after === null || after === void 0 ? void 0 : after.brand) || ''} ${(after === null || after === void 0 ? void 0 : after.model) || ''}`.trim();
     const newStatus = statusLabels[after === null || after === void 0 ? void 0 : after.status] || (after === null || after === void 0 ? void 0 : after.status);
-    // Ensure we have a valid customer ID before proceeding
+    // Handle registered vs unregistered customers differently
+    let clientDataForUnregistered = null;
     if (!customerId) {
-        console.log(`No valid customer ID found for ticket ${ticketId}`);
-        return;
+        // UNREGISTERED CUSTOMER: Get client data directly for basic notifications
+        console.log(`Handling unregistered customer for ticket ${ticketId} - getting client data`);
+        const clientDoc = await db.collection('clients').doc(clientId).get();
+        if (!clientDoc.exists) {
+            console.log(`Client ${clientId} not found for unregistered customer`);
+            return;
+        }
+        clientDataForUnregistered = clientDoc.data();
+        // Send basic email notification to unregistered customer
+        if ((clientDataForUnregistered === null || clientDataForUnregistered === void 0 ? void 0 : clientDataForUnregistered.email) && isValidEmail(clientDataForUnregistered.email)) {
+            console.log(`📧 Sending basic email notification to unregistered customer: ${clientDataForUnregistered.email}`);
+            // Choose template based on new status
+            let emailTemplate = 'statusUpdate';
+            let templateData = {};
+            if ((after === null || after === void 0 ? void 0 : after.status) === 'completed') {
+                emailTemplate = 'completion';
+                templateData = {
+                    customerName: (clientDataForUnregistered === null || clientDataForUnregistered === void 0 ? void 0 : clientDataForUnregistered.name) || '',
+                    deviceInfo,
+                    ticketNumber: (after === null || after === void 0 ? void 0 : after.ticketNumber) || ticketId,
+                    completionDateTime: formatDateTime(new Date()),
+                    estimatedCost: (after === null || after === void 0 ? void 0 : after.cost) ? `${after.cost.toFixed(2)}€ TTC` : 'À confirmer',
+                    repairDetails: (after === null || after === void 0 ? void 0 : after.repairNotes) || null
+                };
+            }
+            else {
+                let statusColor = '#e8f5e8';
+                let statusBorder = '#4caf50';
+                let nextSteps = '';
+                switch (after === null || after === void 0 ? void 0 : after.status) {
+                    case 'in-progress':
+                        statusColor = '#fff3cd';
+                        statusBorder = '#ffc107';
+                        nextSteps = 'Notre technicien va examiner votre appareil et procéder à sa réparation.';
+                        break;
+                    default:
+                        statusColor = '#e3f2fd';
+                        statusBorder = '#2196f3';
+                        nextSteps = 'Nous allons examiner votre demande et vous contacter sous 24h.';
+                }
+                templateData = {
+                    customerName: (clientDataForUnregistered === null || clientDataForUnregistered === void 0 ? void 0 : clientDataForUnregistered.name) || '',
+                    deviceInfo,
+                    newStatus,
+                    ticketNumber: (after === null || after === void 0 ? void 0 : after.ticketNumber) || ticketId,
+                    updateDateTime: formatDateTime(new Date()),
+                    statusColor,
+                    statusBorder,
+                    nextSteps
+                };
+            }
+            await sendEmailNotification(null, {
+                to: clientDataForUnregistered.email,
+                subject: (after === null || after === void 0 ? void 0 : after.status) === 'completed' ? `Réparation terminée - ${deviceInfo}` : `Mise à jour réparation - ${deviceInfo}`,
+                template: emailTemplate,
+                templateData,
+                ticketId
+            });
+        }
+        // Handle SMS for unregistered customers (if phone available)
+        if (clientDataForUnregistered === null || clientDataForUnregistered === void 0 ? void 0 : clientDataForUnregistered.phone) {
+            const formattedPhone = formatFrenchPhoneNumber(clientDataForUnregistered.phone);
+            if (formattedPhone) {
+                const smsMessage = (after === null || after === void 0 ? void 0 : after.status) === 'completed'
+                    ? smsTemplates.repairCompleted
+                    : smsTemplates.statusUpdate;
+                await sendSmsNotification(formattedPhone, smsMessage, {
+                    ticketId,
+                    customerId: undefined, // Unregistered customer
+                    type: 'status_change_unregistered'
+                });
+            }
+        }
+        // Log notification for unregistered customer
+        await db.collection('notification_history').add({
+            ticketId,
+            type: 'status_change_unregistered',
+            channel: 'email+sms', // Basic notifications for unregistered
+            status: 'sent',
+            sentAt: admin.firestore.FieldValue.serverTimestamp(),
+            metadata: {
+                oldStatus: before === null || before === void 0 ? void 0 : before.status,
+                newStatus,
+                deviceInfo,
+                ticketNumber: (after === null || after === void 0 ? void 0 : after.ticketNumber) || ticketId,
+                isUnregisteredCustomer: true,
+                clientId: clientId
+            }
+        });
+        console.log(`Status change notification sent for unregistered customer ticket ${ticketId}`);
+        return; // Done with unregistered customer handling
     }
+    // REGISTERED CUSTOMER: Continue with existing logic
+    console.log(`Handling registered customer ${customerId} for ticket ${ticketId}`);
     // Send push notification if enabled
     if (preferences === null || preferences === void 0 ? void 0 : preferences.pushEnabled) {
         await sendPushNotification(customerId, {
@@ -729,7 +943,7 @@ exports.onTicketStatusChange = functions.firestore
             url: '/customer'
         });
     }
-    // SMART NOTIFICATION CASCADE: Email → SMS → Skip
+    // ENHANCED NOTIFICATION CASCADE: Email → WhatsApp → SMS → Skip
     let notificationSent = false;
     // Try email first (preferred channel)
     if (preferences === null || preferences === void 0 ? void 0 : preferences.emailEnabled) {
@@ -784,34 +998,99 @@ exports.onTicketStatusChange = functions.firestore
             ticketId
         });
         notificationSent = true;
-    }
-    // SMS FALLBACK: If no email sent and critical status, try SMS
-    if (!notificationSent) {
-        console.log(`📱 Email not available, trying SMS fallback for customer ${customerId}`);
-        // Find phone number for SMS
-        const smsTarget = await findCustomerPhoneForSms(clientId);
-        if ((smsTarget === null || smsTarget === void 0 ? void 0 : smsTarget.phoneNumber) && smsTarget.smsEnabled) {
-            console.log(`📱 Sending SMS to ${smsTarget.phoneNumber} (${smsTarget.source})`);
-            // Choose SMS template based on status
-            let smsMessage = '';
+        // WHATSAPP EXCEPTION: For engaged customers (email + WhatsApp enabled), send both
+        if (preferences === null || preferences === void 0 ? void 0 : preferences.whatsappEnabled) {
+            console.log(`💬 Sending WhatsApp notification to engaged customer ${customerId}`);
+            // Choose WhatsApp template based on status
+            let whatsappMessage = '';
+            let templateData = {
+                customerName,
+                deviceInfo,
+                ticketNumber: (after === null || after === void 0 ? void 0 : after.ticketNumber) || ticketId
+            };
             if ((after === null || after === void 0 ? void 0 : after.status) === 'completed') {
-                smsMessage = smsTemplates.repairCompleted;
+                whatsappMessage = whatsappTemplates.completion(templateData);
             }
             else if ((after === null || after === void 0 ? void 0 : after.status) === 'in-progress') {
-                smsMessage = smsTemplates.statusUpdate;
+                templateData.newStatus = newStatus;
+                whatsappMessage = whatsappTemplates.statusUpdate(templateData);
             }
             else {
-                smsMessage = `📱 Statut de votre ${deviceInfo}: ${newStatus}`;
+                whatsappMessage = `📱 Statut de votre ${deviceInfo}: ${newStatus}`;
             }
-            await sendSmsNotification(smsTarget.phoneNumber, smsMessage, {
-                ticketId,
-                customerId: smsTarget.customerId || customerId,
-                type: 'status_change'
-            });
-            notificationSent = true;
+            // Find phone number for WhatsApp
+            const phoneNumber = customerData === null || customerData === void 0 ? void 0 : customerData.phoneNumber;
+            if (phoneNumber && formatFrenchPhoneNumber(phoneNumber) && whatsappMessage) {
+                await sendWhatsAppMessage(formatFrenchPhoneNumber(phoneNumber), whatsappMessage, {
+                    ticketId,
+                    customerId,
+                    type: 'status_change'
+                });
+            }
+        }
+    }
+    // WHATSAPP FALLBACK: If no email sent, try WhatsApp first, then SMS
+    if (!notificationSent) {
+        console.log(`💬 Email not available, trying WhatsApp fallback for customer ${customerId}`);
+        // Find phone number for messaging
+        const phoneNumber = customerData === null || customerData === void 0 ? void 0 : customerData.phoneNumber;
+        if (phoneNumber && formatFrenchPhoneNumber(phoneNumber)) {
+            const formattedPhone = formatFrenchPhoneNumber(phoneNumber);
+            // Try WhatsApp first (preferred messaging)
+            if (preferences === null || preferences === void 0 ? void 0 : preferences.whatsappEnabled) {
+                console.log(`💬 Sending WhatsApp to ${formattedPhone}`);
+                const customerName = (customerData === null || customerData === void 0 ? void 0 : customerData.fullName) || '';
+                let whatsappMessage = '';
+                let templateData = {
+                    customerName,
+                    deviceInfo,
+                    ticketNumber: (after === null || after === void 0 ? void 0 : after.ticketNumber) || ticketId
+                };
+                if ((after === null || after === void 0 ? void 0 : after.status) === 'completed') {
+                    whatsappMessage = whatsappTemplates.completion(templateData);
+                }
+                else if ((after === null || after === void 0 ? void 0 : after.status) === 'in-progress') {
+                    templateData.newStatus = newStatus;
+                    whatsappMessage = whatsappTemplates.statusUpdate(templateData);
+                }
+                else {
+                    whatsappMessage = `📱 Statut de votre ${deviceInfo}: ${newStatus}`;
+                }
+                if (formattedPhone) {
+                    await sendWhatsAppMessage(formattedPhone, whatsappMessage, {
+                        ticketId,
+                        customerId,
+                        type: 'status_change'
+                    });
+                    notificationSent = true;
+                }
+            }
+            // SMS fallback (only if WhatsApp not sent)
+            else if ((preferences === null || preferences === void 0 ? void 0 : preferences.smsEnabled) && !notificationSent) {
+                console.log(`📱 WhatsApp not enabled, trying SMS to ${formattedPhone}`);
+                // Choose SMS template based on status
+                let smsMessage = '';
+                if ((after === null || after === void 0 ? void 0 : after.status) === 'completed') {
+                    smsMessage = smsTemplates.repairCompleted;
+                }
+                else if ((after === null || after === void 0 ? void 0 : after.status) === 'in-progress') {
+                    smsMessage = smsTemplates.statusUpdate;
+                }
+                else {
+                    smsMessage = `📱 Statut de votre ${deviceInfo}: ${newStatus}`;
+                }
+                if (formattedPhone) {
+                    await sendSmsNotification(formattedPhone, smsMessage, {
+                        ticketId,
+                        customerId,
+                        type: 'status_change'
+                    });
+                    notificationSent = true;
+                }
+            }
         }
         else {
-            console.log(`❌ No valid SMS target found for client ${clientId}`);
+            console.log(`❌ No valid phone number found for customer ${customerId}`);
         }
     }
     // Log notification in history
@@ -917,15 +1196,18 @@ exports.onTicketCreated = functions.firestore
                 notificationsSent.push('email');
             }
             // Send welcome SMS if phone available (regardless of email)
-            if (clientPhone && formatFrenchPhoneNumber(clientPhone)) {
-                console.log(`Sending welcome SMS to walk-in customer: ${formatFrenchPhoneNumber(clientPhone)}`);
-                const smsMessage = `🛠️ O'MEGA Services\n\nBonjour${(clientData === null || clientData === void 0 ? void 0 : clientData.name) ? ` ${clientData.name}` : ''}!\n\nVotre réparation #${(ticket === null || ticket === void 0 ? void 0 : ticket.ticketNumber) || ticketId} a été enregistrée.\n\nSuivez l'évolution et créez votre compte:\n${`https://kepleromega.netlify.app/customer/register?ticket=${ticketId}${clientEmail ? `&email=${encodeURIComponent(clientEmail)}` : ''}`}\n\nPour toute question, contactez-nous:\n09 86 60 89 80`;
-                await sendSmsNotification(formatFrenchPhoneNumber(clientPhone), smsMessage, {
-                    ticketId,
-                    customerId: null, // Walk-in customer
-                    type: 'ticket_created_walkin'
-                });
-                notificationsSent.push('sms');
+            if (clientPhone) {
+                const formattedPhone = formatFrenchPhoneNumber(clientPhone);
+                if (formattedPhone) {
+                    console.log(`Sending welcome SMS to walk-in customer: ${formattedPhone}`);
+                    const smsMessage = `🛠️ O'MEGA Services\n\nBonjour${(clientData === null || clientData === void 0 ? void 0 : clientData.name) ? ` ${clientData.name}` : ''}!\n\nVotre réparation #${(ticket === null || ticket === void 0 ? void 0 : ticket.ticketNumber) || ticketId} a été enregistrée.\n\nSuivez l'évolution et créez votre compte:\n${`https://kepleromega.netlify.app/customer/register?ticket=${ticketId}${clientEmail ? `&email=${encodeURIComponent(clientEmail)}` : ''}`}\n\nPour toute question, contactez-nous:\n09 86 60 89 80`;
+                    await sendSmsNotification(formattedPhone, smsMessage, {
+                        ticketId,
+                        customerId: undefined, // Walk-in customer
+                        type: 'ticket_created_walkin'
+                    });
+                    notificationsSent.push('sms');
+                }
             }
             // Log the welcome notifications
             if (notificationsSent.length > 0) {
@@ -1036,6 +1318,146 @@ exports.getClientForRegistration = functions.https.onCall(async (data, context) 
         throw new HttpsError('internal', 'Failed to fetch client data');
     }
 });
+// WhatsApp Webhook Handler for incoming messages
+exports.whatsappWebhook = functions.https.onRequest(async (req, res) => {
+    var _a, _b;
+    try {
+        console.log('WhatsApp webhook received:', JSON.stringify(req.body, null, 2));
+        // Handle WhatsApp webhook verification (required by Twilio)
+        if (req.method === 'GET') {
+            const mode = req.query['hub.mode'];
+            const token = req.query['hub.verify_token'];
+            const challenge = req.query['hub.challenge'];
+            // Verify webhook (you'll set this token in Twilio console)
+            const VERIFY_TOKEN = ((_a = functions.config().twilio) === null || _a === void 0 ? void 0 : _a.whatsapp_verify_token) || 'your_verify_token';
+            if (mode === 'subscribe' && token === VERIFY_TOKEN) {
+                console.log('WhatsApp webhook verified successfully');
+                res.status(200).send(challenge);
+                return;
+            }
+            else {
+                res.status(403).send('Verification failed');
+                return;
+            }
+        }
+        // Handle incoming WhatsApp messages
+        if (req.method === 'POST') {
+            const body = req.body;
+            // Process each message entry
+            if (body === null || body === void 0 ? void 0 : body.entry) {
+                for (const entry of body.entry) {
+                    if (entry === null || entry === void 0 ? void 0 : entry.changes) {
+                        for (const change of entry.changes) {
+                            if ((_b = change === null || change === void 0 ? void 0 : change.value) === null || _b === void 0 ? void 0 : _b.messages) {
+                                for (const message of change.value.messages) {
+                                    await processIncomingWhatsAppMessage(message, change.value);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            // Always respond with 200 OK for WhatsApp webhooks
+            res.status(200).send('OK');
+        }
+        else {
+            res.status(405).send('Method not allowed');
+        }
+    }
+    catch (error) {
+        console.error('WhatsApp webhook error:', error);
+        res.status(500).send('Internal server error');
+    }
+});
+// Process incoming WhatsApp message
+async function processIncomingWhatsAppMessage(message, value) {
+    var _a, _b;
+    try {
+        const from = message.from; // Customer's phone number
+        const messageType = message.type;
+        const messageId = message.id;
+        console.log(`Processing WhatsApp message from ${from}: ${messageType}`);
+        // Find customer by phone number
+        const customerQuery = await db.collection('customer_profiles')
+            .where('phoneNumber', '==', from.replace('+', ''))
+            .limit(1)
+            .get();
+        if (customerQuery.empty) {
+            console.log(`No customer found for WhatsApp number: ${from}`);
+            // Could send a "please register" message
+            return;
+        }
+        const customerDoc = customerQuery.docs[0];
+        const customerId = customerDoc.id;
+        // Log the incoming message
+        await db.collection('whatsapp_conversations').add({
+            customerId,
+            messageId,
+            from: from,
+            to: value.to,
+            type: messageType,
+            content: ((_a = message.text) === null || _a === void 0 ? void 0 : _a.body) || message.caption || 'Media message',
+            timestamp: new Date(parseInt(message.timestamp) * 1000),
+            direction: 'incoming',
+            processed: false
+        });
+        // Auto-responses for common queries
+        if (messageType === 'text') {
+            const text = message.text.body.toLowerCase();
+            let autoResponse = '';
+            if (text.includes('statut') || text.includes('status') || text.includes('où')) {
+                autoResponse = '📱 Je vérifie le statut de votre réparation. Un technicien vous contactera sous 24-48h.';
+            }
+            else if (text.includes('prix') || text.includes('coût') || text.includes('tarif')) {
+                autoResponse = '💰 Les tarifs seront communiqués après diagnostic. Contactez-nous au 09 86 60 89 80.';
+            }
+            else if (text.includes('rendez-vous') || text.includes('rdv')) {
+                autoResponse = '📅 Pour prendre rendez-vous, appelez-nous au 09 86 60 89 80.';
+            }
+            else if (text.includes('merci') || text.includes('thank')) {
+                autoResponse = '🙏 Merci à vous! N\'hésitez pas si vous avez d\'autres questions.';
+            }
+            // Send auto-response if applicable
+            if (autoResponse) {
+                await sendWhatsAppMessage(from, autoResponse, {
+                    customerId,
+                    type: 'auto_response'
+                });
+                // Mark conversation as processed
+                await db.collection('whatsapp_conversations')
+                    .where('messageId', '==', messageId)
+                    .limit(1)
+                    .get()
+                    .then(snapshot => {
+                    if (!snapshot.empty) {
+                        snapshot.docs[0].ref.update({ processed: true });
+                    }
+                });
+            }
+            else {
+                // Forward to staff/admin for manual response
+                console.log(`🤖 WhatsApp message needs manual response: "${(_b = message.text) === null || _b === void 0 ? void 0 : _b.body}"`);
+                // Could send notification to staff here
+                // For now, just mark as needing attention
+                await db.collection('whatsapp_conversations')
+                    .where('messageId', '==', messageId)
+                    .limit(1)
+                    .get()
+                    .then(snapshot => {
+                    if (!snapshot.empty) {
+                        snapshot.docs[0].ref.update({
+                            processed: false,
+                            needsAttention: true
+                        });
+                    }
+                });
+            }
+        }
+    }
+    catch (error) {
+        console.error('Error processing incoming WhatsApp message:', error);
+    }
+}
 // Cloud Function: Clean up expired FCM tokens
 exports.cleanupExpiredTokens = functions.pubsub.schedule('0 2 * * *').timeZone('Europe/Paris').onRun(async () => {
     console.log('Starting FCM token cleanup...');

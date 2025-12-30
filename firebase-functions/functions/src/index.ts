@@ -706,6 +706,7 @@ Merci d'avoir choisi O'MEGA Services! ⭐`
 };
 
 // Customer Phone Number Extraction and Validation
+// @ts-expect-error - Function kept for future SMS implementation
 async function findCustomerPhoneForSms(clientId: string): Promise<{
   phoneNumber: string | null;
   customerId: string | null;
@@ -888,9 +889,10 @@ export const onTicketStatusChange = functions.firestore
 
 
 
+      // ANTI-SPAM: If no customer profile found, handle as unregistered customer
+      // Instead of returning early, we'll send basic notifications using client data
       if (!customerDoc) {
-        console.log(`No customer profile found for client ${clientId} (tried linkedClientId, email, and phone)`);
-        return;
+        console.log(`No customer profile found for client ${clientId} - treating as unregistered customer`);
       }
     }
 
@@ -908,11 +910,116 @@ export const onTicketStatusChange = functions.firestore
 
 
 
-    // Ensure we have a valid customer ID before proceeding
+    // Handle registered vs unregistered customers differently
+    let clientDataForUnregistered = null;
+
     if (!customerId) {
-      console.log(`No valid customer ID found for ticket ${ticketId}`);
-      return;
+      // UNREGISTERED CUSTOMER: Get client data directly for basic notifications
+      console.log(`Handling unregistered customer for ticket ${ticketId} - getting client data`);
+      const clientDoc = await db.collection('clients').doc(clientId).get();
+
+      if (!clientDoc.exists) {
+        console.log(`Client ${clientId} not found for unregistered customer`);
+        return;
+      }
+
+      clientDataForUnregistered = clientDoc.data();
+
+      // Send basic email notification to unregistered customer
+      if (clientDataForUnregistered?.email && isValidEmail(clientDataForUnregistered.email)) {
+        console.log(`📧 Sending basic email notification to unregistered customer: ${clientDataForUnregistered.email}`);
+
+        // Choose template based on new status
+        let emailTemplate = 'statusUpdate';
+        let templateData: any = {};
+
+        if (after?.status === 'completed') {
+          emailTemplate = 'completion';
+          templateData = {
+            customerName: clientDataForUnregistered?.name || '',
+            deviceInfo,
+            ticketNumber: after?.ticketNumber || ticketId,
+            completionDateTime: formatDateTime(new Date()),
+            estimatedCost: after?.cost ? `${after.cost.toFixed(2)}€ TTC` : 'À confirmer',
+            repairDetails: after?.repairNotes || null
+          };
+        } else {
+          let statusColor = '#e8f5e8';
+          let statusBorder = '#4caf50';
+          let nextSteps = '';
+
+          switch (after?.status) {
+            case 'in-progress':
+              statusColor = '#fff3cd';
+              statusBorder = '#ffc107';
+              nextSteps = 'Notre technicien va examiner votre appareil et procéder à sa réparation.';
+              break;
+            default:
+              statusColor = '#e3f2fd';
+              statusBorder = '#2196f3';
+              nextSteps = 'Nous allons examiner votre demande et vous contacter sous 24h.';
+          }
+
+          templateData = {
+            customerName: clientDataForUnregistered?.name || '',
+            deviceInfo,
+            newStatus,
+            ticketNumber: after?.ticketNumber || ticketId,
+            updateDateTime: formatDateTime(new Date()),
+            statusColor,
+            statusBorder,
+            nextSteps
+          };
+        }
+
+        await sendEmailNotification(null, { // No customerId for unregistered
+          to: clientDataForUnregistered.email,
+          subject: after?.status === 'completed' ? `Réparation terminée - ${deviceInfo}` : `Mise à jour réparation - ${deviceInfo}`,
+          template: emailTemplate,
+          templateData,
+          ticketId
+        });
+      }
+
+      // Handle SMS for unregistered customers (if phone available)
+      if (clientDataForUnregistered?.phone) {
+        const formattedPhone = formatFrenchPhoneNumber(clientDataForUnregistered.phone);
+        if (formattedPhone) {
+          const smsMessage = after?.status === 'completed'
+            ? smsTemplates.repairCompleted
+            : smsTemplates.statusUpdate;
+
+          await sendSmsNotification(formattedPhone, smsMessage, {
+            ticketId,
+            customerId: undefined, // Unregistered customer
+            type: 'status_change_unregistered'
+          });
+        }
+      }
+
+      // Log notification for unregistered customer
+      await db.collection('notification_history').add({
+        ticketId,
+        type: 'status_change_unregistered',
+        channel: 'email+sms', // Basic notifications for unregistered
+        status: 'sent',
+        sentAt: admin.firestore.FieldValue.serverTimestamp(),
+        metadata: {
+          oldStatus: before?.status,
+          newStatus,
+          deviceInfo,
+          ticketNumber: after?.ticketNumber || ticketId,
+          isUnregisteredCustomer: true,
+          clientId: clientId
+        }
+      });
+
+      console.log(`Status change notification sent for unregistered customer ticket ${ticketId}`);
+      return; // Done with unregistered customer handling
     }
+
+    // REGISTERED CUSTOMER: Continue with existing logic
+    console.log(`Handling registered customer ${customerId} for ticket ${ticketId}`);
 
     // Send push notification if enabled
     if (preferences?.pushEnabled) {
@@ -1049,12 +1156,14 @@ export const onTicketStatusChange = functions.firestore
             whatsappMessage = `📱 Statut de votre ${deviceInfo}: ${newStatus}`;
           }
 
-          await sendWhatsAppMessage(formattedPhone, whatsappMessage, {
-            ticketId,
-            customerId,
-            type: 'status_change'
-          });
-          notificationSent = true;
+          if (formattedPhone) {
+            await sendWhatsAppMessage(formattedPhone, whatsappMessage, {
+              ticketId,
+              customerId,
+              type: 'status_change'
+            });
+            notificationSent = true;
+          }
         }
 
         // SMS fallback (only if WhatsApp not sent)
@@ -1071,12 +1180,14 @@ export const onTicketStatusChange = functions.firestore
             smsMessage = `📱 Statut de votre ${deviceInfo}: ${newStatus}`;
           }
 
-          await sendSmsNotification(formattedPhone, smsMessage, {
-            ticketId,
-            customerId,
-            type: 'status_change'
-          });
-          notificationSent = true;
+          if (formattedPhone) {
+            await sendSmsNotification(formattedPhone, smsMessage, {
+              ticketId,
+              customerId,
+              type: 'status_change'
+            });
+            notificationSent = true;
+          }
         }
       } else {
         console.log(`❌ No valid phone number found for customer ${customerId}`);
@@ -1201,17 +1312,20 @@ export const onTicketCreated = functions.firestore
         }
 
         // Send welcome SMS if phone available (regardless of email)
-        if (clientPhone && formatFrenchPhoneNumber(clientPhone)) {
-          console.log(`Sending welcome SMS to walk-in customer: ${formatFrenchPhoneNumber(clientPhone)}`);
+        if (clientPhone) {
+          const formattedPhone = formatFrenchPhoneNumber(clientPhone);
+          if (formattedPhone) {
+            console.log(`Sending welcome SMS to walk-in customer: ${formattedPhone}`);
 
-          const smsMessage = `🛠️ O'MEGA Services\n\nBonjour${clientData?.name ? ` ${clientData.name}` : ''}!\n\nVotre réparation #${ticket?.ticketNumber || ticketId} a été enregistrée.\n\nSuivez l'évolution et créez votre compte:\n${`https://kepleromega.netlify.app/customer/register?ticket=${ticketId}${clientEmail ? `&email=${encodeURIComponent(clientEmail)}` : ''}`}\n\nPour toute question, contactez-nous:\n09 86 60 89 80`;
+            const smsMessage = `🛠️ O'MEGA Services\n\nBonjour${clientData?.name ? ` ${clientData.name}` : ''}!\n\nVotre réparation #${ticket?.ticketNumber || ticketId} a été enregistrée.\n\nSuivez l'évolution et créez votre compte:\n${`https://kepleromega.netlify.app/customer/register?ticket=${ticketId}${clientEmail ? `&email=${encodeURIComponent(clientEmail)}` : ''}`}\n\nPour toute question, contactez-nous:\n09 86 60 89 80`;
 
-          await sendSmsNotification(formatFrenchPhoneNumber(clientPhone), smsMessage, {
-            ticketId,
-            customerId: null, // Walk-in customer
-            type: 'ticket_created_walkin'
-          });
-          notificationsSent.push('sms');
+            await sendSmsNotification(formattedPhone, smsMessage, {
+              ticketId,
+              customerId: undefined, // Walk-in customer
+              type: 'ticket_created_walkin'
+            });
+            notificationsSent.push('sms');
+          }
         }
 
         // Log the welcome notifications
@@ -1424,7 +1538,6 @@ async function processIncomingWhatsAppMessage(message: any, value: any) {
     }
 
     const customerDoc = customerQuery.docs[0];
-    const customerData = customerDoc.data();
     const customerId = customerDoc.id;
 
     // Log the incoming message
