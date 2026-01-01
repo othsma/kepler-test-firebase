@@ -4,6 +4,7 @@ import { Search, Plus, Calendar, User, Edit, FileText as FileIcon, Trash2, Arrow
 import { format } from 'date-fns';
 import { deleteField } from 'firebase/firestore';
 import ClientForm from '../components/ClientForm';
+import PaymentMethodModal from '../components/PaymentMethodModal';
 import UnifiedDocument from '../components/documents/UnifiedDocument';
 import { convertTicketToDocument, convertEngagementToDocument } from '../components/documents/DocumentConverter'
 import { getAllTechnicians, ROLES } from '../lib/firebase';
@@ -58,6 +59,7 @@ export default function SimpleTickets() {
   const [showInvoice, setShowInvoice] = useState(false);
   const [showEngagement, setShowEngagement] = useState(false);
   const [showInvoiceDocument, setShowInvoiceDocument] = useState(false);
+  const [showPaymentMethodModal, setShowPaymentMethodModal] = useState(false);
   const [selectedTicket, setSelectedTicket] = useState<any>(null);
   const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
   const [newTicketNumber, setNewTicketNumber] = useState('');
@@ -458,7 +460,7 @@ export default function SimpleTickets() {
   };
 
   // Handle invoice deletion
-  const handleDeleteInvoice = async (invoiceId: string | undefined) => {
+  const handleDeleteInvoice = async (invoiceId: string) => {
     if (!invoiceId) return;
     if (window.confirm('Êtes-vous sûr de vouloir supprimer cette facture ?')) {
       try {
@@ -496,14 +498,32 @@ export default function SimpleTickets() {
     }
   };
 
-  // Handle invoice generation from ticket
-  const generateInvoiceFromTicket = async (ticket: any) => {
+  // Handle invoice generation from ticket - shows payment method modal first
+  const handleInvoiceGenerationClick = (ticket: any) => {
+    const client = clients.find(c => c.id === ticket.clientId);
+    if (!client) {
+      alert('Client information not found for this ticket.');
+      return;
+    }
+
+    // Set selected ticket and show modal
+    setSelectedTicket(ticket);
+    setShowPaymentMethodModal(true);
+  };
+
+  // Handle payment method confirmation and invoice generation
+  const handlePaymentMethodConfirm = async (paymentMethod: string) => {
+    if (!selectedTicket) return;
+
     try {
-      const invoiceId = await createInvoiceFromTicket(ticket.id);
+      // Create invoice with selected payment method
+      const invoiceId = await createInvoiceFromTicket(selectedTicket.id, paymentMethod);
       alert(`Facture générée avec succès! ID: ${invoiceId}`);
     } catch (error: any) {
       console.error("Error generating invoice from ticket:", error);
       alert(`Erreur lors de la génération de la facture: ${error.message}`);
+    } finally {
+      setSelectedTicket(null);
     }
   };
 
@@ -1494,7 +1514,7 @@ export default function SimpleTickets() {
                           {/* Invoice Generation button - only for fully paid tickets */}
                           {ticket.paymentStatus === 'fully_paid' && !ticket.invoiceGenerated && (
                             <button
-                              onClick={() => generateInvoiceFromTicket(ticket)}
+                              onClick={() => handleInvoiceGenerationClick(ticket)}
                               className="text-blue-600 hover:text-blue-800"
                               title="Générer Facture"
                             >
@@ -1777,6 +1797,21 @@ export default function SimpleTickets() {
             setSelectedTicket(null);
           }}
           initialFormat="a4"
+        />
+      )}
+
+      {/* Payment Method Modal */}
+      {showPaymentMethodModal && selectedTicket && (
+        <PaymentMethodModal
+          isOpen={showPaymentMethodModal}
+          onClose={() => {
+            setShowPaymentMethodModal(false);
+            setSelectedTicket(null);
+          }}
+          onConfirm={handlePaymentMethodConfirm}
+          ticketNumber={selectedTicket.ticketNumber}
+          clientName={clients.find(c => c.id === selectedTicket.clientId)?.name || 'Client inconnu'}
+          totalAmount={selectedTicket.cost}
         />
       )}
     </div>

@@ -459,7 +459,7 @@ Veuillez trouver ci-joint le document relatif à votre demande auprès d'Omega S
 - Date: ${new Date(data.date).toLocaleDateString()}
 
 Notre équipe reste à votre disposition pour toute question ou information complémentaire.
-N'hésitez pas à nous contacter par retour de mail ou au [numéro de téléphone] si vous avez besoin d'assistance supplémentaire.
+N'hésitez pas à nous contacter par retour de mail ou au 09 86 60 89 80 si vous avez besoin d'assistance supplémentaire.
 
 Cordialement.`;
 

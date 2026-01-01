@@ -1264,7 +1264,7 @@ interface InvoicesState {
   loading: boolean;
   error: string | null;
   fetchInvoices: () => Promise<void>;
-  createInvoiceFromTicket: (ticketId: string) => Promise<string>;
+  createInvoiceFromTicket: (ticketId: string, paymentMethod?: string) => Promise<string>;
   deleteInvoice: (id: string) => Promise<void>;
 }
 
@@ -1405,7 +1405,7 @@ const useInvoicesStore = create<InvoicesState>((set) => ({
     }
   },
 
-  createInvoiceFromTicket: async (ticketId: string) => {
+  createInvoiceFromTicket: async (ticketId: string, paymentMethod?: string) => {
     set({ loading: true, error: null });
     try {
       // Get ticket data
@@ -1450,7 +1450,7 @@ const useInvoicesStore = create<InvoicesState>((set) => ({
         tax: invoiceData.tax,
         total: invoiceData.total,
         paymentStatus: 'paid' as const,
-        paymentMethod: ticket.paymentMethod || 'cash',
+        paymentMethod: paymentMethod || ticket.paymentMethod || 'cash',
         sourceType: 'ticket' as const,
         deviceType: ticket.deviceType,
         brand: ticket.brand,
