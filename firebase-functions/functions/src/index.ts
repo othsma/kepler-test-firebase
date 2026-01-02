@@ -826,13 +826,21 @@ export const onTicketStatusChange = functions.firestore
       return;
     }
 
-    // Find customer profile - ONLY check linkedClientId for registered status
-    // Email/phone matching is for different purposes, not for determining registered status
+    // Get client data first
+    const clientDoc = await db.collection('clients').doc(clientId).get();
+    if (!clientDoc.exists) {
+      console.log(`Client ${clientId} not found`);
+      return;
+    }
+    const clientData = clientDoc.data();
+
+    // UNIFIED CUSTOMER LOGIC: Find customer profile (if exists) and get preferences
     let customerDoc = null;
     let customerId = null;
     let customerData = null;
+    let preferences = null;
 
-    // Only customers with linkedClientId matching this client are considered "registered"
+    // Try to find customer profile (linkedClientId → email → phone)
     const linkedQuery = await db.collection('customer_profiles')
       .where('linkedClientId', '==', clientId)
       .limit(1)
@@ -842,138 +850,66 @@ export const onTicketStatusChange = functions.firestore
       customerDoc = linkedQuery.docs[0];
       customerId = customerDoc.id;
       customerData = customerDoc.data();
-      console.log(`Found registered customer ${customerId} for client ${clientId} via linkedClientId`);
+      preferences = customerData?.notificationPreferences;
+      console.log(`Found customer ${customerId} via linkedClientId`);
     } else {
-      console.log(`No registered customer profile found for client ${clientId} - treating as unregistered customer`);
+      // Try email matching
+      if (clientData?.email && typeof clientData.email === 'string') {
+        const emailQuery = await db.collection('customer_profiles')
+          .where('email', '==', clientData.email)
+          .limit(1)
+          .get();
+
+        if (!emailQuery.empty) {
+          customerDoc = emailQuery.docs[0];
+          customerId = customerDoc.id;
+          customerData = customerDoc.data();
+          preferences = customerData?.notificationPreferences;
+          console.log(`Found customer ${customerId} via email`);
+        }
+      }
+
+      // Try phone matching
+      if (!customerDoc && clientData?.phone && typeof clientData.phone === 'string') {
+        const phoneQuery = await db.collection('customer_profiles')
+          .where('phoneNumber', '==', clientData.phone)
+          .limit(1)
+          .get();
+
+        if (!phoneQuery.empty) {
+          customerDoc = phoneQuery.docs[0];
+          customerId = customerDoc.id;
+          customerData = customerDoc.data();
+          preferences = customerData?.notificationPreferences;
+          console.log(`Found customer ${customerId} via phone`);
+        }
+      }
     }
 
-    const preferences = customerData?.notificationPreferences;
+    // Set defaults for preferences if no customer profile found
+    const defaultPreferences = {
+      emailEnabled: true,
+      smsEnabled: true,
+      pushEnabled: false, // Only for registered customers
+      whatsappEnabled: false // Only for registered customers
+    };
 
-    // Prepare notification content
+    const finalPreferences = preferences || defaultPreferences;
+    const customerName = customerData?.fullName || clientData?.name || '';
+    const deviceInfo = `${after?.deviceType || 'Appareil'} ${after?.brand || ''} ${after?.model || ''}`.trim();
+
+    // Prepare status info
     const statusLabels = {
       'pending': 'en attente',
       'in-progress': 'en cours',
       'completed': 'terminée'
     };
-
-    const deviceInfo = `${after?.deviceType || 'Appareil'} ${after?.brand || ''} ${after?.model || ''}`.trim();
     const newStatus = statusLabels[after?.status as keyof typeof statusLabels] || after?.status;
 
+    console.log(`Status change notification preferences for ticket ${ticketId}:`, finalPreferences);
 
-
-    // Handle registered vs unregistered customers differently
-    let clientDataForUnregistered = null;
-
-    if (!customerId) {
-      // UNREGISTERED CUSTOMER: Get client data directly for basic notifications
-      console.log(`Handling unregistered customer for ticket ${ticketId} - getting client data`);
-      const clientDoc = await db.collection('clients').doc(clientId).get();
-
-      if (!clientDoc.exists) {
-        console.log(`Client ${clientId} not found for unregistered customer`);
-        return;
-      }
-
-      clientDataForUnregistered = clientDoc.data();
-
-      // Send basic email notification to unregistered customer
-      if (clientDataForUnregistered?.email && isValidEmail(clientDataForUnregistered.email)) {
-        console.log(`📧 Sending basic email notification to unregistered customer: ${clientDataForUnregistered.email}`);
-
-        // Choose template based on new status
-        let emailTemplate = 'statusUpdate';
-        let templateData: any = {};
-
-        if (after?.status === 'completed') {
-          emailTemplate = 'completion';
-          templateData = {
-            customerName: clientDataForUnregistered?.name || '',
-            deviceInfo,
-            ticketNumber: after?.ticketNumber || ticketId,
-            completionDateTime: formatDateTime(new Date()),
-            estimatedCost: after?.cost ? `${after.cost.toFixed(2)}€ TTC` : 'À confirmer',
-            repairDetails: after?.repairNotes || null
-          };
-        } else {
-          let statusColor = '#e8f5e8';
-          let statusBorder = '#4caf50';
-          let nextSteps = '';
-
-          switch (after?.status) {
-            case 'in-progress':
-              statusColor = '#fff3cd';
-              statusBorder = '#ffc107';
-              nextSteps = 'Notre technicien va examiner votre appareil et procéder à sa réparation.';
-              break;
-            default:
-              statusColor = '#e3f2fd';
-              statusBorder = '#2196f3';
-              nextSteps = 'Nous allons examiner votre demande et vous contacter sous 24h.';
-          }
-
-          templateData = {
-            customerName: clientDataForUnregistered?.name || '',
-            deviceInfo,
-            newStatus,
-            ticketNumber: after?.ticketNumber || ticketId,
-            updateDateTime: formatDateTime(new Date()),
-            statusColor,
-            statusBorder,
-            nextSteps
-          };
-        }
-
-        await sendEmailNotification(null, { // No customerId for unregistered
-          to: clientDataForUnregistered.email,
-          subject: after?.status === 'completed' ? `Réparation terminée - ${deviceInfo}` : `Mise à jour réparation - ${deviceInfo}`,
-          template: emailTemplate,
-          templateData,
-          ticketId
-        });
-      }
-
-      // Handle SMS for unregistered customers (if phone available)
-      if (clientDataForUnregistered?.phone) {
-        const formattedPhone = formatFrenchPhoneNumber(clientDataForUnregistered.phone);
-        if (formattedPhone) {
-          const smsMessage = after?.status === 'completed'
-            ? smsTemplates.repairCompleted
-            : smsTemplates.statusUpdate;
-
-          await sendSmsNotification(formattedPhone, smsMessage, {
-            ticketId,
-            customerId: undefined, // Unregistered customer
-            type: 'status_change_unregistered'
-          });
-        }
-      }
-
-      // Log notification for unregistered customer
-      await db.collection('notification_history').add({
-        ticketId,
-        type: 'status_change_unregistered',
-        channel: 'email+sms', // Basic notifications for unregistered
-        status: 'sent',
-        sentAt: admin.firestore.FieldValue.serverTimestamp(),
-        metadata: {
-          oldStatus: before?.status,
-          newStatus,
-          deviceInfo,
-          ticketNumber: after?.ticketNumber || ticketId,
-          isUnregisteredCustomer: true,
-          clientId: clientId
-        }
-      });
-
-      console.log(`Status change notification sent for unregistered customer ticket ${ticketId}`);
-      return; // Done with unregistered customer handling
-    }
-
-    // REGISTERED CUSTOMER: Continue with existing logic
-    console.log(`Handling registered customer ${customerId} for ticket ${ticketId}`);
-
-    // Send push notification if enabled
-    if (preferences?.pushEnabled) {
+    // Send push notification (only for registered customers)
+    if (customerId && finalPreferences.pushEnabled) {
       await sendPushNotification(customerId, {
         title: 'Statut de réparation mis à jour',
         body: `Votre ${deviceInfo} est maintenant ${newStatus}`,
@@ -983,23 +919,17 @@ export const onTicketStatusChange = functions.firestore
       });
     }
 
-    // ENHANCED NOTIFICATION CASCADE: Email → WhatsApp → SMS → Skip
-    let notificationSent = false;
+    // Send EMAIL notification (if enabled)
+    if (finalPreferences.emailEnabled && clientData?.email && isValidEmail(clientData.email)) {
+      console.log(`Sending status update email for ticket ${ticketId}`);
 
-    // Try email first (preferred channel)
-    if (preferences?.emailEnabled) {
-      console.log(`📧 Sending email notification to customer ${customerId}`);
-      const customerName = customerData?.fullName || '';
-
-      // Choose template based on new status
-      let emailTemplate = 'statusUpdate'; // Default for pending → in-progress
+      let emailTemplate = 'statusUpdate';
       let templateData: any = {};
 
       if (after?.status === 'completed') {
-        // Use completion template for completed repairs
         emailTemplate = 'completion';
         templateData = {
-          customerName,
+          customerName: customerName || 'Cher client',
           deviceInfo,
           ticketNumber: after?.ticketNumber || ticketId,
           completionDateTime: formatDateTime(new Date()),
@@ -1007,7 +937,6 @@ export const onTicketStatusChange = functions.firestore
           repairDetails: after?.repairNotes || null
         };
       } else {
-        // Use statusUpdate template for other transitions (pending → in-progress)
         let statusColor = '#e8f5e8';
         let statusBorder = '#4caf50';
         let nextSteps = '';
@@ -1025,7 +954,7 @@ export const onTicketStatusChange = functions.firestore
         }
 
         templateData = {
-          customerName,
+          customerName: customerName || 'Cher client',
           deviceInfo,
           newStatus,
           ticketNumber: after?.ticketNumber || ticketId,
@@ -1037,131 +966,61 @@ export const onTicketStatusChange = functions.firestore
       }
 
       await sendEmailNotification(customerId, {
+        to: customerId ? undefined : clientData.email, // Use 'to' for walk-in, customerId for registered
         subject: after?.status === 'completed' ? `Réparation terminée - ${deviceInfo}` : `Mise à jour réparation - ${deviceInfo}`,
         template: emailTemplate,
         templateData,
         ticketId
       });
-      notificationSent = true;
-
-      // WHATSAPP EXCEPTION: For engaged customers (email + WhatsApp enabled), send both
-      if (preferences?.whatsappEnabled) {
-        console.log(`💬 Sending WhatsApp notification to engaged customer ${customerId}`);
-
-        // Choose WhatsApp template based on status
-        let whatsappMessage = '';
-        let templateData: any = {
-          customerName,
-          deviceInfo,
-          ticketNumber: after?.ticketNumber || ticketId
-        };
-
-        if (after?.status === 'completed') {
-          whatsappMessage = whatsappTemplates.completion(templateData);
-        } else if (after?.status === 'in-progress') {
-          templateData.newStatus = newStatus;
-          whatsappMessage = whatsappTemplates.statusUpdate(templateData);
-        } else {
-          whatsappMessage = `📱 Statut de votre ${deviceInfo}: ${newStatus}`;
-        }
-
-        // Find phone number for WhatsApp
-        const phoneNumber = customerData?.phoneNumber;
-        if (phoneNumber && formatFrenchPhoneNumber(phoneNumber) && whatsappMessage) {
-          await sendWhatsAppMessage(formatFrenchPhoneNumber(phoneNumber)!, whatsappMessage, {
-            ticketId,
-            customerId,
-            type: 'status_change'
-          });
-        }
-      }
     }
 
-    // WHATSAPP FALLBACK: If no email sent, try WhatsApp first, then SMS
-    if (!notificationSent) {
-      console.log(`💬 Email not available, trying WhatsApp fallback for customer ${customerId}`);
+    // Send SMS notification (if enabled)
+    if (finalPreferences.smsEnabled && clientData?.phone) {
+      const formattedPhone = formatFrenchPhoneNumber(clientData.phone);
+      if (formattedPhone) {
+        console.log(`Sending status update SMS for ticket ${ticketId} to ${formattedPhone}`);
 
-      // Find phone number for messaging
-      const phoneNumber = customerData?.phoneNumber;
-      if (phoneNumber && formatFrenchPhoneNumber(phoneNumber)) {
-        const formattedPhone = formatFrenchPhoneNumber(phoneNumber);
-
-        // Try WhatsApp first (preferred messaging)
-        if (preferences?.whatsappEnabled) {
-          console.log(`💬 Sending WhatsApp to ${formattedPhone}`);
-
-          const customerName = customerData?.fullName || '';
-          let whatsappMessage = '';
-          let templateData: any = {
-            customerName,
-            deviceInfo,
-            ticketNumber: after?.ticketNumber || ticketId
-          };
-
-          if (after?.status === 'completed') {
-            whatsappMessage = whatsappTemplates.completion(templateData);
-          } else if (after?.status === 'in-progress') {
-            templateData.newStatus = newStatus;
-            whatsappMessage = whatsappTemplates.statusUpdate(templateData);
-          } else {
-            whatsappMessage = `📱 Statut de votre ${deviceInfo}: ${newStatus}`;
-          }
-
-          if (formattedPhone) {
-            await sendWhatsAppMessage(formattedPhone, whatsappMessage, {
-              ticketId,
-              customerId,
-              type: 'status_change'
-            });
-            notificationSent = true;
-          }
+        let smsMessage = '';
+        if (after?.status === 'completed') {
+          smsMessage = smsTemplates.repairCompleted;
+        } else if (after?.status === 'in-progress') {
+          smsMessage = smsTemplates.statusUpdate;
+        } else {
+          smsMessage = `📱 Statut de votre ${deviceInfo}: ${newStatus}`;
         }
 
-        // SMS fallback (only if WhatsApp not sent)
-        else if (preferences?.smsEnabled && !notificationSent) {
-          console.log(`📱 WhatsApp not enabled, trying SMS to ${formattedPhone}`);
-
-          // Choose SMS template based on status
-          let smsMessage = '';
-          if (after?.status === 'completed') {
-            smsMessage = smsTemplates.repairCompleted;
-          } else if (after?.status === 'in-progress') {
-            smsMessage = smsTemplates.statusUpdate;
-          } else {
-            smsMessage = `📱 Statut de votre ${deviceInfo}: ${newStatus}`;
-          }
-
-          if (formattedPhone) {
-            await sendSmsNotification(formattedPhone, smsMessage, {
-              ticketId,
-              customerId,
-              type: 'status_change'
-            });
-            notificationSent = true;
-          }
-        }
-      } else {
-        console.log(`❌ No valid phone number found for customer ${customerId}`);
+        await sendSmsNotification(formattedPhone, smsMessage, {
+          ticketId,
+          customerId,
+          type: customerId ? 'status_change_registered' : 'status_change_walkin'
+        });
       }
     }
 
     // Log notification in history
+    const channels = [];
+    if (finalPreferences.emailEnabled) channels.push('email');
+    if (finalPreferences.smsEnabled) channels.push('sms');
+    if (customerId && finalPreferences.pushEnabled) channels.push('push');
+
     await db.collection('notification_history').add({
       customerId,
       ticketId,
       type: 'status_change',
-      channel: preferences?.pushEnabled ? 'push' : 'email',
+      channel: channels.join('+') || 'none',
       status: 'sent',
       sentAt: admin.firestore.FieldValue.serverTimestamp(),
       metadata: {
         oldStatus: before?.status,
-        newStatus: newStatus, // Use the French translated status
+        newStatus,
         deviceInfo,
-        ticketNumber: after?.ticketNumber || ticketId // Include ticketNumber in metadata
+        ticketNumber: after?.ticketNumber || ticketId,
+        isRegisteredCustomer: !!customerId,
+        preferences: finalPreferences
       }
     });
 
-    console.log(`Status change notification sent for ticket ${ticketId} to customer ${customerId}`);
+    console.log(`Unified status change notifications sent for ticket ${ticketId}: ${channels.join(' + ') || 'none'}`);
   });
 
 // Cloud Function: Trigger when new ticket is created
@@ -1177,12 +1036,21 @@ export const onTicketCreated = functions.firestore
       return;
     }
 
-    // Find customer profile - use same logic as onTicketStatusChange
+    // Get client data first
+    const clientDoc = await db.collection('clients').doc(clientId).get();
+    if (!clientDoc.exists) {
+      console.log(`Client ${clientId} not found`);
+      return;
+    }
+    const clientData = clientDoc.data();
+
+    // UNIFIED CUSTOMER LOGIC: Find customer profile (if exists) and get preferences
     let customerDoc = null;
     let customerId = null;
     let customerData = null;
+    let preferences = null;
 
-    // First, try to find by linkedClientId (for customers registered with customer code)
+    // Try to find customer profile (linkedClientId → email → phone)
     const linkedQuery = await db.collection('customer_profiles')
       .where('linkedClientId', '==', clientId)
       .limit(1)
@@ -1192,25 +1060,13 @@ export const onTicketCreated = functions.firestore
       customerDoc = linkedQuery.docs[0];
       customerId = customerDoc.id;
       customerData = customerDoc.data();
-      console.log(`Found customer ${customerId} via linkedClientId for client ${clientId}`);
+      preferences = customerData?.notificationPreferences;
+      console.log(`Found customer ${customerId} via linkedClientId`);
     } else {
-      // If not found by linkedClientId, get the client data to find customers by email/phone
-      const clientDoc = await db.collection('clients').doc(clientId).get();
-
-      if (!clientDoc.exists) {
-        console.log(`Client ${clientId} not found`);
-        return;
-      }
-
-      const clientData = clientDoc.data();
-      const clientEmail = clientData?.email;
-      const clientPhone = clientData?.phone;
-
-      // ANTI-SPAM LOGIC: Check for existing customer profile FIRST
-      // Try to find customer by email first
-      if (clientEmail) {
+      // Try email matching
+      if (clientData?.email) {
         const emailQuery = await db.collection('customer_profiles')
-          .where('email', '==', clientEmail)
+          .where('email', '==', clientData.email)
           .limit(1)
           .get();
 
@@ -1218,14 +1074,15 @@ export const onTicketCreated = functions.firestore
           customerDoc = emailQuery.docs[0];
           customerId = customerDoc.id;
           customerData = customerDoc.data();
-          console.log(`Found customer ${customerId} via email ${clientEmail}`);
+          preferences = customerData?.notificationPreferences;
+          console.log(`Found customer ${customerId} via email`);
         }
       }
 
-      // If not found by email, try by phone
-      if (!customerDoc && clientPhone) {
+      // Try phone matching
+      if (!customerDoc && clientData?.phone) {
         const phoneQuery = await db.collection('customer_profiles')
-          .where('phoneNumber', '==', clientPhone)
+          .where('phoneNumber', '==', clientData.phone)
           .limit(1)
           .get();
 
@@ -1233,93 +1090,28 @@ export const onTicketCreated = functions.firestore
           customerDoc = phoneQuery.docs[0];
           customerId = customerDoc.id;
           customerData = customerDoc.data();
-          console.log(`Found customer ${customerId} via phone ${clientPhone}`);
+          preferences = customerData?.notificationPreferences;
+          console.log(`Found customer ${customerId} via phone`);
         }
-      }
-
-      // ANTI-SPAM: If no existing customer profile found, send walk-in welcome notifications
-      if (!customerDoc) {
-        const notificationsSent = [];
-
-        // Send welcome EMAIL if email available
-        if (clientEmail && isValidEmail(clientEmail)) {
-          console.log(`Sending welcome email to walk-in customer: ${clientEmail}`);
-
-          await sendEmailNotification(null, { // No customerId for walk-in
-            to: clientEmail,
-            subject: `Bienvenue chez O'MEGA Services - Réparation ${ticket?.ticketNumber || ticketId}`,
-            template: 'welcome',
-            templateData: {
-              customerName: clientData?.name || 'Cher client',
-              deviceInfo: `${ticket?.deviceType || 'Appareil'} ${ticket?.brand || ''} ${ticket?.model || ''}`.trim(),
-              ticketNumber: ticket?.ticketNumber || ticketId,
-              createdDateTime: formatDateTime(new Date()),
-              description: ticket?.issue || 'Réparation standard',
-              registrationLink: `https://kepleromega.netlify.app/customer/register?ticket=${ticketId}&email=${encodeURIComponent(clientEmail)}`
-            },
-            ticketId
-          });
-          notificationsSent.push('email');
-        }
-
-        // Send welcome SMS if phone available (regardless of email)
-        if (clientPhone) {
-          const formattedPhone = formatFrenchPhoneNumber(clientPhone);
-          if (formattedPhone) {
-            console.log(`Sending welcome SMS to walk-in customer: ${formattedPhone}`);
-
-            const smsMessage = `🛠️ O'MEGA Services\n\nBonjour${clientData?.name ? ` ${clientData.name}` : ''}!\n\nVotre réparation #${ticket?.ticketNumber || ticketId} a été enregistrée.\n\nSuivez l'évolution et créez votre compte:\n${`https://kepleromega.netlify.app/customer/register?ticket=${ticketId}${clientEmail ? `&email=${encodeURIComponent(clientEmail)}` : ''}`}\n\nPour toute question, contactez-nous:\n09 86 60 89 80`;
-
-            await sendSmsNotification(formattedPhone, smsMessage, {
-              ticketId,
-              customerId: undefined, // Walk-in customer
-              type: 'ticket_created_walkin'
-            });
-            notificationsSent.push('sms');
-          }
-        }
-
-        // Log the welcome notifications
-        if (notificationsSent.length > 0) {
-          await db.collection('notification_history').add({
-            ticketId,
-            channel: notificationsSent.join('+'), // 'email', 'sms', or 'email+sms'
-            type: 'ticket_created_walkin',
-            status: 'sent',
-            sentAt: admin.firestore.FieldValue.serverTimestamp(),
-            recipientEmail: clientEmail || null,
-            metadata: {
-              isWalkInCustomer: true,
-              clientId: clientId,
-              registrationLinkIncluded: true,
-              notificationsSent: notificationsSent,
-              phoneNumber: clientPhone ? formatFrenchPhoneNumber(clientPhone) : null
-            }
-          });
-
-          console.log(`Walk-in welcome notifications sent for ticket ${ticketId}: ${notificationsSent.join(' + ')}`);
-        }
-
-        return; // Don't continue with regular customer notifications
-      }
-
-      if (!customerDoc) {
-        console.log(`No customer profile found for client ${clientId} (tried linkedClientId, email, and phone)`);
-        return;
       }
     }
 
-    const preferences = customerData?.notificationPreferences;
+    // Set defaults for preferences if no customer profile found
+    const defaultPreferences = {
+      emailEnabled: true,
+      smsEnabled: true,
+      pushEnabled: false, // Only for registered customers
+      whatsappEnabled: false // Only for registered customers
+    };
+
+    const finalPreferences = preferences || defaultPreferences;
+    const customerName = customerData?.fullName || clientData?.name || '';
     const deviceInfo = `${ticket?.deviceType || 'Appareil'} ${ticket?.brand || ''} ${ticket?.model || ''}`.trim();
 
-    // Ensure we have a valid customer ID before proceeding
-    if (!customerId) {
-      console.log(`No valid customer ID found for ticket ${ticketId}`);
-      return;
-    }
+    console.log(`🎯 UNIFIED LOGIC: Notification preferences for ticket ${ticketId}:`, finalPreferences);
 
-    // Send welcome notification
-    if (preferences?.pushEnabled) {
+    // Send push notification (only for registered customers)
+    if (customerId && finalPreferences.pushEnabled) {
       await sendPushNotification(customerId, {
         title: 'Nouvelle réparation créée',
         body: `Votre ${deviceInfo} a été enregistré pour réparation`,
@@ -1329,39 +1121,70 @@ export const onTicketCreated = functions.firestore
       });
     }
 
-    if (preferences?.emailEnabled) {
-      // Get customer name
-      const customerName = customerData?.fullName || '';
+    // Send EMAIL notification (if enabled)
+    if (finalPreferences.emailEnabled && clientData?.email && isValidEmail(clientData.email)) {
+      console.log(`Sending welcome email for ticket ${ticketId}`);
+
+      const templateData = {
+        customerName: customerName || 'Cher client',
+        deviceInfo,
+        ticketNumber: ticket?.ticketNumber || ticketId,
+        createdDateTime: formatDateTime(new Date()),
+        description: ticket?.issue || 'Réparation standard',
+        registrationLink: customerId ? undefined : `https://kepleromega.netlify.app/customer/register?ticket=${ticketId}&email=${encodeURIComponent(clientData.email)}`
+      };
 
       await sendEmailNotification(customerId, {
-        subject: `Réparation créée - ${deviceInfo}`,
-        template: 'welcome', // Use the fancy welcome template
-        templateData: {
-          customerName,
-          deviceInfo,
-          ticketNumber: ticket?.ticketNumber || ticketId,
-          createdDateTime: formatDateTime(new Date()),
-          description: ticket?.issue || 'Réparation standard'
-        },
+        to: customerId ? undefined : clientData.email, // Use 'to' for walk-in, customerId for registered
+        subject: customerId
+          ? `Réparation créée - ${deviceInfo}`
+          : `Bienvenue chez O'MEGA Services - Réparation ${ticket?.ticketNumber || ticketId}`,
+        template: 'welcome',
+        templateData,
         ticketId
       });
     }
 
+    // Send SMS notification (if enabled)
+    if (finalPreferences.smsEnabled && clientData?.phone) {
+      const formattedPhone = formatFrenchPhoneNumber(clientData.phone);
+      if (formattedPhone) {
+        console.log(`Sending welcome SMS for ticket ${ticketId} to ${formattedPhone}`);
+
+        const smsMessage = customerId
+          ? `🛠️ O'MEGA Services\n\nBonjour${customerName ? ` ${customerName}` : ''}!\n\nVotre réparation #${ticket?.ticketNumber || ticketId} a été enregistrée.\n\n📱 Suivez l'évolution sur votre espace client.`
+          : `🛠️ O'MEGA Services\n\nBonjour${clientData?.name ? ` ${clientData.name}` : ''}!\n\nVotre réparation #${ticket?.ticketNumber || ticketId} a été enregistrée.\n\nSuivez l'évolution et créez votre compte:\n${`https://kepleromega.netlify.app/customer/register?ticket=${ticketId}${clientData?.email ? `&email=${encodeURIComponent(clientData.email)}` : ''}`}\n\nPour toute question, contactez-nous:\n09 86 60 89 80`;
+
+        await sendSmsNotification(formattedPhone, smsMessage, {
+          ticketId,
+          customerId,
+          type: customerId ? 'ticket_created_registered' : 'ticket_created_walkin'
+        });
+      }
+    }
+
     // Log notification in history
+    const channels = [];
+    if (finalPreferences.emailEnabled) channels.push('email');
+    if (finalPreferences.smsEnabled) channels.push('sms');
+    if (customerId && finalPreferences.pushEnabled) channels.push('push');
+
     await db.collection('notification_history').add({
       customerId,
       ticketId,
       type: 'ticket_created',
-      channel: preferences?.emailEnabled ? 'email' : (preferences?.pushEnabled ? 'push' : 'none'),
+      channel: channels.join('+') || 'none',
       status: 'sent',
       sentAt: admin.firestore.FieldValue.serverTimestamp(),
       metadata: {
         deviceInfo,
-        ticketNumber: ticket?.ticketNumber || ticketId
+        ticketNumber: ticket?.ticketNumber || ticketId,
+        isRegisteredCustomer: !!customerId,
+        preferences: finalPreferences
       }
     });
 
-    console.log(`New ticket notification sent for ticket ${ticketId} to customer ${customerId}`);
+    console.log(`Unified welcome notifications sent for ticket ${ticketId}: ${channels.join(' + ') || 'none'}`);
   });
 
 // Cloud Function: Get client data for registration pre-filling
