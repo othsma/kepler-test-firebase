@@ -970,7 +970,7 @@ export const onTicketStatusChange = functions.firestore
         };
       }
 
-      await sendEmailNotification(customerId || null, {
+      await sendEmailNotification(customerId, {
         to: customerId ? undefined : (emailToUse || undefined), // Use 'to' for walk-in, customerId for registered
         subject: after?.status === 'completed' ? `Réparation terminée - ${deviceInfo}` : `Mise à jour réparation - ${deviceInfo}`,
         template: emailTemplate,
@@ -979,42 +979,10 @@ export const onTicketStatusChange = functions.firestore
       });
     }
 
-    // DEBUG LOGGING - SMS Investigation
-    console.log('🔍 SMS DEBUG - STATUS CHANGE - PRE-CHECK:', {
-      ticketId,
-      customerId,
-      isRegisteredCustomer: !!customerId,
-      finalPreferences: {
-        smsEnabled: finalPreferences.smsEnabled,
-        emailEnabled: finalPreferences.emailEnabled,
-        pushEnabled: finalPreferences.pushEnabled
-      },
-      clientData: {
-        exists: !!clientData,
-        phone: clientData?.phone,
-        phoneType: typeof clientData?.phone,
-        phoneLength: clientData?.phone?.length,
-        email: clientData?.email,
-        name: clientData?.name
-      },
-      customerData: {
-        exists: !!customerData,
-        phoneNumber: customerData?.phoneNumber,
-        preferences: customerData?.notificationPreferences
-      },
-      conditionCheck: finalPreferences.smsEnabled && clientData?.phone,
-      smsEnabledType: typeof finalPreferences.smsEnabled,
-      smsEnabledValue: finalPreferences.smsEnabled
-    });
-
     // Send SMS notification (if enabled) - FIXED: uses prioritized phone
     if (finalPreferences.smsEnabled && phoneToUse) {
-      console.log('✅ SMS CONDITION MET - PROCEEDING WITH STATUS CHANGE SMS');
       const formattedPhone = formatFrenchPhoneNumber(phoneToUse);
-      console.log('📱 FORMATTED PHONE:', formattedPhone, 'from:', phoneToUse);
       if (formattedPhone) {
-        console.log('🚀 SENDING STATUS CHANGE SMS NOW');
-
         let smsMessage = '';
         if (after?.status === 'completed') {
           smsMessage = smsTemplates.repairCompleted;
@@ -1029,11 +997,7 @@ export const onTicketStatusChange = functions.firestore
           customerId,
           type: customerId ? 'status_change_registered' : 'status_change_walkin'
         });
-      } else {
-        console.log('❌ PHONE FORMATTING FAILED for status change');
       }
-    } else {
-      console.log('❌ SMS CONDITION FAILED - NO STATUS CHANGE SMS SENT');
     }
 
     // Log notification in history
@@ -1188,42 +1152,10 @@ export const onTicketCreated = functions.firestore
       });
     }
 
-    // DEBUG LOGGING - SMS Investigation
-    console.log('🔍 SMS DEBUG - TICKET CREATED - PRE-CHECK:', {
-      ticketId,
-      customerId,
-      isRegisteredCustomer: !!customerId,
-      finalPreferences: {
-        smsEnabled: finalPreferences.smsEnabled,
-        emailEnabled: finalPreferences.emailEnabled,
-        pushEnabled: finalPreferences.pushEnabled
-      },
-      clientData: {
-        exists: !!clientData,
-        phone: clientData?.phone,
-        phoneType: typeof clientData?.phone,
-        phoneLength: clientData?.phone?.length,
-        email: clientData?.email,
-        name: clientData?.name
-      },
-      customerData: {
-        exists: !!customerData,
-        phoneNumber: customerData?.phoneNumber,
-        preferences: customerData?.notificationPreferences
-      },
-      conditionCheck: finalPreferences.smsEnabled && clientData?.phone,
-      smsEnabledType: typeof finalPreferences.smsEnabled,
-      smsEnabledValue: finalPreferences.smsEnabled
-    });
-
     // Send SMS notification (if enabled) - FIXED: uses prioritized phone
     if (finalPreferences.smsEnabled && phoneToUse) {
-      console.log('✅ SMS CONDITION MET - PROCEEDING WITH TICKET CREATED SMS');
       const formattedPhone = formatFrenchPhoneNumber(phoneToUse);
-      console.log('📱 FORMATTED PHONE:', formattedPhone, 'from:', phoneToUse);
       if (formattedPhone) {
-        console.log('🚀 SENDING TICKET CREATED SMS NOW');
-
         const smsMessage = customerId
           ? `🛠️ O'MEGA Services\n\nBonjour${customerName ? ` ${customerName}` : ''}!\n\nVotre réparation #${ticket?.ticketNumber || ticketId} a été enregistrée.\n\n📱 Suivez l'évolution sur votre espace client.`
           : `🛠️ O'MEGA Services\n\nBonjour${clientData?.name ? ` ${clientData.name}` : ''}!\n\nVotre réparation #${ticket?.ticketNumber || ticketId} a été enregistrée.\n\nSuivez l'évolution et créez votre compte:\n${`https://kepleromega.netlify.app/customer/register?ticket=${ticketId}${clientData?.email ? `&email=${encodeURIComponent(clientData.email)}` : ''}`}\n\nPour toute question, contactez-nous:\n09 86 60 89 80`;
@@ -1233,11 +1165,7 @@ export const onTicketCreated = functions.firestore
           customerId,
           type: customerId ? 'ticket_created_registered' : 'ticket_created_walkin'
         });
-      } else {
-        console.log('❌ PHONE FORMATTING FAILED for ticket created');
       }
-    } else {
-      console.log('❌ SMS CONDITION FAILED - NO TICKET CREATED SMS SENT');
     }
 
     // Log notification in history

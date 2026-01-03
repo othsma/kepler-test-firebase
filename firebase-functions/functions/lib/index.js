@@ -759,7 +759,6 @@ async function findCustomerPhoneForSms(clientId) {
 exports.onTicketStatusChange = functions.firestore
     .document('tickets/{ticketId}')
     .onUpdate(async (change, context) => {
-    var _a;
     const before = change.before.data();
     const after = change.after.data();
     // Check if status actually changed
@@ -907,40 +906,10 @@ exports.onTicketStatusChange = functions.firestore
             ticketId
         });
     }
-    // DEBUG LOGGING - SMS Investigation
-    console.log('🔍 SMS DEBUG - STATUS CHANGE - PRE-CHECK:', {
-        ticketId,
-        customerId,
-        isRegisteredCustomer: !!customerId,
-        finalPreferences: {
-            smsEnabled: finalPreferences.smsEnabled,
-            emailEnabled: finalPreferences.emailEnabled,
-            pushEnabled: finalPreferences.pushEnabled
-        },
-        clientData: {
-            exists: !!clientData,
-            phone: clientData === null || clientData === void 0 ? void 0 : clientData.phone,
-            phoneType: typeof (clientData === null || clientData === void 0 ? void 0 : clientData.phone),
-            phoneLength: (_a = clientData === null || clientData === void 0 ? void 0 : clientData.phone) === null || _a === void 0 ? void 0 : _a.length,
-            email: clientData === null || clientData === void 0 ? void 0 : clientData.email,
-            name: clientData === null || clientData === void 0 ? void 0 : clientData.name
-        },
-        customerData: {
-            exists: !!customerData,
-            phoneNumber: customerData === null || customerData === void 0 ? void 0 : customerData.phoneNumber,
-            preferences: customerData === null || customerData === void 0 ? void 0 : customerData.notificationPreferences
-        },
-        conditionCheck: finalPreferences.smsEnabled && (clientData === null || clientData === void 0 ? void 0 : clientData.phone),
-        smsEnabledType: typeof finalPreferences.smsEnabled,
-        smsEnabledValue: finalPreferences.smsEnabled
-    });
     // Send SMS notification (if enabled) - FIXED: uses prioritized phone
     if (finalPreferences.smsEnabled && phoneToUse) {
-        console.log('✅ SMS CONDITION MET - PROCEEDING WITH STATUS CHANGE SMS');
         const formattedPhone = formatFrenchPhoneNumber(phoneToUse);
-        console.log('📱 FORMATTED PHONE:', formattedPhone, 'from:', phoneToUse);
         if (formattedPhone) {
-            console.log('🚀 SENDING STATUS CHANGE SMS NOW');
             let smsMessage = '';
             if ((after === null || after === void 0 ? void 0 : after.status) === 'completed') {
                 smsMessage = smsTemplates.repairCompleted;
@@ -957,12 +926,6 @@ exports.onTicketStatusChange = functions.firestore
                 type: customerId ? 'status_change_registered' : 'status_change_walkin'
             });
         }
-        else {
-            console.log('❌ PHONE FORMATTING FAILED for status change');
-        }
-    }
-    else {
-        console.log('❌ SMS CONDITION FAILED - NO STATUS CHANGE SMS SENT');
     }
     // Log notification in history
     const channels = [];
@@ -973,7 +936,7 @@ exports.onTicketStatusChange = functions.firestore
     if (customerId && finalPreferences.pushEnabled)
         channels.push('push');
     await db.collection('notification_history').add({
-        customerId,
+        customerId: customerId || null,
         ticketId,
         type: 'status_change',
         channel: channels.join('+') || 'none',
@@ -994,7 +957,6 @@ exports.onTicketStatusChange = functions.firestore
 exports.onTicketCreated = functions.firestore
     .document('tickets/{ticketId}')
     .onCreate(async (snapshot, context) => {
-    var _a;
     const ticket = snapshot.data();
     const ticketId = context.params.ticketId;
     const clientId = ticket === null || ticket === void 0 ? void 0 : ticket.clientId; // This is the client ID from tickets collection
@@ -1101,40 +1063,10 @@ exports.onTicketCreated = functions.firestore
             ticketId
         });
     }
-    // DEBUG LOGGING - SMS Investigation
-    console.log('🔍 SMS DEBUG - TICKET CREATED - PRE-CHECK:', {
-        ticketId,
-        customerId,
-        isRegisteredCustomer: !!customerId,
-        finalPreferences: {
-            smsEnabled: finalPreferences.smsEnabled,
-            emailEnabled: finalPreferences.emailEnabled,
-            pushEnabled: finalPreferences.pushEnabled
-        },
-        clientData: {
-            exists: !!clientData,
-            phone: clientData === null || clientData === void 0 ? void 0 : clientData.phone,
-            phoneType: typeof (clientData === null || clientData === void 0 ? void 0 : clientData.phone),
-            phoneLength: (_a = clientData === null || clientData === void 0 ? void 0 : clientData.phone) === null || _a === void 0 ? void 0 : _a.length,
-            email: clientData === null || clientData === void 0 ? void 0 : clientData.email,
-            name: clientData === null || clientData === void 0 ? void 0 : clientData.name
-        },
-        customerData: {
-            exists: !!customerData,
-            phoneNumber: customerData === null || customerData === void 0 ? void 0 : customerData.phoneNumber,
-            preferences: customerData === null || customerData === void 0 ? void 0 : customerData.notificationPreferences
-        },
-        conditionCheck: finalPreferences.smsEnabled && (clientData === null || clientData === void 0 ? void 0 : clientData.phone),
-        smsEnabledType: typeof finalPreferences.smsEnabled,
-        smsEnabledValue: finalPreferences.smsEnabled
-    });
     // Send SMS notification (if enabled) - FIXED: uses prioritized phone
     if (finalPreferences.smsEnabled && phoneToUse) {
-        console.log('✅ SMS CONDITION MET - PROCEEDING WITH TICKET CREATED SMS');
         const formattedPhone = formatFrenchPhoneNumber(phoneToUse);
-        console.log('📱 FORMATTED PHONE:', formattedPhone, 'from:', phoneToUse);
         if (formattedPhone) {
-            console.log('🚀 SENDING TICKET CREATED SMS NOW');
             const smsMessage = customerId
                 ? `🛠️ O'MEGA Services\n\nBonjour${customerName ? ` ${customerName}` : ''}!\n\nVotre réparation #${(ticket === null || ticket === void 0 ? void 0 : ticket.ticketNumber) || ticketId} a été enregistrée.\n\n📱 Suivez l'évolution sur votre espace client.`
                 : `🛠️ O'MEGA Services\n\nBonjour${(clientData === null || clientData === void 0 ? void 0 : clientData.name) ? ` ${clientData.name}` : ''}!\n\nVotre réparation #${(ticket === null || ticket === void 0 ? void 0 : ticket.ticketNumber) || ticketId} a été enregistrée.\n\nSuivez l'évolution et créez votre compte:\n${`https://kepleromega.netlify.app/customer/register?ticket=${ticketId}${(clientData === null || clientData === void 0 ? void 0 : clientData.email) ? `&email=${encodeURIComponent(clientData.email)}` : ''}`}\n\nPour toute question, contactez-nous:\n09 86 60 89 80`;
@@ -1144,12 +1076,6 @@ exports.onTicketCreated = functions.firestore
                 type: customerId ? 'ticket_created_registered' : 'ticket_created_walkin'
             });
         }
-        else {
-            console.log('❌ PHONE FORMATTING FAILED for ticket created');
-        }
-    }
-    else {
-        console.log('❌ SMS CONDITION FAILED - NO TICKET CREATED SMS SENT');
     }
     // Log notification in history
     const channels = [];
@@ -1160,7 +1086,7 @@ exports.onTicketCreated = functions.firestore
     if (customerId && finalPreferences.pushEnabled)
         channels.push('push');
     await db.collection('notification_history').add({
-        customerId,
+        customerId: customerId || null,
         ticketId,
         type: 'ticket_created',
         channel: channels.join('+') || 'none',
