@@ -625,7 +625,7 @@ async function sendWhatsAppMessage(phoneNumber: string, message: string, options
       sentAt: admin.firestore.FieldValue.serverTimestamp(),
       error: error instanceof Error ? error.message : 'Unknown error',
       metadata: {
-        phoneNumber: phoneNumber || null,
+        phoneNumber: phoneNumber,
         messageLength: message?.length || 0
       }
     });
@@ -670,7 +670,8 @@ const smsTemplates = {
   paymentReminder: "💳 PAIEMENT: Votre réparation est prête. Total estimé: {amount}€"
 };
 
-// WhatsApp Templates
+// WhatsApp Templates (used for future WhatsApp implementation)
+// @ts-expect-error - Keeping for future WhatsApp integration
 const whatsappTemplates = {
   welcome: (data: any) => `🛠️ *O'MEGA Services*
 
@@ -834,7 +835,7 @@ export const onTicketStatusChange = functions.firestore
     }
     const clientData = clientDoc.data();
 
-    // UNIFIED CUSTOMER LOGIC: Find customer profile (if exists) and get preferences
+    // FIXED: Prioritize customer profile data over client data
     let customerDoc = null;
     let customerId = null;
     let customerData = null;
@@ -895,6 +896,10 @@ export const onTicketStatusChange = functions.firestore
     };
 
     const finalPreferences = preferences || defaultPreferences;
+
+    // FIXED: Use customer profile data first, client data as fallback
+    const emailToUse = customerId ? (customerData?.email || clientData?.email) : clientData?.email;
+    const phoneToUse = customerId ? (customerData?.phoneNumber || clientData?.phone) : clientData?.phone;
     const customerName = customerData?.fullName || clientData?.name || '';
     const deviceInfo = `${after?.deviceType || 'Appareil'} ${after?.brand || ''} ${after?.model || ''}`.trim();
 
@@ -919,9 +924,9 @@ export const onTicketStatusChange = functions.firestore
       });
     }
 
-    // Send EMAIL notification (if enabled)
-    if (finalPreferences.emailEnabled && clientData?.email && isValidEmail(clientData.email)) {
-      console.log(`Sending status update email for ticket ${ticketId}`);
+    // Send EMAIL notification (if enabled) - FIXED: uses prioritized email
+    if (finalPreferences.emailEnabled && emailToUse && isValidEmail(emailToUse)) {
+      console.log(`Sending status update email for ticket ${ticketId} to ${emailToUse}`);
 
       let emailTemplate = 'statusUpdate';
       let templateData: any = {};
@@ -965,8 +970,8 @@ export const onTicketStatusChange = functions.firestore
         };
       }
 
-      await sendEmailNotification(customerId, {
-        to: customerId ? undefined : clientData.email, // Use 'to' for walk-in, customerId for registered
+      await sendEmailNotification(customerId || null, {
+        to: customerId ? undefined : (emailToUse || undefined), // Use 'to' for walk-in, customerId for registered
         subject: after?.status === 'completed' ? `Réparation terminée - ${deviceInfo}` : `Mise à jour réparation - ${deviceInfo}`,
         template: emailTemplate,
         templateData,
@@ -974,11 +979,41 @@ export const onTicketStatusChange = functions.firestore
       });
     }
 
-    // Send SMS notification (if enabled)
-    if (finalPreferences.smsEnabled && clientData?.phone) {
-      const formattedPhone = formatFrenchPhoneNumber(clientData.phone);
+    // DEBUG LOGGING - SMS Investigation
+    console.log('🔍 SMS DEBUG - STATUS CHANGE - PRE-CHECK:', {
+      ticketId,
+      customerId,
+      isRegisteredCustomer: !!customerId,
+      finalPreferences: {
+        smsEnabled: finalPreferences.smsEnabled,
+        emailEnabled: finalPreferences.emailEnabled,
+        pushEnabled: finalPreferences.pushEnabled
+      },
+      clientData: {
+        exists: !!clientData,
+        phone: clientData?.phone,
+        phoneType: typeof clientData?.phone,
+        phoneLength: clientData?.phone?.length,
+        email: clientData?.email,
+        name: clientData?.name
+      },
+      customerData: {
+        exists: !!customerData,
+        phoneNumber: customerData?.phoneNumber,
+        preferences: customerData?.notificationPreferences
+      },
+      conditionCheck: finalPreferences.smsEnabled && clientData?.phone,
+      smsEnabledType: typeof finalPreferences.smsEnabled,
+      smsEnabledValue: finalPreferences.smsEnabled
+    });
+
+    // Send SMS notification (if enabled) - FIXED: uses prioritized phone
+    if (finalPreferences.smsEnabled && phoneToUse) {
+      console.log('✅ SMS CONDITION MET - PROCEEDING WITH STATUS CHANGE SMS');
+      const formattedPhone = formatFrenchPhoneNumber(phoneToUse);
+      console.log('📱 FORMATTED PHONE:', formattedPhone, 'from:', phoneToUse);
       if (formattedPhone) {
-        console.log(`Sending status update SMS for ticket ${ticketId} to ${formattedPhone}`);
+        console.log('🚀 SENDING STATUS CHANGE SMS NOW');
 
         let smsMessage = '';
         if (after?.status === 'completed') {
@@ -994,7 +1029,11 @@ export const onTicketStatusChange = functions.firestore
           customerId,
           type: customerId ? 'status_change_registered' : 'status_change_walkin'
         });
+      } else {
+        console.log('❌ PHONE FORMATTING FAILED for status change');
       }
+    } else {
+      console.log('❌ SMS CONDITION FAILED - NO STATUS CHANGE SMS SENT');
     }
 
     // Log notification in history
@@ -1004,7 +1043,7 @@ export const onTicketStatusChange = functions.firestore
     if (customerId && finalPreferences.pushEnabled) channels.push('push');
 
     await db.collection('notification_history').add({
-      customerId,
+      customerId: customerId || null,
       ticketId,
       type: 'status_change',
       channel: channels.join('+') || 'none',
@@ -1105,6 +1144,10 @@ export const onTicketCreated = functions.firestore
     };
 
     const finalPreferences = preferences || defaultPreferences;
+
+    // FIXED: Use customer profile data first, client data as fallback
+    const emailToUse = customerId ? (customerData?.email || clientData?.email) : clientData?.email;
+    const phoneToUse = customerId ? (customerData?.phoneNumber || clientData?.phone) : clientData?.phone;
     const customerName = customerData?.fullName || clientData?.name || '';
     const deviceInfo = `${ticket?.deviceType || 'Appareil'} ${ticket?.brand || ''} ${ticket?.model || ''}`.trim();
 
@@ -1135,7 +1178,7 @@ export const onTicketCreated = functions.firestore
       };
 
       await sendEmailNotification(customerId, {
-        to: customerId ? undefined : clientData.email, // Use 'to' for walk-in, customerId for registered
+        to: customerId ? undefined : (emailToUse || undefined), // Use 'to' for walk-in, customerId for registered
         subject: customerId
           ? `Réparation créée - ${deviceInfo}`
           : `Bienvenue chez O'MEGA Services - Réparation ${ticket?.ticketNumber || ticketId}`,
@@ -1145,11 +1188,41 @@ export const onTicketCreated = functions.firestore
       });
     }
 
-    // Send SMS notification (if enabled)
-    if (finalPreferences.smsEnabled && clientData?.phone) {
-      const formattedPhone = formatFrenchPhoneNumber(clientData.phone);
+    // DEBUG LOGGING - SMS Investigation
+    console.log('🔍 SMS DEBUG - TICKET CREATED - PRE-CHECK:', {
+      ticketId,
+      customerId,
+      isRegisteredCustomer: !!customerId,
+      finalPreferences: {
+        smsEnabled: finalPreferences.smsEnabled,
+        emailEnabled: finalPreferences.emailEnabled,
+        pushEnabled: finalPreferences.pushEnabled
+      },
+      clientData: {
+        exists: !!clientData,
+        phone: clientData?.phone,
+        phoneType: typeof clientData?.phone,
+        phoneLength: clientData?.phone?.length,
+        email: clientData?.email,
+        name: clientData?.name
+      },
+      customerData: {
+        exists: !!customerData,
+        phoneNumber: customerData?.phoneNumber,
+        preferences: customerData?.notificationPreferences
+      },
+      conditionCheck: finalPreferences.smsEnabled && clientData?.phone,
+      smsEnabledType: typeof finalPreferences.smsEnabled,
+      smsEnabledValue: finalPreferences.smsEnabled
+    });
+
+    // Send SMS notification (if enabled) - FIXED: uses prioritized phone
+    if (finalPreferences.smsEnabled && phoneToUse) {
+      console.log('✅ SMS CONDITION MET - PROCEEDING WITH TICKET CREATED SMS');
+      const formattedPhone = formatFrenchPhoneNumber(phoneToUse);
+      console.log('📱 FORMATTED PHONE:', formattedPhone, 'from:', phoneToUse);
       if (formattedPhone) {
-        console.log(`Sending welcome SMS for ticket ${ticketId} to ${formattedPhone}`);
+        console.log('🚀 SENDING TICKET CREATED SMS NOW');
 
         const smsMessage = customerId
           ? `🛠️ O'MEGA Services\n\nBonjour${customerName ? ` ${customerName}` : ''}!\n\nVotre réparation #${ticket?.ticketNumber || ticketId} a été enregistrée.\n\n📱 Suivez l'évolution sur votre espace client.`
@@ -1160,7 +1233,11 @@ export const onTicketCreated = functions.firestore
           customerId,
           type: customerId ? 'ticket_created_registered' : 'ticket_created_walkin'
         });
+      } else {
+        console.log('❌ PHONE FORMATTING FAILED for ticket created');
       }
+    } else {
+      console.log('❌ SMS CONDITION FAILED - NO TICKET CREATED SMS SENT');
     }
 
     // Log notification in history
@@ -1170,7 +1247,7 @@ export const onTicketCreated = functions.firestore
     if (customerId && finalPreferences.pushEnabled) channels.push('push');
 
     await db.collection('notification_history').add({
-      customerId,
+      customerId: customerId || null,
       ticketId,
       type: 'ticket_created',
       channel: channels.join('+') || 'none',
