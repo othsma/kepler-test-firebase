@@ -11,7 +11,7 @@ import {
   serverTimestamp
 } from 'firebase/firestore';
 import { db, initializeSuperAdmin, ROLES } from './firebase';
-import { User as FirebaseUser } from 'firebase/auth';
+import { User } from 'firebase/auth';
 import { format } from 'date-fns';
 import { DocumentItem } from '../components/documents/DocumentTypes';
 import { convertTicketToDocument, convertTicketToInvoice } from '../components/documents/DocumentConverter';
@@ -286,6 +286,7 @@ interface Ticket {
   amountPaid?: number;
   invoiceGenerated?: boolean; // Track if invoice was generated from this ticket
   invoiceId?: string; // Reference to generated invoice
+  inStorePickup?: boolean; // Whether client is waiting in-store (affects SMS notifications)
   createdAt: string;
   updatedAt: string;
 }
@@ -347,10 +348,10 @@ const useTicketsStore = create<TicketsState>((set, get) => ({
       let ticketsCollection;
       
       // If user is a technician, only fetch their assigned tickets
-      if (userRole === ROLES.TECHNICIAN && user && (user as FirebaseUser).uid) {
+      if (userRole === ROLES.TECHNICIAN && user && user.uid) {
         ticketsCollection = query(
           collection(db, 'tickets'),
-          where('technicianId', '==', (user as FirebaseUser).uid)
+          where('technicianId', '==', user.uid)
         );
       } else {
         // Super admin can see all tickets

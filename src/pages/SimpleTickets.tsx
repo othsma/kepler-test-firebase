@@ -207,7 +207,7 @@ export default function SimpleTickets() {
   const [invoiceSortDirection, setInvoiceSortDirection] = useState<'asc' | 'desc'>('desc');
 
   // Tab navigation state
-  const [currentView, setCurrentView] = useState<'create' | 'all' | 'invoices'>('all');
+  const [currentView, setCurrentView] = useState<'create' | 'all' | 'invoices'>('create');
 
   // Load invoices when invoices tab is selected
   useEffect(() => {
@@ -395,6 +395,9 @@ export default function SimpleTickets() {
         const newTicketNumber = await addTicket(ticketData);
         setNewTicketNumber(newTicketNumber);
         setShowInvoice(true);
+
+        // Clear sessionStorage after successful ticket creation
+        clearTicketSessionStorage();
       }
       
       // Only reset form if not editing
@@ -415,6 +418,7 @@ export default function SimpleTickets() {
                     setTechnicianId('');
                     setPaymentStatus('not_paid');
                     setAmountPaid(0);
+                    setInStorePickup(false);
 
         // Reset the form tracking state
         setHasStartedFillingForm(false);
@@ -630,6 +634,30 @@ export default function SimpleTickets() {
     if (userRole === ROLES.SUPER_ADMIN) return true;
     if (userRole === ROLES.TECHNICIAN && user && ticket.technicianId === user?.uid) return true;
     return false;
+  };
+
+  // Clear ticket sessionStorage after successful creation
+  const clearTicketSessionStorage = () => {
+    const ticketKeys = [
+      'ticketSessionActive',
+      'ticketFormStarted',
+      'ticketClientSearch',
+      'ticketSelectedClientId',
+      'ticketDeviceType',
+      'ticketBrand',
+      'ticketModel',
+      'ticketTasksWithPrice',
+      'ticketIssue',
+      'ticketPasscode',
+      'ticketImeiSerial',
+      'ticketStatus',
+      'ticketTechnicianId',
+      'ticketPaymentStatus',
+      'ticketAmountPaid',
+      'ticketInStorePickup'
+    ];
+
+    ticketKeys.forEach(key => sessionStorage.removeItem(key));
   };
 
   // Fixed brand addition handler

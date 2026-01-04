@@ -407,7 +407,7 @@ async function sendEmailNotification(customerId, notification) {
         }
         // Log email in notification history
         await db.collection('notification_history').add({
-            customerId,
+            customerId: customerId || undefined,
             ticketId: notification.ticketId,
             type: 'email',
             channel: 'email',
@@ -424,7 +424,7 @@ async function sendEmailNotification(customerId, notification) {
         console.error('Error sending email notification:', error);
         // Log failed email attempt
         await db.collection('notification_history').add({
-            customerId,
+            customerId: customerId || undefined,
             ticketId: notification.ticketId,
             type: 'email',
             channel: 'email',
@@ -638,8 +638,19 @@ const smsTemplates = {
     welcome: "👋 Bienvenue chez O'MEGA Services! Suivez vos réparations facilement.",
     paymentReminder: "💳 PAIEMENT: Votre réparation est prête. Total estimé: {amount}€"
 };
+// WhatsApp availability detection
+async function isWhatsAppAvailable() {
+    var _a, _b;
+    try {
+        const whatsappFrom = (_a = functions.config().twilio) === null || _a === void 0 ? void 0 : _a.whatsapp_from;
+        const whatsappToken = (_b = functions.config().twilio) === null || _b === void 0 ? void 0 : _b.token;
+        return !!(whatsappFrom && whatsappToken);
+    }
+    catch (_c) {
+        return false;
+    }
+}
 // WhatsApp Templates (used for future WhatsApp implementation)
-// @ts-expect-error - Keeping for future WhatsApp integration
 const whatsappTemplates = {
     welcome: (data) => `🛠️ *O'MEGA Services*
 
@@ -906,26 +917,62 @@ exports.onTicketStatusChange = functions.firestore
             ticketId
         });
     }
-    // Send SMS notification (if enabled) - FIXED: uses prioritized phone
-    if (finalPreferences.smsEnabled && phoneToUse) {
-        const formattedPhone = formatFrenchPhoneNumber(phoneToUse);
-        if (formattedPhone) {
-            let smsMessage = '';
+    // IMPLEMENTED: Anti-spam WhatsApp XOR SMS logic (skip if in-store pickup)
+    if (!(after === null || after === void 0 ? void 0 : after.inStorePickup)) {
+        const whatsappAvailable = await isWhatsAppAvailable();
+        // WhatsApp XOR SMS: Choose WhatsApp if available, otherwise SMS (never both)
+        let messagingChannel = null;
+        let formattedPhone = null;
+        if (finalPreferences.whatsappEnabled && whatsappAvailable && phoneToUse) {
+            // Priority: WhatsApp if enabled and available
+            messagingChannel = 'whatsapp';
+            formattedPhone = formatFrenchPhoneNumber(phoneToUse);
+        }
+        else if (finalPreferences.smsEnabled && phoneToUse) {
+            // Fallback: SMS if WhatsApp not available
+            messagingChannel = 'sms';
+            formattedPhone = formatFrenchPhoneNumber(phoneToUse);
+        }
+        // Send messaging notification (WhatsApp OR SMS, not both)
+        if (messagingChannel && formattedPhone) {
+            let message = '';
             if ((after === null || after === void 0 ? void 0 : after.status) === 'completed') {
-                smsMessage = smsTemplates.repairCompleted;
+                message = messagingChannel === 'whatsapp'
+                    ? whatsappTemplates.completion({ deviceInfo, ticketNumber: (after === null || after === void 0 ? void 0 : after.ticketNumber) || ticketId })
+                    : smsTemplates.repairCompleted;
             }
             else if ((after === null || after === void 0 ? void 0 : after.status) === 'in-progress') {
-                smsMessage = smsTemplates.statusUpdate;
+                message = messagingChannel === 'whatsapp'
+                    ? whatsappTemplates.statusUpdate({ deviceInfo, newStatus })
+                    : smsTemplates.statusUpdate;
             }
             else {
-                smsMessage = `📱 Statut de votre ${deviceInfo}: ${newStatus}`;
+                message = messagingChannel === 'whatsapp'
+                    ? whatsappTemplates.statusUpdate({ deviceInfo, newStatus })
+                    : `📱 Statut de votre ${deviceInfo}: ${newStatus}`;
             }
-            await sendSmsNotification(formattedPhone, smsMessage, {
-                ticketId,
-                customerId,
-                type: customerId ? 'status_change_registered' : 'status_change_walkin'
-            });
+            if (messagingChannel === 'whatsapp') {
+                await sendWhatsAppMessage(formattedPhone, message, {
+                    ticketId,
+                    customerId: customerId || undefined,
+                    type: customerId ? 'status_change_registered' : 'status_change_walkin'
+                });
+            }
+            else {
+                await sendSmsNotification(formattedPhone, message, {
+                    ticketId,
+                    customerId: customerId || undefined,
+                    type: customerId ? 'status_change_registered' : 'status_change_walkin'
+                });
+            }
         }
+        else if ((finalPreferences.whatsappEnabled || finalPreferences.smsEnabled) && phoneToUse) {
+            // Log when WhatsApp/SMS is enabled but not available
+            console.log(`Messaging not sent: WhatsApp available=${whatsappAvailable}, WhatsApp enabled=${finalPreferences.whatsappEnabled}, SMS enabled=${finalPreferences.smsEnabled}`);
+        }
+    }
+    else {
+        console.log(`SMS skipped for ticket ${ticketId}: in-store pickup detected`);
     }
     // Log notification in history
     const channels = [];
@@ -936,7 +983,7 @@ exports.onTicketStatusChange = functions.firestore
     if (customerId && finalPreferences.pushEnabled)
         channels.push('push');
     await db.collection('notification_history').add({
-        customerId: customerId || null,
+        customerId: customerId || undefined,
         ticketId,
         type: 'status_change',
         channel: channels.join('+') || 'none',
@@ -1053,7 +1100,7 @@ exports.onTicketCreated = functions.firestore
             description: (ticket === null || ticket === void 0 ? void 0 : ticket.issue) || 'Réparation standard',
             registrationLink: customerId ? undefined : `https://kepleromega.netlify.app/customer/register?ticket=${ticketId}&email=${encodeURIComponent(clientData.email)}`
         };
-        await sendEmailNotification(customerId, {
+        await sendEmailNotification(customerId || null, {
             to: customerId ? undefined : (emailToUse || undefined), // Use 'to' for walk-in, customerId for registered
             subject: customerId
                 ? `Réparation créée - ${deviceInfo}`
@@ -1063,8 +1110,8 @@ exports.onTicketCreated = functions.firestore
             ticketId
         });
     }
-    // Send SMS notification (if enabled) - FIXED: uses prioritized phone
-    if (finalPreferences.smsEnabled && phoneToUse) {
+    // Send SMS notification (if enabled and NOT in-store pickup) - FIXED: uses prioritized phone
+    if (finalPreferences.smsEnabled && phoneToUse && !ticket.inStorePickup) {
         const formattedPhone = formatFrenchPhoneNumber(phoneToUse);
         if (formattedPhone) {
             const smsMessage = customerId
@@ -1072,7 +1119,7 @@ exports.onTicketCreated = functions.firestore
                 : `🛠️ O'MEGA Services\n\nBonjour${(clientData === null || clientData === void 0 ? void 0 : clientData.name) ? ` ${clientData.name}` : ''}!\n\nVotre réparation #${(ticket === null || ticket === void 0 ? void 0 : ticket.ticketNumber) || ticketId} a été enregistrée.\n\nSuivez l'évolution et créez votre compte:\n${`https://kepleromega.netlify.app/customer/register?ticket=${ticketId}${(clientData === null || clientData === void 0 ? void 0 : clientData.email) ? `&email=${encodeURIComponent(clientData.email)}` : ''}`}\n\nPour toute question, contactez-nous:\n09 86 60 89 80`;
             await sendSmsNotification(formattedPhone, smsMessage, {
                 ticketId,
-                customerId,
+                customerId: customerId || undefined,
                 type: customerId ? 'ticket_created_registered' : 'ticket_created_walkin'
             });
         }
@@ -1086,7 +1133,7 @@ exports.onTicketCreated = functions.firestore
     if (customerId && finalPreferences.pushEnabled)
         channels.push('push');
     await db.collection('notification_history').add({
-        customerId: customerId || null,
+        customerId: customerId || undefined,
         ticketId,
         type: 'ticket_created',
         channel: channels.join('+') || 'none',
@@ -1209,7 +1256,7 @@ async function processIncomingWhatsAppMessage(message, value) {
         const customerId = customerDoc.id;
         // Log the incoming message
         await db.collection('whatsapp_conversations').add({
-            customerId,
+            customerId: customerId || undefined,
             messageId,
             from: from,
             to: value.to,

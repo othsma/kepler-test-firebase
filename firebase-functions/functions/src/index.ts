@@ -413,7 +413,7 @@ async function sendEmailNotification(customerId: string | null, notification: {
 
     // Log email in notification history
     await db.collection('notification_history').add({
-      customerId,
+      customerId: customerId || undefined,
       ticketId: notification.ticketId,
       type: 'email',
       channel: 'email',
@@ -431,7 +431,7 @@ async function sendEmailNotification(customerId: string | null, notification: {
 
     // Log failed email attempt
     await db.collection('notification_history').add({
-      customerId,
+      customerId: customerId || undefined,
       ticketId: notification.ticketId,
       type: 'email',
       channel: 'email',
@@ -1027,13 +1027,13 @@ export const onTicketStatusChange = functions.firestore
         if (messagingChannel === 'whatsapp') {
           await sendWhatsAppMessage(formattedPhone, message, {
             ticketId,
-            customerId,
+            customerId: customerId || undefined,
             type: customerId ? 'status_change_registered' : 'status_change_walkin'
           });
         } else {
           await sendSmsNotification(formattedPhone, message, {
             ticketId,
-            customerId,
+            customerId: customerId || undefined,
             type: customerId ? 'status_change_registered' : 'status_change_walkin'
           });
         }
@@ -1207,7 +1207,7 @@ export const onTicketCreated = functions.firestore
 
         await sendSmsNotification(formattedPhone, smsMessage, {
           ticketId,
-          customerId,
+          customerId: customerId || undefined,
           type: customerId ? 'ticket_created_registered' : 'ticket_created_walkin'
         });
       }
@@ -1366,7 +1366,7 @@ async function processIncomingWhatsAppMessage(message: any, value: any) {
 
     // Log the incoming message
     await db.collection('whatsapp_conversations').add({
-      customerId,
+      customerId: customerId || undefined,
       messageId,
       from: from,
       to: value.to,
