@@ -670,8 +670,18 @@ const smsTemplates = {
   paymentReminder: "💳 PAIEMENT: Votre réparation est prête. Total estimé: {amount}€"
 };
 
+// WhatsApp availability detection
+async function isWhatsAppAvailable(): Promise<boolean> {
+  try {
+    const whatsappFrom = (functions as any).config().twilio?.whatsapp_from;
+    const whatsappToken = (functions as any).config().twilio?.token;
+    return !!(whatsappFrom && whatsappToken);
+  } catch {
+    return false;
+  }
+}
+
 // WhatsApp Templates (used for future WhatsApp implementation)
-// @ts-expect-error - Keeping for future WhatsApp integration
 const whatsappTemplates = {
   welcome: (data: any) => `🛠️ *O'MEGA Services*
 
@@ -970,7 +980,7 @@ export const onTicketStatusChange = functions.firestore
         };
       }
 
-      await sendEmailNotification(customerId, {
+      await sendEmailNotification(customerId || null, {
         to: customerId ? undefined : (emailToUse || undefined), // Use 'to' for walk-in, customerId for registered
         subject: after?.status === 'completed' ? `Réparation terminée - ${deviceInfo}` : `Mise à jour réparation - ${deviceInfo}`,
         template: emailTemplate,
@@ -979,25 +989,56 @@ export const onTicketStatusChange = functions.firestore
       });
     }
 
-    // Send SMS notification (if enabled) - FIXED: uses prioritized phone
-    if (finalPreferences.smsEnabled && phoneToUse) {
-      const formattedPhone = formatFrenchPhoneNumber(phoneToUse);
-      if (formattedPhone) {
-        let smsMessage = '';
-        if (after?.status === 'completed') {
-          smsMessage = smsTemplates.repairCompleted;
-        } else if (after?.status === 'in-progress') {
-          smsMessage = smsTemplates.statusUpdate;
-        } else {
-          smsMessage = `📱 Statut de votre ${deviceInfo}: ${newStatus}`;
-        }
+    // IMPLEMENTED: Anti-spam WhatsApp XOR SMS logic
+    const whatsappAvailable = await isWhatsAppAvailable();
 
-        await sendSmsNotification(formattedPhone, smsMessage, {
+    // WhatsApp XOR SMS: Choose WhatsApp if available, otherwise SMS (never both)
+    let messagingChannel = null;
+    let formattedPhone = null;
+
+    if (finalPreferences.whatsappEnabled && whatsappAvailable && phoneToUse) {
+      // Priority: WhatsApp if enabled and available
+      messagingChannel = 'whatsapp';
+      formattedPhone = formatFrenchPhoneNumber(phoneToUse);
+    } else if (finalPreferences.smsEnabled && phoneToUse) {
+      // Fallback: SMS if WhatsApp not available
+      messagingChannel = 'sms';
+      formattedPhone = formatFrenchPhoneNumber(phoneToUse);
+    }
+
+    // Send messaging notification (WhatsApp OR SMS, not both)
+    if (messagingChannel && formattedPhone) {
+      let message = '';
+      if (after?.status === 'completed') {
+        message = messagingChannel === 'whatsapp'
+          ? whatsappTemplates.completion({ deviceInfo, ticketNumber: after?.ticketNumber || ticketId })
+          : smsTemplates.repairCompleted;
+      } else if (after?.status === 'in-progress') {
+        message = messagingChannel === 'whatsapp'
+          ? whatsappTemplates.statusUpdate({ deviceInfo, newStatus })
+          : smsTemplates.statusUpdate;
+      } else {
+        message = messagingChannel === 'whatsapp'
+          ? whatsappTemplates.statusUpdate({ deviceInfo, newStatus })
+          : `📱 Statut de votre ${deviceInfo}: ${newStatus}`;
+      }
+
+      if (messagingChannel === 'whatsapp') {
+        await sendWhatsAppMessage(formattedPhone, message, {
+          ticketId,
+          customerId,
+          type: customerId ? 'status_change_registered' : 'status_change_walkin'
+        });
+      } else {
+        await sendSmsNotification(formattedPhone, message, {
           ticketId,
           customerId,
           type: customerId ? 'status_change_registered' : 'status_change_walkin'
         });
       }
+    } else if ((finalPreferences.whatsappEnabled || finalPreferences.smsEnabled) && phoneToUse) {
+      // Log when WhatsApp/SMS is enabled but not available
+      console.log(`Messaging not sent: WhatsApp available=${whatsappAvailable}, WhatsApp enabled=${finalPreferences.whatsappEnabled}, SMS enabled=${finalPreferences.smsEnabled}`);
     }
 
     // Log notification in history
@@ -1007,7 +1048,7 @@ export const onTicketStatusChange = functions.firestore
     if (customerId && finalPreferences.pushEnabled) channels.push('push');
 
     await db.collection('notification_history').add({
-      customerId: customerId || null,
+      customerId: customerId || undefined,
       ticketId,
       type: 'status_change',
       channel: channels.join('+') || 'none',
@@ -1141,7 +1182,7 @@ export const onTicketCreated = functions.firestore
         registrationLink: customerId ? undefined : `https://kepleromega.netlify.app/customer/register?ticket=${ticketId}&email=${encodeURIComponent(clientData.email)}`
       };
 
-      await sendEmailNotification(customerId, {
+      await sendEmailNotification(customerId || null, {
         to: customerId ? undefined : (emailToUse || undefined), // Use 'to' for walk-in, customerId for registered
         subject: customerId
           ? `Réparation créée - ${deviceInfo}`
@@ -1175,7 +1216,7 @@ export const onTicketCreated = functions.firestore
     if (customerId && finalPreferences.pushEnabled) channels.push('push');
 
     await db.collection('notification_history').add({
-      customerId: customerId || null,
+      customerId: customerId || undefined,
       ticketId,
       type: 'ticket_created',
       channel: channels.join('+') || 'none',
