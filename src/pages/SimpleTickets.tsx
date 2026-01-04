@@ -33,6 +33,9 @@ export default function SimpleTickets() {
     }
   });
 
+  // Flag to prevent sessionStorage saving during form reset
+  const [isResettingForm, setIsResettingForm] = useState(false);
+
   // State for UI controls
   const [isAddingTicket, setIsAddingTicket] = useState(false);
   const [editingTicket, setEditingTicket] = useState<string | null>(null);
@@ -260,6 +263,12 @@ export default function SimpleTickets() {
 
   // Save form state to sessionStorage when it changes
   useEffect(() => {
+    // Skip saving during form reset to prevent race condition
+    if (isResettingForm) {
+      setIsResettingForm(false);
+      return;
+    }
+
     try {
       sessionStorage.setItem('ticketFormStarted', JSON.stringify(hasStartedFillingForm));
       sessionStorage.setItem('ticketClientSearch', clientSearch);
@@ -396,32 +405,8 @@ export default function SimpleTickets() {
         setNewTicketNumber(newTicketNumber);
         setShowInvoice(true);
 
-        // Clear sessionStorage after successful ticket creation
-        clearTicketSessionStorage();
-      }
-      
-      // Only reset form if not editing
-      if (!editingTicket) {
-        setIsAddingTicket(false);
-        setClientSearch('');
-        setSelectedClientId('');
-
-                    // Reset form fields
-                    setDeviceType('');
-                    setBrand('');
-                    setModel('');
-                    setTasksWithPrice([]);
-                    setIssue('');
-                    setPasscode('');
-                    setImeiSerial('');
-                    setStatus('pending');
-                    setTechnicianId('');
-                    setPaymentStatus('not_paid');
-                    setAmountPaid(0);
-                    setInStorePickup(false);
-
-        // Reset the form tracking state
-        setHasStartedFillingForm(false);
+        // Immediately reset form after successful creation
+        resetForm();
       }
       
       // Reset form fields for new tickets
@@ -658,6 +643,36 @@ export default function SimpleTickets() {
     ];
 
     ticketKeys.forEach(key => sessionStorage.removeItem(key));
+  };
+
+  // Reset form function
+  const resetForm = () => {
+    // Prevent sessionStorage saving during reset
+    setIsResettingForm(true);
+
+    setIsAddingTicket(false);
+    setClientSearch('');
+    setSelectedClientId('');
+
+    // Reset form fields
+    setDeviceType('');
+    setBrand('');
+    setModel('');
+    setTasksWithPrice([]);
+    setIssue('');
+    setPasscode('');
+    setImeiSerial('');
+    setStatus('pending');
+    setTechnicianId('');
+    setPaymentStatus('not_paid');
+    setAmountPaid(0);
+    setInStorePickup(false);
+
+    // Reset the form tracking state
+    setHasStartedFillingForm(false);
+
+    // Clear sessionStorage after reset
+    clearTicketSessionStorage();
   };
 
   // Fixed brand addition handler
