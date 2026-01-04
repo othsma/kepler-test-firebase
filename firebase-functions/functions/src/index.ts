@@ -989,56 +989,60 @@ export const onTicketStatusChange = functions.firestore
       });
     }
 
-    // IMPLEMENTED: Anti-spam WhatsApp XOR SMS logic
-    const whatsappAvailable = await isWhatsAppAvailable();
+    // IMPLEMENTED: Anti-spam WhatsApp XOR SMS logic (skip if in-store pickup)
+    if (!after?.inStorePickup) {
+      const whatsappAvailable = await isWhatsAppAvailable();
 
-    // WhatsApp XOR SMS: Choose WhatsApp if available, otherwise SMS (never both)
-    let messagingChannel = null;
-    let formattedPhone = null;
+      // WhatsApp XOR SMS: Choose WhatsApp if available, otherwise SMS (never both)
+      let messagingChannel = null;
+      let formattedPhone = null;
 
-    if (finalPreferences.whatsappEnabled && whatsappAvailable && phoneToUse) {
-      // Priority: WhatsApp if enabled and available
-      messagingChannel = 'whatsapp';
-      formattedPhone = formatFrenchPhoneNumber(phoneToUse);
-    } else if (finalPreferences.smsEnabled && phoneToUse) {
-      // Fallback: SMS if WhatsApp not available
-      messagingChannel = 'sms';
-      formattedPhone = formatFrenchPhoneNumber(phoneToUse);
-    }
-
-    // Send messaging notification (WhatsApp OR SMS, not both)
-    if (messagingChannel && formattedPhone) {
-      let message = '';
-      if (after?.status === 'completed') {
-        message = messagingChannel === 'whatsapp'
-          ? whatsappTemplates.completion({ deviceInfo, ticketNumber: after?.ticketNumber || ticketId })
-          : smsTemplates.repairCompleted;
-      } else if (after?.status === 'in-progress') {
-        message = messagingChannel === 'whatsapp'
-          ? whatsappTemplates.statusUpdate({ deviceInfo, newStatus })
-          : smsTemplates.statusUpdate;
-      } else {
-        message = messagingChannel === 'whatsapp'
-          ? whatsappTemplates.statusUpdate({ deviceInfo, newStatus })
-          : `📱 Statut de votre ${deviceInfo}: ${newStatus}`;
+      if (finalPreferences.whatsappEnabled && whatsappAvailable && phoneToUse) {
+        // Priority: WhatsApp if enabled and available
+        messagingChannel = 'whatsapp';
+        formattedPhone = formatFrenchPhoneNumber(phoneToUse);
+      } else if (finalPreferences.smsEnabled && phoneToUse) {
+        // Fallback: SMS if WhatsApp not available
+        messagingChannel = 'sms';
+        formattedPhone = formatFrenchPhoneNumber(phoneToUse);
       }
 
-      if (messagingChannel === 'whatsapp') {
-        await sendWhatsAppMessage(formattedPhone, message, {
-          ticketId,
-          customerId,
-          type: customerId ? 'status_change_registered' : 'status_change_walkin'
-        });
-      } else {
-        await sendSmsNotification(formattedPhone, message, {
-          ticketId,
-          customerId,
-          type: customerId ? 'status_change_registered' : 'status_change_walkin'
-        });
+      // Send messaging notification (WhatsApp OR SMS, not both)
+      if (messagingChannel && formattedPhone) {
+        let message = '';
+        if (after?.status === 'completed') {
+          message = messagingChannel === 'whatsapp'
+            ? whatsappTemplates.completion({ deviceInfo, ticketNumber: after?.ticketNumber || ticketId })
+            : smsTemplates.repairCompleted;
+        } else if (after?.status === 'in-progress') {
+          message = messagingChannel === 'whatsapp'
+            ? whatsappTemplates.statusUpdate({ deviceInfo, newStatus })
+            : smsTemplates.statusUpdate;
+        } else {
+          message = messagingChannel === 'whatsapp'
+            ? whatsappTemplates.statusUpdate({ deviceInfo, newStatus })
+            : `📱 Statut de votre ${deviceInfo}: ${newStatus}`;
+        }
+
+        if (messagingChannel === 'whatsapp') {
+          await sendWhatsAppMessage(formattedPhone, message, {
+            ticketId,
+            customerId,
+            type: customerId ? 'status_change_registered' : 'status_change_walkin'
+          });
+        } else {
+          await sendSmsNotification(formattedPhone, message, {
+            ticketId,
+            customerId,
+            type: customerId ? 'status_change_registered' : 'status_change_walkin'
+          });
+        }
+      } else if ((finalPreferences.whatsappEnabled || finalPreferences.smsEnabled) && phoneToUse) {
+        // Log when WhatsApp/SMS is enabled but not available
+        console.log(`Messaging not sent: WhatsApp available=${whatsappAvailable}, WhatsApp enabled=${finalPreferences.whatsappEnabled}, SMS enabled=${finalPreferences.smsEnabled}`);
       }
-    } else if ((finalPreferences.whatsappEnabled || finalPreferences.smsEnabled) && phoneToUse) {
-      // Log when WhatsApp/SMS is enabled but not available
-      console.log(`Messaging not sent: WhatsApp available=${whatsappAvailable}, WhatsApp enabled=${finalPreferences.whatsappEnabled}, SMS enabled=${finalPreferences.smsEnabled}`);
+    } else {
+      console.log(`SMS skipped for ticket ${ticketId}: in-store pickup detected`);
     }
 
     // Log notification in history
@@ -1193,8 +1197,8 @@ export const onTicketCreated = functions.firestore
       });
     }
 
-    // Send SMS notification (if enabled) - FIXED: uses prioritized phone
-    if (finalPreferences.smsEnabled && phoneToUse) {
+    // Send SMS notification (if enabled and NOT in-store pickup) - FIXED: uses prioritized phone
+    if (finalPreferences.smsEnabled && phoneToUse && !ticket.inStorePickup) {
       const formattedPhone = formatFrenchPhoneNumber(phoneToUse);
       if (formattedPhone) {
         const smsMessage = customerId

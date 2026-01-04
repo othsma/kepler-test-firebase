@@ -189,6 +189,18 @@ export default function SimpleTickets() {
   const [newTaskName, setNewTaskName] = useState('');
   const [newTaskPrice, setNewTaskPrice] = useState(0);
 
+  // In-store pickup flag - new field for skipping SMS
+  const [inStorePickup, setInStorePickup] = useState(() => {
+    if (!isFreshLoad.current) {
+      try {
+        return sessionStorage.getItem('ticketInStorePickup') === 'true';
+      } catch {
+        return false;
+      }
+    }
+    return false;
+  });
+
   // Add new state variables for sorting and filtering
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [searchField, setSearchField] = useState<'all' | 'tasks' | 'client' | 'ticket'>('all');
@@ -263,10 +275,11 @@ export default function SimpleTickets() {
       sessionStorage.setItem('ticketTechnicianId', technicianId);
       sessionStorage.setItem('ticketPaymentStatus', paymentStatus);
       sessionStorage.setItem('ticketAmountPaid', amountPaid.toString());
+      sessionStorage.setItem('ticketInStorePickup', String(inStorePickup));
     } catch (error) {
       console.error('Error saving form state to sessionStorage:', error);
     }
-  }, [hasStartedFillingForm, clientSearch, selectedClientId, deviceType, brand, model, tasksWithPrice, issue, passcode, status, technicianId, paymentStatus, amountPaid]);
+  }, [hasStartedFillingForm, clientSearch, selectedClientId, deviceType, brand, model, tasksWithPrice, issue, passcode, imeiSerial, status, technicianId, paymentStatus, amountPaid, inStorePickup]);
 
   // Filter tickets based on search and status
   const filteredTickets = tickets.filter(ticket => {
@@ -368,7 +381,8 @@ export default function SimpleTickets() {
         technicianId: technicianId || '',
         clientId,
         paymentStatus,
-        amountPaid
+        amountPaid,
+        inStorePickup: Boolean(inStorePickup)
       };
 
       console.log('Creating ticket with IMEI data:', { imeiSerial, ticketData });
@@ -1289,6 +1303,23 @@ export default function SimpleTickets() {
                 </div>
               )}
 
+              {/* In-Store Pickup Checkbox */}
+              <div>
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="inStorePickup"
+                    checked={inStorePickup}
+                    onChange={(e) => setInStorePickup(e.target.checked)}
+                    className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                  />
+                  <label htmlFor="inStorePickup" className={`font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                    🏪 Client attend en magasin (pas de SMS)
+                  </label>
+                </div>
+
+              </div>
+
               {/* Form Buttons */}
               <div className="flex justify-end gap-4">
                 <button
@@ -1412,11 +1443,6 @@ export default function SimpleTickets() {
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                   Coût
                 </th>
-                {userRole === ROLES.SUPER_ADMIN && (
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                    Technicien
-                  </th>
-                )}
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                   Statut
                 </th>
@@ -1447,13 +1473,18 @@ export default function SimpleTickets() {
                         #{ticket.ticketNumber}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
-                        <div className="flex items-center">
-                          <User className="h-4 w-4 mr-2 text-gray-400" />
-                          {client?.name || 'Unknown Client'}
+                        <div>
+                          <div className="flex items-center">
+                            <User className="h-4 w-4 mr-2 text-gray-400" />
+                            <div className="font-medium">{client?.name || 'Unknown Client'}</div>
+                          </div>
+                          {client?.phone && (
+                            <div className="text-xs text-gray-400 mt-0.5 ml-6">📞 {client.phone}</div>
+                          )}
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
-                        {ticket.deviceType} - {ticket.brand}
+                        {ticket.brand} - {ticket.model}
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-300 max-w-xs truncate">
                         {taskPriceDisplay}
@@ -1461,11 +1492,6 @@ export default function SimpleTickets() {
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
                         €{ticket.cost}
                       </td>
-                      {userRole === ROLES.SUPER_ADMIN && (
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
-                          {ticket.technicianId ? getTechnicianName(ticket.technicianId) : 'Unassigned'}
-                        </td>
-                      )}
                       <td className="px-6 py-4 whitespace-nowrap">
                         {/* Only allow status updates for assigned technician or super admin */}
                         {canEditTicket(ticket) ? (
@@ -1582,7 +1608,7 @@ export default function SimpleTickets() {
                 })
               ) : (
                 <tr>
-                  <td colSpan={userRole === ROLES.SUPER_ADMIN ? 9 : 8} className="px-6 py-4 text-center text-sm text-gray-500 dark:text-gray-400">
+                  <td colSpan={8} className="px-6 py-4 text-center text-sm text-gray-500 dark:text-gray-400">
                     {userRole === ROLES.TECHNICIAN ? 'No tickets assigned to you yet' : 'No tickets found'}
                   </td>
                 </tr>
@@ -1741,7 +1767,7 @@ export default function SimpleTickets() {
                               {/* Delete button - only for super admin */}
                               {userRole === ROLES.SUPER_ADMIN && invoice.id && (
                                 <button
-                                  onClick={() => handleDeleteInvoice(invoice.id)}
+                                  onClick={() => handleDeleteInvoice(invoice.id!)}
                                   className="text-red-600 hover:text-red-800"
                                   title="Supprimer la facture"
                                 >
