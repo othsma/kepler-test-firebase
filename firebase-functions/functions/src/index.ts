@@ -1,4 +1,5 @@
 import * as functions from 'firebase-functions';
+import { params } from 'firebase-functions';
 import * as admin from 'firebase-admin';
 import sgMail from '@sendgrid/mail';
 import twilio from 'twilio';
@@ -298,7 +299,7 @@ async function sendEmailNotification(customerId: string | null, notification: {
     // Initialize SendGrid if not already done
     if (!sendgridInitialized) {
       try {
-        const sendgridApiKey = (functions as any).config().sendgrid?.api_key || process.env.SENDGRID_API_KEY;
+        const sendgridApiKey = params.defineString('SENDGRID_API_KEY').value();
 
         if (sendgridApiKey) {
           sgMail.setApiKey(sendgridApiKey);
@@ -320,7 +321,7 @@ async function sendEmailNotification(customerId: string | null, notification: {
     if (notification.to) {
       // Walk-in customer - use the provided email directly
       email = notification.to;
-      console.log(`Sending to walk-in customer email: ${email}`);
+      console.log(`Sending to walk-in customer email`);
     } else {
       // Registered customer - look up profile
       if (!customerId) {
@@ -382,15 +383,7 @@ async function sendEmailNotification(customerId: string | null, notification: {
       }
     };
 
-    console.log(`🔍 DEBUG - Email payload:`, {
-      to: email,
-      from: msg.from,
-      subject: emailSubject,
-      htmlLength: emailHtml.length,
-      hasHtml: !!emailHtml
-    });
-
-    console.log(`📧 Sending email to ${email} via SendGrid: ${emailSubject}`);
+    console.log(` Sending email via SendGrid: ${emailSubject}`);
 
     let sendResult = null;
     try {
@@ -455,64 +448,21 @@ async function sendSmsNotification(phoneNumber: string, message: string, options
     // Initialize Twilio if not already done
     if (!twilioInitialized) {
       try {
-        console.log('🔧 DEBUG: Initializing Twilio...');
-
-        // Try multiple sources for credentials
-        let twilioSid: string | undefined;
-        let twilioToken: string | undefined;
-        let twilioFrom: string | undefined;
-
-        // First try functions.config()
-        try {
-          const config = (functions as any).config();
-          twilioSid = config?.twilio?.sid;
-          twilioToken = config?.twilio?.token;
-          twilioFrom = config?.twilio?.from;
-          console.log('🔧 DEBUG: functions.config() result:', {
-            hasConfig: !!config,
-            hasTwilio: !!config?.twilio,
-            sidFromConfig: !!twilioSid,
-            tokenFromConfig: !!twilioToken,
-            fromFromConfig: !!twilioFrom
-          });
-        } catch (configError) {
-          console.log('🔧 DEBUG: functions.config() failed:', configError);
-        }
-
-        // Fallback to environment variables
-        if (!twilioSid) twilioSid = process.env.TWILIO_SID;
-        if (!twilioToken) twilioToken = process.env.TWILIO_TOKEN;
-        if (!twilioFrom) twilioFrom = process.env.TWILIO_FROM_NUMBER;
-
-        console.log('🔧 DEBUG: Final Twilio config values:', {
-          hasSid: !!twilioSid,
-          hasToken: !!twilioToken,
-          hasFrom: !!twilioFrom,
-          sidPrefix: twilioSid?.substring(0, 5),
-          fromNumber: twilioFrom,
-          sidSource: twilioSid ? (process.env.TWILIO_SID === twilioSid ? 'env' : 'config') : 'none',
-          tokenSource: twilioToken ? (process.env.TWILIO_TOKEN === twilioToken ? 'env' : 'config') : 'none',
-          fromSource: twilioFrom ? (process.env.TWILIO_FROM_NUMBER === twilioFrom ? 'env' : 'config') : 'none'
-        });
+        // Use params API for Twilio credentials
+        const twilioSid = params.defineString('TWILIO_SID').value();
+        const twilioToken = params.defineString('TWILIO_TOKEN').value();
+        const twilioFrom = params.defineString('TWILIO_FROM_NUMBER').value();
 
         if (twilioSid && twilioToken && twilioFrom) {
           twilioClient = twilio(twilioSid, twilioToken);
           twilioInitialized = true;
-          console.log('✅ Twilio initialized successfully');
+          console.log('Twilio initialized successfully');
         } else {
-          console.warn('❌ Twilio credentials not configured. SMS notifications will not work.');
-          console.warn('❌ Missing credentials breakdown:', {
-            sid: !twilioSid,
-            token: !twilioToken,
-            from: !twilioFrom,
-            envSid: !!process.env.TWILIO_SID,
-            envToken: !!process.env.TWILIO_TOKEN,
-            envFrom: !!process.env.TWILIO_FROM_NUMBER
-          });
+          console.warn('Twilio credentials not configured. SMS notifications will not work.');
           return;
         }
       } catch (error) {
-        console.error('❌ Failed to initialize Twilio:', error);
+        console.error('Failed to initialize Twilio:', error);
         return;
       }
     }
@@ -529,7 +479,7 @@ async function sendSmsNotification(phoneNumber: string, message: string, options
     // Send SMS via Twilio
     const smsResult = await twilioClient.messages.create({
       body: message,
-      from: (functions as any).config().twilio?.from || process.env.TWILIO_FROM_NUMBER,
+      from: params.defineString('TWILIO_FROM_NUMBER').value(),
       to: formattedPhone
     });
 
@@ -586,9 +536,9 @@ async function sendWhatsAppMessage(phoneNumber: string, message: string, options
     // Initialize Twilio if not already done
     if (!twilioInitialized) {
       try {
-        const twilioSid = (functions as any).config().twilio?.sid || process.env.TWILIO_SID;
-        const twilioToken = (functions as any).config().twilio?.token || process.env.TWILIO_TOKEN;
-        const whatsappFrom = (functions as any).config().twilio?.whatsapp_from || process.env.TWILIO_WHATSAPP_FROM;
+        const twilioSid = params.defineString('TWILIO_SID').value();
+        const twilioToken = params.defineString('TWILIO_TOKEN').value();
+        const whatsappFrom = params.defineString('TWILIO_WHATSAPP_FROM').value();
 
         if (twilioSid && twilioToken && whatsappFrom) {
           twilioClient = twilio(twilioSid, twilioToken);
@@ -623,7 +573,7 @@ async function sendWhatsAppMessage(phoneNumber: string, message: string, options
     }
 
     // Send WhatsApp via Twilio
-    const whatsappFromNumber = (functions as any).config().twilio?.whatsapp_from || process.env.TWILIO_WHATSAPP_FROM;
+    const whatsappFromNumber = params.defineString('TWILIO_WHATSAPP_FROM').value();
     if (!whatsappFromNumber) {
       console.error('WhatsApp from number not configured');
       return;
@@ -1119,19 +1069,9 @@ export const onTicketStatusChange = functions.firestore
 export const onTicketCreated = functions.firestore
   .document('tickets/{ticketId}')
   .onCreate(async (snapshot: any, context: any) => {
-    console.log(`🎯 TICKET CREATED: Starting notification process for ticket ${context.params.ticketId}`);
-
     const ticket = snapshot.data();
     const ticketId = context.params.ticketId;
     const clientId = ticket?.clientId; // This is the client ID from tickets collection
-
-    console.log(`📋 Ticket data:`, {
-      ticketId,
-      clientId,
-      ticketNumber: ticket?.ticketNumber,
-      inStorePickup: ticket?.inStorePickup,
-      deviceType: ticket?.deviceType
-    });
 
     if (!clientId) {
       console.log(`❌ No client ID found for new ticket ${ticketId}`);
@@ -1251,21 +1191,14 @@ export const onTicketCreated = functions.firestore
       });
     }
 
-    // Send SMS notification (if enabled and NOT in-store pickup) - FIXED: uses prioritized phone
-    console.log(`📱 SMS CHECK: smsEnabled=${finalPreferences.smsEnabled}, phoneToUse=${phoneToUse}, inStorePickup=${ticket.inStorePickup}`);
-
+    // Send SMS notification (if enabled and NOT in-store pickup)
     if (finalPreferences.smsEnabled && phoneToUse && !ticket.inStorePickup) {
-      console.log(`📱 SMS ATTEMPT: Raw phone number: ${phoneToUse}`);
       const formattedPhone = formatFrenchPhoneNumber(phoneToUse);
-      console.log(`📱 SMS ATTEMPT: Formatted phone number: ${formattedPhone}`);
 
       if (formattedPhone) {
-        console.log(`📱 SMS ATTEMPT: Phone validation passed, sending SMS...`);
         const smsMessage = customerId
           ? `🛠️ O'MEGA Services\n\nBonjour${customerName ? ` ${customerName}` : ''}!\n\nVotre réparation #${ticket?.ticketNumber || ticketId} a été enregistrée.\n\n📱 Suivez l'évolution sur votre espace client.`
           : `🛠️ O'MEGA Services\n\nBonjour${clientData?.name ? ` ${clientData.name}` : ''}!\n\nVotre réparation #${ticket?.ticketNumber || ticketId} a été enregistrée.\n\nSuivez l'évolution et créez votre compte:\n${`https://kepleromega.netlify.app/customer/register?ticket=${ticketId}${clientData?.email ? `&email=${encodeURIComponent(clientData.email)}` : ''}`}\n\nPour toute question, contactez-nous:\n09 86 60 89 80`;
-
-        console.log(`📱 SMS MESSAGE: ${smsMessage.substring(0, 100)}...`);
 
         try {
           await sendSmsNotification(formattedPhone, smsMessage, {
@@ -1273,15 +1206,12 @@ export const onTicketCreated = functions.firestore
             customerId: customerId || undefined,
             type: customerId ? 'ticket_created_registered' : 'ticket_created_walkin'
           });
-          console.log(`✅ SMS sent successfully for ticket ${ticketId}`);
         } catch (smsError) {
-          console.error(`❌ SMS failed for ticket ${ticketId}:`, smsError);
+          console.error(`SMS failed for ticket ${ticketId}:`, smsError);
         }
       } else {
-        console.error(`❌ SMS blocked: Invalid phone number format for ${phoneToUse}`);
+        console.warn(`Invalid phone number format for ${phoneToUse}`);
       }
-    } else {
-      console.log(`📱 SMS skipped: smsEnabled=${finalPreferences.smsEnabled}, hasPhone=${!!phoneToUse}, inStore=${ticket.inStorePickup}`);
     }
 
     // Log notification in history
@@ -1368,7 +1298,7 @@ export const whatsappWebhook = functions.https.onRequest(async (req, res) => {
       const challenge = req.query['hub.challenge'];
 
       // Verify webhook (you'll set this token in Twilio console)
-      const VERIFY_TOKEN = functions.config().twilio?.whatsapp_verify_token || 'your_verify_token';
+      const VERIFY_TOKEN = params.defineString('TWILIO_WHATSAPP_VERIFY_TOKEN').value() || 'your_verify_token';
 
       if (mode === 'subscribe' && token === VERIFY_TOKEN) {
         console.log('WhatsApp webhook verified successfully');
