@@ -455,20 +455,64 @@ async function sendSmsNotification(phoneNumber: string, message: string, options
     // Initialize Twilio if not already done
     if (!twilioInitialized) {
       try {
-        const twilioSid = (functions as any).config().twilio?.sid || process.env.TWILIO_SID;
-        const twilioToken = (functions as any).config().twilio?.token || process.env.TWILIO_TOKEN;
-        const twilioFrom = (functions as any).config().twilio?.from || process.env.TWILIO_FROM_NUMBER;
+        console.log('🔧 DEBUG: Initializing Twilio...');
+
+        // Try multiple sources for credentials
+        let twilioSid: string | undefined;
+        let twilioToken: string | undefined;
+        let twilioFrom: string | undefined;
+
+        // First try functions.config()
+        try {
+          const config = (functions as any).config();
+          twilioSid = config?.twilio?.sid;
+          twilioToken = config?.twilio?.token;
+          twilioFrom = config?.twilio?.from;
+          console.log('🔧 DEBUG: functions.config() result:', {
+            hasConfig: !!config,
+            hasTwilio: !!config?.twilio,
+            sidFromConfig: !!twilioSid,
+            tokenFromConfig: !!twilioToken,
+            fromFromConfig: !!twilioFrom
+          });
+        } catch (configError) {
+          console.log('🔧 DEBUG: functions.config() failed:', configError);
+        }
+
+        // Fallback to environment variables
+        if (!twilioSid) twilioSid = process.env.TWILIO_SID;
+        if (!twilioToken) twilioToken = process.env.TWILIO_TOKEN;
+        if (!twilioFrom) twilioFrom = process.env.TWILIO_FROM_NUMBER;
+
+        console.log('🔧 DEBUG: Final Twilio config values:', {
+          hasSid: !!twilioSid,
+          hasToken: !!twilioToken,
+          hasFrom: !!twilioFrom,
+          sidPrefix: twilioSid?.substring(0, 5),
+          fromNumber: twilioFrom,
+          sidSource: twilioSid ? (process.env.TWILIO_SID === twilioSid ? 'env' : 'config') : 'none',
+          tokenSource: twilioToken ? (process.env.TWILIO_TOKEN === twilioToken ? 'env' : 'config') : 'none',
+          fromSource: twilioFrom ? (process.env.TWILIO_FROM_NUMBER === twilioFrom ? 'env' : 'config') : 'none'
+        });
 
         if (twilioSid && twilioToken && twilioFrom) {
           twilioClient = twilio(twilioSid, twilioToken);
           twilioInitialized = true;
           console.log('✅ Twilio initialized successfully');
         } else {
-          console.warn('Twilio credentials not configured. SMS notifications will not work.');
+          console.warn('❌ Twilio credentials not configured. SMS notifications will not work.');
+          console.warn('❌ Missing credentials breakdown:', {
+            sid: !twilioSid,
+            token: !twilioToken,
+            from: !twilioFrom,
+            envSid: !!process.env.TWILIO_SID,
+            envToken: !!process.env.TWILIO_TOKEN,
+            envFrom: !!process.env.TWILIO_FROM_NUMBER
+          });
           return;
         }
       } catch (error) {
-        console.error('Failed to initialize Twilio:', error);
+        console.error('❌ Failed to initialize Twilio:', error);
         return;
       }
     }
@@ -1075,12 +1119,22 @@ export const onTicketStatusChange = functions.firestore
 export const onTicketCreated = functions.firestore
   .document('tickets/{ticketId}')
   .onCreate(async (snapshot: any, context: any) => {
+    console.log(`🎯 TICKET CREATED: Starting notification process for ticket ${context.params.ticketId}`);
+
     const ticket = snapshot.data();
     const ticketId = context.params.ticketId;
     const clientId = ticket?.clientId; // This is the client ID from tickets collection
 
+    console.log(`📋 Ticket data:`, {
+      ticketId,
+      clientId,
+      ticketNumber: ticket?.ticketNumber,
+      inStorePickup: ticket?.inStorePickup,
+      deviceType: ticket?.deviceType
+    });
+
     if (!clientId) {
-      console.log(`No client ID found for new ticket ${ticketId}`);
+      console.log(`❌ No client ID found for new ticket ${ticketId}`);
       return;
     }
 
@@ -1198,19 +1252,36 @@ export const onTicketCreated = functions.firestore
     }
 
     // Send SMS notification (if enabled and NOT in-store pickup) - FIXED: uses prioritized phone
+    console.log(`📱 SMS CHECK: smsEnabled=${finalPreferences.smsEnabled}, phoneToUse=${phoneToUse}, inStorePickup=${ticket.inStorePickup}`);
+
     if (finalPreferences.smsEnabled && phoneToUse && !ticket.inStorePickup) {
+      console.log(`📱 SMS ATTEMPT: Raw phone number: ${phoneToUse}`);
       const formattedPhone = formatFrenchPhoneNumber(phoneToUse);
+      console.log(`📱 SMS ATTEMPT: Formatted phone number: ${formattedPhone}`);
+
       if (formattedPhone) {
+        console.log(`📱 SMS ATTEMPT: Phone validation passed, sending SMS...`);
         const smsMessage = customerId
           ? `🛠️ O'MEGA Services\n\nBonjour${customerName ? ` ${customerName}` : ''}!\n\nVotre réparation #${ticket?.ticketNumber || ticketId} a été enregistrée.\n\n📱 Suivez l'évolution sur votre espace client.`
           : `🛠️ O'MEGA Services\n\nBonjour${clientData?.name ? ` ${clientData.name}` : ''}!\n\nVotre réparation #${ticket?.ticketNumber || ticketId} a été enregistrée.\n\nSuivez l'évolution et créez votre compte:\n${`https://kepleromega.netlify.app/customer/register?ticket=${ticketId}${clientData?.email ? `&email=${encodeURIComponent(clientData.email)}` : ''}`}\n\nPour toute question, contactez-nous:\n09 86 60 89 80`;
 
-        await sendSmsNotification(formattedPhone, smsMessage, {
-          ticketId,
-          customerId: customerId || undefined,
-          type: customerId ? 'ticket_created_registered' : 'ticket_created_walkin'
-        });
+        console.log(`📱 SMS MESSAGE: ${smsMessage.substring(0, 100)}...`);
+
+        try {
+          await sendSmsNotification(formattedPhone, smsMessage, {
+            ticketId,
+            customerId: customerId || undefined,
+            type: customerId ? 'ticket_created_registered' : 'ticket_created_walkin'
+          });
+          console.log(`✅ SMS sent successfully for ticket ${ticketId}`);
+        } catch (smsError) {
+          console.error(`❌ SMS failed for ticket ${ticketId}:`, smsError);
+        }
+      } else {
+        console.error(`❌ SMS blocked: Invalid phone number format for ${phoneToUse}`);
       }
+    } else {
+      console.log(`📱 SMS skipped: smsEnabled=${finalPreferences.smsEnabled}, hasPhone=${!!phoneToUse}, inStore=${ticket.inStorePickup}`);
     }
 
     // Log notification in history
